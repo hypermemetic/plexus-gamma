@@ -10,7 +10,12 @@
   },
   "targets": {
     "plexus": {
-      "generate": ["transport", "rpc", "plugins"],
+      "generate": ["rpc", "plugins"],
+      "transport": "browser",
+      "outputDir": "src/lib/plexus"
+    },
+    "transport": {
+      "generate": ["transport"],
       "transport": "browser",
       "outputDir": "src/lib/plexus"
     }
