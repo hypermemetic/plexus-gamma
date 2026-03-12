@@ -69,7 +69,7 @@
     <template v-else-if="schema.type === 'array'">
       <textarea
         class="field-textarea"
-        :value="modelValue !== undefined ? JSON.stringify(modelValue) : ''"
+        :value="modelValue !== undefined ? (typeof modelValue === 'string' ? modelValue : JSON.stringify(modelValue)) : ''"
         placeholder='["item1"]'
         spellcheck="false"
         rows="2"
@@ -81,7 +81,7 @@
     <template v-else>
       <textarea
         class="field-textarea"
-        :value="modelValue !== undefined ? JSON.stringify(modelValue, null, 2) : ''"
+        :value="modelValue !== undefined ? (typeof modelValue === 'string' ? modelValue : JSON.stringify(modelValue, null, 2)) : ''"
         :placeholder="schema.type ? `(${schema.type})` : '(any)'"
         spellcheck="false"
         rows="2"
