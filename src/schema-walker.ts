@@ -11,8 +11,8 @@
  * The transport wraps this as: substrate.call { method: "...", params: {} }
  */
 
-import type { RpcClient } from './lib/plexus/rpc'
-import { collectOne } from './lib/plexus/rpc'
+import type { RpcClient } from './lib/plexus/transport'
+import { collectOne } from './lib/plexus/transport'
 import type { PluginSchema, PluginNode } from './plexus-schema'
 
 const BACKEND = 'substrate'

@@ -1,19 +1,7 @@
 {
   "schema": "1.0",
   "language": "typescript",
-  "backend": "substrate",
-  "url": "ws://127.0.0.1:4444",
-  "packageManager": "bun",
-  "watch": {
-    "pollInterval": 1000,
-    "hotReload": false
-  },
   "targets": {
-    "plexus": {
-      "generate": ["rpc", "plugins"],
-      "transport": "browser",
-      "outputDir": "src/lib/plexus"
-    },
     "transport": {
       "generate": ["transport"],
       "transport": "browser",
