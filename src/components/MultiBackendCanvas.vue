@@ -1,9 +1,16 @@
 <template>
   <div class="canvas-wrap" ref="wrapRef">
     <div class="canvas-toolbar">
-      <span class="backend-label">{{ connection.name }}</span>
-      <button class="tool-btn" @click="refresh" :disabled="loading" title="Refresh">
-        <span :class="{ spinning: loading }">↻</span>
+      <div class="backend-status">
+        <span
+          v-for="b in backends"
+          :key="b.name"
+          class="be-chip"
+          :class="b.status"
+        >{{ b.name }}</span>
+      </div>
+      <button class="tool-btn" @click="refreshAll" :disabled="anyLoading" title="Refresh all">
+        <span :class="{ spinning: anyLoading }">↻</span>
       </button>
       <button class="tool-btn" @click="fitView" title="Fit to view">⊡</button>
       <div class="method-mode-btns">
@@ -11,7 +18,6 @@
         <button class="tool-btn" :class="{ active: methodDisplay === 'dots' }"   @click="setMethodDisplay('dots')"   title="Method dots">·</button>
         <button class="tool-btn" :class="{ active: methodDisplay === 'hidden' }" @click="setMethodDisplay('hidden')" title="Hide methods">☐</button>
       </div>
-      <span class="canvas-hint">drag · scroll to zoom</span>
     </div>
     <canvas
       ref="canvasRef"
@@ -22,42 +28,36 @@
       @mouseleave="onMouseLeave"
       @wheel.prevent="onWheel"
     />
-    <div v-if="loading && !rootNode" class="overlay">
-      <span class="pulse">◌</span>&nbsp;Scanning…
+    <div v-if="overallLoading && !hasAnyTree" class="overlay">
+      <span class="pulse">◌</span>&nbsp;Loading backends…
     </div>
-    <div v-if="connectError" class="overlay error">{{ connectError }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { PlexusRpcClient } from '../lib/plexus/transport'
 import { buildTree } from '../schema-walker'
 import type { PluginNode, MethodSchema } from '../plexus-schema'
 
-const props = defineProps<{ connection: { name: string; url: string } }>()
-
-const emit = defineEmits<{
-  select: [path: string[]]
+const props = defineProps<{
+  connections: { name: string; url: string }[]
 }>()
 
-const wrapRef      = ref<HTMLDivElement | null>(null)
-const canvasRef    = ref<HTMLCanvasElement | null>(null)
-const loading      = ref(false)
-const connectError = ref('')
+const emit = defineEmits<{
+  select: [backend: string, path: string[]]
+}>()
 
-// ─── Method display mode ─────────────────────────────────────
+const wrapRef   = ref<HTMLDivElement | null>(null)
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+
+// ─── Method display mode ──────────────────────────────────────
 type MethodDisplay = 'rows' | 'dots' | 'hidden'
 const methodDisplay = ref<MethodDisplay>('rows')
 
 function setMethodDisplay(m: MethodDisplay) {
   methodDisplay.value = m
-  if (rootNode) {
-    rebuildHeights(rootNode)
-    allNodes = []; allEdges = []
-    layoutNode(rootNode, 0, { v: 0 })
-    collectAll(rootNode, allNodes, allEdges)
-  }
+  rebuildAllLayouts()
   render()
 }
 
@@ -74,10 +74,13 @@ const METHOD_DOT_R   = 3
 const METHOD_DOT_GAP = 8
 const H_GAP          = 52
 const V_GAP          = 10
+const BACKEND_GAP    = 80
+const FONT_MONO = 'ui-monospace, "Cascadia Code", "Fira Code", monospace'
 
 // ─── Node type ───────────────────────────────────────────────
 interface CNode {
   id: string
+  backendName: string
   type: 'hub' | 'leaf'
   label: string
   description: string
@@ -87,11 +90,25 @@ interface CNode {
   x: number; y: number; w: number; h: number
 }
 
-let rootNode: CNode | null = null
-let allNodes: CNode[] = []
-let allEdges: [CNode, CNode][] = []
+interface BackendState {
+  name: string
+  url: string
+  status: 'loading' | 'ok' | 'error'
+  root: CNode | null
+  nodes: CNode[]
+  edges: [CNode, CNode][]
+  error: string
+  groupOffsetX: number
+}
 
-// ─── Height calculation (mode-aware) ─────────────────────────
+const backends = ref<BackendState[]>([])
+const rpcs = new Map<string, PlexusRpcClient>()
+
+const anyLoading    = computed(() => backends.value.some(b => b.status === 'loading'))
+const hasAnyTree    = computed(() => backends.value.some(b => b.root !== null))
+const overallLoading = computed(() => anyLoading.value)
+
+// ─── Node heights (mode-aware) ───────────────────────────────
 function nodeHeight(methods: MethodSchema[], isHub: boolean): number {
   if (isHub) return HEADER_H
   const md = methodDisplay.value
@@ -104,19 +121,13 @@ function nodeHeight(methods: MethodSchema[], isHub: boolean): number {
   return HEADER_H + 1 + methods.length * METHOD_ROW_H + METHOD_PAD_B
 }
 
-function rebuildHeights(node: CNode): void {
-  node.h = nodeHeight(node.methods, node.type === 'hub')
-  for (const c of node.children) rebuildHeights(c)
-}
-
-// ─── Build tree ───────────────────────────────────────────────
-function buildCNode(node: PluginNode): CNode {
+function buildCNode(node: PluginNode, backendName: string): CNode {
   const id = node.path.join('.') || node.schema.namespace
   const methods = node.schema.methods
-  const children = node.children.map(buildCNode)
+  const children = node.children.map(c => buildCNode(c, backendName))
   const isHub = node.children.length > 0
   return {
-    id,
+    id, backendName,
     type: isHub ? 'hub' : 'leaf',
     label: node.schema.namespace,
     description: node.schema.description,
@@ -126,7 +137,12 @@ function buildCNode(node: PluginNode): CNode {
   }
 }
 
-// ─── Layout: left-to-right tree ──────────────────────────────
+function rebuildHeights(node: CNode): void {
+  node.h = nodeHeight(node.methods, node.type === 'hub')
+  for (const c of node.children) rebuildHeights(c)
+}
+
+// ─── Layout ──────────────────────────────────────────────────
 function layoutNode(node: CNode, x: number, yRef: { v: number }): void {
   node.x = x
   const childX = x + node.w + H_GAP
@@ -149,7 +165,23 @@ function collectAll(node: CNode, nodes: CNode[], edges: [CNode, CNode][]): void 
   }
 }
 
-// ─── Canvas drawing ──────────────────────────────────────────
+function rebuildAllLayouts(): void {
+  let offsetX = 0
+  for (const be of backends.value) {
+    if (!be.root) continue
+    rebuildHeights(be.root)
+    const yRef = { v: 0 }
+    layoutNode(be.root, offsetX, yRef)
+    be.nodes = []; be.edges = []
+    collectAll(be.root, be.nodes, be.edges)
+    let maxX = 0
+    for (const n of be.nodes) maxX = Math.max(maxX, n.x + n.w)
+    be.groupOffsetX = offsetX
+    offsetX = maxX + BACKEND_GAP
+  }
+}
+
+// ─── Drawing ─────────────────────────────────────────────────
 function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -166,7 +198,7 @@ function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h
 
 function drawEdge(ctx: CanvasRenderingContext2D, from: CNode, to: CNode): void {
   const x1 = from.x + from.w, y1 = from.y + from.h / 2
-  const x2 = to.x,            y2 = to.y  + HEADER_H / 2
+  const x2 = to.x,            y2 = to.y + HEADER_H / 2
   const cx = (x1 + x2) / 2
   ctx.beginPath()
   ctx.moveTo(x1, y1)
@@ -175,8 +207,6 @@ function drawEdge(ctx: CanvasRenderingContext2D, from: CNode, to: CNode): void {
   ctx.lineWidth = 1
   ctx.stroke()
 }
-
-const FONT_MONO = 'ui-monospace, "Cascadia Code", "Fira Code", monospace'
 
 function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
   const { x, y, w, h, type, label, methods } = node
@@ -250,6 +280,15 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
   }
 }
 
+function drawBackendHeader(ctx: CanvasRenderingContext2D, be: BackendState): void {
+  if (!be.root) return
+  ctx.font = `600 11px ${FONT_MONO}`
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillStyle = '#58a6ff'
+  ctx.fillText(be.name.toUpperCase(), be.root.x, be.root.y - 12)
+}
+
 function render(): void {
   const canvas = canvasRef.value
   if (!canvas) return
@@ -257,20 +296,23 @@ function render(): void {
   if (!ctx) return
 
   const dpr = Number(canvas.dataset.dpr || '1')
-
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.fillStyle = '#0d0d0f'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-  if (!rootNode) return
+  if (!hasAnyTree.value) return
 
   ctx.save()
   ctx.scale(dpr, dpr)
   ctx.translate(panX, panY)
   ctx.scale(scale, scale)
 
-  for (const [from, to] of allEdges) drawEdge(ctx, from, to)
-  for (const node of allNodes)       drawNode(ctx, node)
+  for (const be of backends.value) {
+    if (!be.root) continue
+    drawBackendHeader(ctx, be)
+    for (const [from, to] of be.edges) drawEdge(ctx, from, to)
+    for (const node of be.nodes) drawNode(ctx, node)
+  }
 
   ctx.restore()
 }
@@ -278,35 +320,22 @@ function render(): void {
 // ─── Fit view ────────────────────────────────────────────────
 function fitView(): void {
   const canvas = canvasRef.value
-  if (!canvas || allNodes.length === 0) return
-
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const n of allNodes) {
-    minX = Math.min(minX, n.x);         minY = Math.min(minY, n.y)
-    maxX = Math.max(maxX, n.x + n.w);   maxY = Math.max(maxY, n.y + n.h)
+  for (const be of backends.value) {
+    for (const n of be.nodes) {
+      minX = Math.min(minX, n.x); minY = Math.min(minY, n.y)
+      maxX = Math.max(maxX, n.x + n.w); maxY = Math.max(maxY, n.y + n.h)
+    }
   }
-  const pad   = 48
-  const treeW = maxX - minX, treeH = maxY - minY
+  if (!canvas || minX === Infinity) return
+  const pad = 48
   const dpr = Number(canvas.dataset.dpr || '1')
   const cW = (canvas.width || 1280) / dpr
   const cH = (canvas.height || 720) / dpr
-  const s  = Math.min((cW - pad * 2) / treeW, (cH - pad * 2) / treeH)
+  const s = Math.min((cW - pad * 2) / (maxX - minX), (cH - pad * 2) / (maxY - minY))
   scale = Math.min(Math.max(s, 0.04), 1)
-  panX  = pad - minX * scale
-  panY  = (cH - treeH * scale) / 2 - minY * scale
-  render()
-}
-
-// ─── Initial view ────────────────────────────────────────────
-function initialView(): void {
-  const canvas = canvasRef.value
-  if (!canvas || !rootNode) return
-  const dpr = Number(canvas.dataset.dpr || '1')
-  const cW  = (canvas.width || 1280) / dpr
-  const cH  = (canvas.height || 720) / dpr
-  scale = 0.65
-  panX  = 48
-  panY  = cH / 2 - (rootNode.y + rootNode.h / 2) * scale
+  panX = pad - minX * scale
+  panY = (cH - (maxY - minY) * scale) / 2 - minY * scale
   render()
 }
 
@@ -323,7 +352,7 @@ function resize(): void {
   render()
 }
 
-// ─── Mouse events ────────────────────────────────────────────
+// ─── Mouse ──────────────────────────────────────────────────
 function onMouseDown(e: MouseEvent): void {
   isPanning = true; lastMX = e.clientX; lastMY = e.clientY; mouseMoved = 0
   canvasRef.value!.style.cursor = 'grabbing'
@@ -345,12 +374,7 @@ function onMouseUp(e: MouseEvent): void {
       const rect = canvas.getBoundingClientRect()
       const cx = (e.clientX - rect.left - panX) / scale
       const cy = (e.clientY - rect.top  - panY) / scale
-      for (const node of allNodes) {
-        if (cx >= node.x && cx <= node.x + node.w && cy >= node.y && cy <= node.y + node.h) {
-          emit('select', node.path)
-          break
-        }
-      }
+      hitTest(cx, cy)
     }
   }
   isPanning = false
@@ -362,44 +386,68 @@ function onMouseLeave(): void {
   if (canvasRef.value) canvasRef.value.style.cursor = 'grab'
 }
 
+function hitTest(cx: number, cy: number): void {
+  for (const be of backends.value) {
+    for (const node of be.nodes) {
+      if (cx >= node.x && cx <= node.x + node.w && cy >= node.y && cy <= node.y + node.h) {
+        emit('select', be.name, node.path)
+        return
+      }
+    }
+  }
+}
+
 function onWheel(e: WheelEvent): void {
   const canvas = canvasRef.value!
   const rect = canvas.getBoundingClientRect()
   const mx = e.clientX - rect.left, my = e.clientY - rect.top
   if (e.ctrlKey) {
-    // pinch-to-zoom (browser sets ctrlKey for pinch gestures)
     const f = e.deltaY < 0 ? 1.12 : 1 / 1.12
-    panX = mx + f * (panX - mx)
-    panY = my + f * (panY - my)
+    panX = mx + f * (panX - mx); panY = my + f * (panY - my)
     scale = Math.min(Math.max(scale * f, 0.04), 8)
   } else {
-    // two-finger scroll → pan
-    panX -= e.deltaX
-    panY -= e.deltaY
+    panX -= e.deltaX; panY -= e.deltaY
   }
   render()
 }
 
 // ─── Data loading ────────────────────────────────────────────
-const rpc = new PlexusRpcClient({ backend: props.connection.name, url: props.connection.url })
-
-async function refresh(): Promise<void> {
-  loading.value = true
-  connectError.value = ''
+async function loadBackend(be: BackendState): Promise<void> {
+  be.status = 'loading'
+  let rpc = rpcs.get(be.name)
+  if (!rpc) {
+    rpc = new PlexusRpcClient({ backend: be.name, url: be.url })
+    rpcs.set(be.name, rpc)
+  }
   try {
     await rpc.connect()
-    const pluginTree = await buildTree(rpc, props.connection.name)
-    rootNode = buildCNode(pluginTree)
-    allNodes = []; allEdges = []
-    layoutNode(rootNode, 0, { v: 0 })
-    collectAll(rootNode, allNodes, allEdges)
-    initialView()
+    const pluginTree = await buildTree(rpc, be.name)
+    be.root = buildCNode(pluginTree, be.name)
+    be.status = 'ok'
   } catch (e) {
-    connectError.value = e instanceof Error ? e.message : String(e)
-  } finally {
-    loading.value = false
+    be.status = 'error'
+    be.error = e instanceof Error ? e.message : String(e)
   }
 }
+
+async function refreshAll(): Promise<void> {
+  await Promise.all(backends.value.map(loadBackend))
+  rebuildAllLayouts()
+  render()
+}
+
+// ─── Watch connections ───────────────────────────────────────
+watch(() => props.connections, (conns) => {
+  for (const conn of conns) {
+    if (!backends.value.find(b => b.name === conn.name)) {
+      backends.value.push({
+        name: conn.name, url: conn.url,
+        status: 'loading', root: null,
+        nodes: [], edges: [], error: '', groupOffsetX: 0,
+      })
+    }
+  }
+}, { immediate: true, deep: true })
 
 // ─── Lifecycle ───────────────────────────────────────────────
 let ro: ResizeObserver
@@ -410,12 +458,12 @@ onMounted(async () => {
   ro = new ResizeObserver(resize)
   if (wrapRef.value) ro.observe(wrapRef.value)
   if (canvasRef.value) canvasRef.value.style.cursor = 'grab'
-  await refresh()
+  await refreshAll()
 })
 
 onUnmounted(() => {
   ro?.disconnect()
-  rpc.disconnect()
+  for (const rpc of rpcs.values()) rpc.disconnect()
 })
 </script>
 
@@ -441,13 +489,19 @@ onUnmounted(() => {
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
 }
 
-.backend-label {
-  font-size: 11px;
+.backend-status { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+
+.be-chip {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 8px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #58a6ff;
+  letter-spacing: 0.06em;
 }
+.be-chip.loading { background: #161b22; color: #484f58; }
+.be-chip.ok      { background: #172420; color: #3fb950; border: 1px solid #1f4030; }
+.be-chip.error   { background: #2d1117; color: #f85149; border: 1px solid #3d2121; }
 
 .tool-btn {
   background: none;
@@ -472,12 +526,6 @@ onUnmounted(() => {
 }
 .method-mode-btns .tool-btn { border: none; border-radius: 0; }
 
-.canvas-hint {
-  font-size: 10px;
-  color: #484f58;
-  margin-left: auto;
-}
-
 .main-canvas {
   flex: 1;
   display: block;
@@ -497,10 +545,6 @@ onUnmounted(() => {
   color: #8b949e;
   pointer-events: none;
   font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
-}
-.overlay.error {
-  color: #f85149;
-  background: rgba(45, 17, 23, 0.7);
 }
 
 @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }

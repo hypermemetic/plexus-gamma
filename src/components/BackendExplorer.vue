@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, provide, onMounted, onUnmounted } from 'vue'
+import { ref, provide, watch, onMounted, onUnmounted } from 'vue'
 import { PlexusRpcClient } from '../lib/plexus/transport'
 import { collectOne } from '../lib/plexus/rpc'
 import { buildTree } from '../schema-walker'
@@ -50,6 +50,11 @@ import PluginDetail from './PluginDetail.vue'
 const props = defineProps<{
   connection: { name: string; url: string }
   treeOnly?: boolean
+  navigateTo?: { path: string[] } | null
+}>()
+
+const emit = defineEmits<{
+  'tree-ready': [node: PluginNode, backendName: string]
 }>()
 
 const rpc = new PlexusRpcClient({
@@ -76,9 +81,11 @@ async function refresh() {
   try {
     await rpc.connect()
     tree.value = await buildTree(rpc, props.connection.name)
+    emit('tree-ready', tree.value, props.connection.name)
     refreshKey.value++
-    // Re-select after refresh
-    if (selectedPath.value === null) {
+    if (props.navigateTo) {
+      selectedPath.value = props.navigateTo.path.join('.')
+    } else if (selectedPath.value === null) {
       selectedPath.value = ''
       if (tree.value) onSelect(tree.value)
     } else {
@@ -108,6 +115,13 @@ function findNode(node: PluginNode, path: string[]): PluginNode | null {
   }
   return null
 }
+
+// Apply navigateTo changes after initial load
+watch(() => props.navigateTo, (nav) => {
+  if (nav && tree.value) {
+    selectedPath.value = nav.path.join('.')
+  }
+}, { deep: true })
 
 // Hash watching — detect live schema changes
 let lastHash = ''

@@ -9,14 +9,19 @@
     <template v-else-if="schema">
       <header class="detail-header">
         <div class="detail-path">
-          <span
+          <button
             v-for="(seg, i) in path"
             :key="i"
-            class="path-segment"
+            class="path-segment path-btn"
+            @click="$emit('navigate', path.slice(0, i + 1))"
           >
             <span v-if="i > 0" class="path-sep">.</span>{{ seg }}
-          </span>
-          <span v-if="path.length === 0" class="path-segment root">{{ backendName }}</span>
+          </button>
+          <button
+            v-if="path.length === 0"
+            class="path-segment root path-btn"
+            @click="$emit('navigate', [])"
+          >{{ backendName }}</button>
         </div>
         <div class="detail-meta">
           <span class="version-badge">v{{ schema.version }}</span>
@@ -171,6 +176,20 @@ const path = computed(() => props.path ?? [])
 .path-segment { color: #e6edf3; }
 .path-segment.root { color: #58a6ff; }
 .path-sep { color: #484f58; margin: 0 1px; }
+
+.path-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+.path-btn:hover { text-decoration: underline; }
 
 .detail-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 

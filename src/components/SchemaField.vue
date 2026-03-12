@@ -77,6 +77,29 @@
       />
     </template>
 
+    <!-- anyOf / oneOf → branch selector -->
+    <template v-else-if="schema.anyOf?.length || schema.oneOf?.length">
+      <div class="field-union">
+        <select
+          class="field-select field-union-select"
+          :value="selectedBranch"
+          @change="selectedBranch = Number(($event.target as HTMLSelectElement).value)"
+        >
+          <option
+            v-for="(s, i) in (schema.anyOf ?? schema.oneOf!)"
+            :key="i"
+            :value="i"
+          >{{ branchLabel(s, i) }}</option>
+        </select>
+        <SchemaField
+          :name="name"
+          :schema="(schema.anyOf ?? schema.oneOf!)[selectedBranch]"
+          :model-value="modelValue"
+          @update:model-value="emit('update:modelValue', $event)"
+        />
+      </div>
+    </template>
+
     <!-- fallback → textarea with type hint -->
     <template v-else>
       <textarea
@@ -92,6 +115,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
+
 export interface JsonSchema {
   type?: string
   properties?: Record<string, JsonSchema>
@@ -116,6 +141,16 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: unknown): void
 }>()
 
+// Pre-fill from schema default on mount
+onMounted(() => {
+  if (props.modelValue === undefined && props.schema.default !== undefined) {
+    emit('update:modelValue', props.schema.default)
+  }
+})
+
+// anyOf/oneOf branch selector
+const selectedBranch = ref(0)
+
 function onNestedUpdate(key: string, value: unknown) {
   const current = (props.modelValue as Record<string, unknown>) ?? {}
   emit('update:modelValue', { ...current, [key]: value })
@@ -127,6 +162,12 @@ function onTextareaUpdate(text: string) {
   } catch {
     emit('update:modelValue', text)
   }
+}
+
+function branchLabel(s: JsonSchema, i: number): string {
+  if (s.type) return `Option ${i + 1} (${s.type})`
+  if (s.enum) return `Option ${i + 1} (enum)`
+  return `Option ${i + 1}`
 }
 </script>
 
@@ -201,4 +242,13 @@ function onTextareaUpdate(text: string) {
 }
 
 .field-required { color: #f85149; margin-left: 2px; }
+
+.field-union {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.field-union-select { margin-bottom: 2px; }
 </style>
