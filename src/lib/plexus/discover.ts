@@ -33,7 +33,7 @@ export async function probePort(
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data as string)
-        if (msg.method === 'subscription' && msg.params?.result?.type === 'data') {
+        if ((msg.method === 'subscription' || msg.method === 'result') && msg.params?.result?.type === 'data') {
           const backend = msg.params.result.content?.backend
           if (backend && !settled) {
             settled = true
@@ -41,7 +41,7 @@ export async function probePort(
             ws.close()
             resolve({ name: backend, url, port })
           }
-        } else if (msg.params?.result?.type === 'done') {
+        } else if ((msg.method === 'subscription' || msg.method === 'result') && msg.params?.result?.type === 'done') {
           if (!settled) { settled = true; clearTimeout(timer); ws.close(); resolve(null) }
         }
       } catch { /* ignore parse errors */ }
