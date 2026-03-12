@@ -2,11 +2,7 @@
   <div class="node">
     <button
       class="node-row"
-      :class="{
-        selected: isSelected,
-        hub: hasChildren,
-        leaf: !hasChildren,
-      }"
+      :class="{ selected: isSelected, hub: hasChildren, leaf: !hasChildren }"
       @click="toggle"
     >
       <span class="node-toggle">
@@ -18,11 +14,12 @@
     </button>
 
     <div v-if="open && hasChildren" class="node-children">
-      <TreeNode
+      <PluginTreeNode
         v-for="child in node.children"
         :key="child.path.join('.')"
         :node="child"
         :selected-path="selectedPath"
+        :backend-name="backendName"
         @select="$emit('select', $event)"
       />
     </div>
@@ -36,6 +33,7 @@ import type { PluginNode } from '../plexus-schema'
 const props = defineProps<{
   node: PluginNode
   selectedPath: string
+  backendName: string
 }>()
 
 const emit = defineEmits<{
@@ -44,17 +42,11 @@ const emit = defineEmits<{
 
 const open = ref(props.node.path.length === 0) // root starts open
 
-const label = computed(() =>
-  props.node.path.length === 0
-    ? 'substrate'
-    : props.node.path[props.node.path.length - 1]!
+const label       = computed(() =>
+  props.node.path.length === 0 ? props.backendName : props.node.path[props.node.path.length - 1]
 )
-
 const hasChildren = computed(() => props.node.children.length > 0)
-
-const isSelected = computed(() =>
-  props.node.path.join('.') === props.selectedPath
-)
+const isSelected  = computed(() => props.node.path.join('.') === props.selectedPath)
 
 function toggle() {
   if (hasChildren.value) open.value = !open.value
@@ -85,39 +77,16 @@ function toggle() {
 }
 
 .node-row:hover { background: #161b22; color: #c9d1d9; }
-
-.node-row.selected {
-  background: #1a2840;
-  color: #58a6ff;
-}
-
+.node-row.selected { background: #1a2840; color: #58a6ff; }
 .node-row.hub { color: #c9d1d9; }
 .node-row.leaf { padding-left: 22px; }
 .node-row.selected.leaf { color: #58a6ff; }
 
-.node-toggle {
-  font-size: 10px;
-  width: 10px;
-  flex-shrink: 0;
-  color: #484f58;
-  text-align: center;
-}
-
+.node-toggle { font-size: 10px; width: 10px; flex-shrink: 0; color: #484f58; text-align: center; }
 .node-row.selected .node-toggle { color: #58a6ff; }
 
-.node-label {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.node-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.node-count { font-size: 10px; color: #484f58; flex-shrink: 0; }
 
-.node-count {
-  font-size: 10px;
-  color: #484f58;
-  flex-shrink: 0;
-}
-
-.node-children {
-  padding-left: 12px;
-}
+.node-children { padding-left: 12px; }
 </style>

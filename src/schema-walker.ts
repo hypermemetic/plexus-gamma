@@ -5,22 +5,20 @@
  * TypeScript using the generated rpc.call primitive.
  *
  * Protocol:
- *   root schema → rpc.call('substrate.schema', {})
+ *   root schema  → rpc.call('{backendName}.schema', {})
  *   child schema → rpc.call('solar.earth.schema', {})
  *
- * The transport wraps this as: substrate.call { method: "...", params: {} }
+ * The transport wraps this as: {backend}.call { method: "...", params: {} }
  */
 
-import type { RpcClient } from './lib/plexus/transport'
-import { collectOne } from './lib/plexus/transport'
+import type { RpcClient } from './lib/plexus/rpc'
+import { collectOne } from './lib/plexus/rpc'
 import type { PluginSchema, PluginNode } from './plexus-schema'
 
-const BACKEND = 'substrate'
-
 /** Fetch one layer of the schema tree at the given path. */
-async function fetchSchemaAt(rpc: RpcClient, path: string[]): Promise<PluginSchema> {
+export async function fetchSchemaAt(rpc: RpcClient, backendName: string, path: string[]): Promise<PluginSchema> {
   const method = path.length === 0
-    ? `${BACKEND}.schema`
+    ? `${backendName}.schema`
     : `${path.join('.')}.schema`
   return collectOne<PluginSchema>(rpc.call(method, {}))
 }
@@ -29,11 +27,11 @@ async function fetchSchemaAt(rpc: RpcClient, path: string[]): Promise<PluginSche
  * Recursively build the full activation tree starting from `path`.
  * Parallel fetches per hub level (same as hyloMPar in Haskell).
  */
-export async function buildTree(rpc: RpcClient, path: string[] = []): Promise<PluginNode> {
-  const schema = await fetchSchemaAt(rpc, path)
+export async function buildTree(rpc: RpcClient, backendName: string, path: string[] = []): Promise<PluginNode> {
+  const schema = await fetchSchemaAt(rpc, backendName, path)
   const children = schema.children
     ? await Promise.all(
-        schema.children.map(c => buildTree(rpc, [...path, c.namespace]))
+        schema.children.map(c => buildTree(rpc, backendName, [...path, c.namespace]))
       )
     : []
   return { schema, path, children }
@@ -45,6 +43,6 @@ export function flattenTree(node: PluginNode): PluginNode[] {
 }
 
 /** Dot-joined display path, e.g. ["solar", "earth"] → "solar.earth" */
-export function displayPath(path: string[]): string {
-  return path.length === 0 ? BACKEND : path.join('.')
+export function displayPath(path: string[], backendName: string): string {
+  return path.length === 0 ? backendName : path.join('.')
 }
