@@ -1,0 +1,8 @@
+node_modules/
+dist/
+bun.lock
+package-lock.json
+src/lib/
+synapse.lock
+*.hp
+*.prof
