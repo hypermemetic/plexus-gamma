@@ -31,6 +31,7 @@
 
     <!-- Main: plugin detail -->
     <PluginDetail
+      v-if="!treeOnly"
       :path="selectedPath !== null ? selectedPath.split('.').filter(Boolean) : null"
       @navigate="onNavigate"
     />
@@ -48,6 +49,7 @@ import PluginDetail from './PluginDetail.vue'
 
 const props = defineProps<{
   connection: { name: string; url: string }
+  treeOnly?: boolean
 }>()
 
 const rpc = new PlexusRpcClient({

@@ -46,20 +46,15 @@
         </div>
       </template>
 
-      <!-- Forest view: all backends side by side -->
+      <!-- Canvas view: plugin hierarchy tree for active backend -->
       <template v-else>
-        <div class="forest">
-          <div v-if="connections.length === 0" class="no-conn">
-            <p>No backends connected. Add one with <strong>+</strong>.</p>
-          </div>
-          <div
-            v-for="conn in connections"
-            :key="conn.name + conn.url"
-            class="forest-tree"
-          >
-            <div class="forest-tree-label">{{ conn.name }}</div>
-            <BackendExplorer :connection="conn" class="forest-explorer" />
-          </div>
+        <ForestCanvas
+          v-if="activeConn"
+          :key="activeConn.name + activeConn.url"
+          :connection="activeConn"
+        />
+        <div v-else class="no-conn">
+          <p>No backend selected. Add one with <strong>+</strong>.</p>
         </div>
       </template>
     </main>
@@ -69,6 +64,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import BackendExplorer from './components/BackendExplorer.vue'
+import ForestCanvas from './components/ForestCanvas.vue'
 
 interface BackendConnection {
   name: string
@@ -185,32 +181,4 @@ function addConnection() {
   color: #484f58; font-size: 14px;
 }
 
-/* ── Forest view ────────────────────────────────────────── */
-.forest {
-  flex: 1;
-  display: flex;
-  overflow-x: auto;
-  gap: 1px;
-  background: #21262d;
-}
-
-.forest-tree {
-  display: flex;
-  flex-direction: column;
-  min-width: 400px;
-  background: #0d0d0f;
-}
-
-.forest-tree-label {
-  padding: 6px 14px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #484f58;
-  border-bottom: 1px solid #21262d;
-  background: #0a0a0c;
-}
-
-.forest-explorer { flex: 1; overflow: hidden; }
 </style>

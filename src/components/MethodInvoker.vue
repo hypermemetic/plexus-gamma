@@ -12,21 +12,16 @@
       <p class="method-desc">{{ method.description }}</p>
     </div>
 
-    <!-- Schema blocks: always visible -->
-    <div v-if="method.params" class="schema-block">
-      <div class="schema-block-header">
+    <!-- Compact schema hints -->
+    <div v-if="method.params || method.returns" class="schema-hints schema-block">
+      <div v-if="method.params" class="hint-row">
         <span class="schema-label">params</span>
-        <button class="toggle-btn" @click="rawParams = !rawParams">{{ rawParams ? 'pretty' : 'raw' }}</button>
+        <SchemaType :schema="method.params" />
       </div>
-      <pre class="schema-json">{{ rawParams ? JSON.stringify(method.params) : JSON.stringify(method.params, null, 2) }}</pre>
-    </div>
-
-    <div v-if="method.returns" class="schema-block">
-      <div class="schema-block-header">
+      <div v-if="method.returns" class="hint-row">
         <span class="schema-label">returns</span>
-        <button class="toggle-btn" @click="rawReturns = !rawReturns">{{ rawReturns ? 'pretty' : 'raw' }}</button>
+        <SchemaType :schema="method.returns" />
       </div>
-      <pre class="schema-json">{{ rawReturns ? JSON.stringify(method.returns) : JSON.stringify(method.returns, null, 2) }}</pre>
     </div>
 
     <!-- Invoke section: collapsible -->
@@ -36,24 +31,40 @@
     </div>
 
     <div v-if="invokeOpen" class="invoke-body">
-      <div class="invoke-actions">
+      <!-- JSON toggle -->
+      <div class="invoke-toolbar">
+        <button class="toggle-btn" @click="jsonMode = !jsonMode" :class="{ active: jsonMode }">JSON</button>
         <button v-if="results.length" class="clear-btn" @click="results = []">clear</button>
-        <button
-          class="call-btn"
-          :class="{ running }"
-          :disabled="running"
-          @click="invoke"
-        >{{ running ? '◌ running…' : '▶ call' }}</button>
       </div>
 
-      <textarea
-        v-model="paramsInput"
-        class="params-editor"
-        placeholder="{}"
-        spellcheck="false"
-        rows="3"
-      />
+      <!-- Form or raw textarea -->
+      <div v-if="!jsonMode && hasParamForm" class="param-form">
+        <SchemaField
+          name="params"
+          :schema="paramSchema!"
+          :model-value="formValues"
+          @update:model-value="formValues = $event as Record<string, unknown>"
+        />
+      </div>
+      <template v-else>
+        <textarea
+          v-model="paramsInput"
+          class="params-editor"
+          placeholder="{}"
+          spellcheck="false"
+          rows="3"
+        />
+      </template>
+
       <div v-if="parseError" class="parse-error">{{ parseError }}</div>
+
+      <!-- Call button at bottom -->
+      <button
+        class="call-btn"
+        :class="{ running }"
+        :disabled="running"
+        @click="invoke"
+      >{{ running ? '◌ running…' : '▶ call' }}</button>
 
       <div v-if="results.length" class="results-panel">
         <div
@@ -86,6 +97,9 @@
 import { ref, computed, inject } from 'vue'
 import type { PlexusRpcClient } from '../lib/plexus/transport'
 import type { MethodSchema } from '../plexus-schema'
+import SchemaField from './SchemaField.vue'
+import type { JsonSchema } from './SchemaField.vue'
+import SchemaType from './SchemaType.vue'
 
 const props = defineProps<{
   method: MethodSchema
@@ -95,12 +109,13 @@ const props = defineProps<{
 
 const rpc = inject<PlexusRpcClient>('rpc')!
 
-const rawParams   = ref(false)
-const rawReturns  = ref(false)
 const invokeOpen  = ref(false)
+const jsonMode    = ref(false)
 const paramsInput = ref('{}')
 const parseError  = ref('')
 const running     = ref(false)
+
+const formValues  = ref<Record<string, unknown>>({})
 
 interface ResultItem {
   type: 'data' | 'progress' | 'error' | 'done'
@@ -117,12 +132,29 @@ const fullPath = computed(() => {
   return `${ns}.${props.method.name}`
 })
 
+const paramSchema = computed<JsonSchema | null>(() => {
+  const p = props.method.params
+  if (!p || typeof p !== 'object') return null
+  return p as JsonSchema
+})
+
+const hasParamForm = computed(() => {
+  const s = paramSchema.value
+  return s !== null && s.type === 'object' && !!s.properties
+})
+
 async function invoke() {
   parseError.value = ''
   let params: unknown = {}
-  if (paramsInput.value.trim() && paramsInput.value.trim() !== '{}') {
-    try { params = JSON.parse(paramsInput.value) }
-    catch (e) { parseError.value = `Invalid JSON: ${e instanceof Error ? e.message : e}`; return }
+
+  if (!jsonMode.value && hasParamForm.value) {
+    params = formValues.value
+  } else {
+    const raw = paramsInput.value.trim()
+    if (raw && raw !== '{}') {
+      try { params = JSON.parse(raw) }
+      catch (e) { parseError.value = `Invalid JSON: ${e instanceof Error ? e.message : e}`; return }
+    }
   }
 
   results.value = []
@@ -176,14 +208,13 @@ async function invoke() {
 
 .method-desc { color: #8b949e; margin: 0; line-height: 1.5; font-size: 12px; flex: 1; }
 
-/* Schema blocks */
-.schema-block { margin-top: 10px; }
+/* Compact schema hints */
+.schema-hints { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 
-.schema-block-header {
+.hint-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .schema-label {
@@ -191,37 +222,13 @@ async function invoke() {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #484f58;
-}
-
-.toggle-btn {
-  background: none;
-  border: 1px solid #30363d;
-  color: #8b949e;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-}
-.toggle-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-
-.schema-json {
-  background: #0d1117;
-  border: 1px solid #21262d;
-  border-radius: 6px;
-  padding: 10px 12px;
-  font-size: 11px;
-  color: #c9d1d9;
-  overflow-x: auto;
-  margin: 0;
-  line-height: 1.5;
-  max-height: 180px;
-  overflow-y: auto;
+  flex-shrink: 0;
+  min-width: 44px;
 }
 
 /* Invoke section */
 .invoke-toggle {
-  margin-top: 12px;
+  margin-top: 10px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -234,9 +241,22 @@ async function invoke() {
 .invoke-toggle-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #484f58; }
 .full-path { color: #79c0ff; font-size: 10px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
 
-.invoke-body { margin-top: 8px; }
+.invoke-body { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
 
-.invoke-actions { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; justify-content: flex-end; }
+.invoke-toolbar { display: flex; gap: 6px; align-items: center; }
+
+.toggle-btn {
+  background: none;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.toggle-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.toggle-btn.active { border-color: #58a6ff; color: #58a6ff; background: #1a2840; }
 
 .clear-btn {
   background: none; border: 1px solid #30363d; color: #8b949e;
@@ -244,14 +264,12 @@ async function invoke() {
 }
 .clear-btn:hover { border-color: #484f58; }
 
-.call-btn {
-  background: #1a2840; border: 1px solid #1f3a5f; color: #58a6ff;
-  font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 4px;
-  cursor: pointer; font-family: inherit;
+.param-form {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 10px 12px;
 }
-.call-btn:hover:not(:disabled) { background: #1f3a5f; }
-.call-btn:disabled { opacity: 0.6; cursor: default; }
-.call-btn.running { color: #8b949e; }
 
 .params-editor {
   width: 100%;
@@ -269,10 +287,18 @@ async function invoke() {
 }
 .params-editor:focus { border-color: #58a6ff; }
 
-.parse-error { color: #f85149; font-size: 11px; margin-top: 4px; }
+.parse-error { color: #f85149; font-size: 11px; }
+
+.call-btn {
+  background: #1a2840; border: 1px solid #1f3a5f; color: #58a6ff;
+  font-size: 11px; font-weight: 600; padding: 5px 0; border-radius: 4px;
+  cursor: pointer; font-family: inherit; width: 100%;
+}
+.call-btn:hover:not(:disabled) { background: #1f3a5f; }
+.call-btn:disabled { opacity: 0.6; cursor: default; }
+.call-btn.running { color: #8b949e; }
 
 .results-panel {
-  margin-top: 8px;
   border: 1px solid #21262d;
   border-radius: 6px;
   overflow: hidden;

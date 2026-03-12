@@ -103,22 +103,25 @@ const namespace = computed(() => {
   return props.path.join('.')
 })
 
+let fetchSeq = 0
+
 watch(
   () => props.path,
   async (newPath) => {
     if (newPath === null) { schema.value = null; return }
-    schema.value = null
+    const seq = ++fetchSeq
     loading.value = true
     error.value = ''
     try {
       const method = newPath.length === 0
         ? `${backendName}.schema`
         : `${newPath.join('.')}.schema`
-      schema.value = await collectOne<PluginSchema>(rpc.call(method, {}))
+      const result = await collectOne<PluginSchema>(rpc.call(method, {}))
+      if (seq === fetchSeq) schema.value = result
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      if (seq === fetchSeq) error.value = e instanceof Error ? e.message : String(e)
     } finally {
-      loading.value = false
+      if (seq === fetchSeq) loading.value = false
     }
   },
   { immediate: true }
