@@ -76,6 +76,8 @@
         class="inspect-textarea"
         spellcheck="false"
         @input="onInspectInput"
+        @focus="inspectFocused = true"
+        @blur="inspectFocused = false"
       />
       <div v-if="inspectParseError" class="inspect-status iv-error">⚠ {{ inspectParseError }}</div>
       <div v-else-if="inspectValidation" class="inspect-status">
@@ -148,11 +150,12 @@ const parseError   = ref('')
 const running      = ref(false)
 const cancelFlag   = ref(false)
 const returnsOpen  = ref(false)
-const inspectOpen  = ref(false)
-const inspectMode  = ref<'validate' | 'sync'>('validate')
-const inspectText  = ref('')
+const inspectOpen    = ref(false)
+const inspectMode    = ref<'validate' | 'sync'>('validate')
+const inspectText    = ref('')
+const inspectFocused = ref(false)
 const inspectParseError = ref('')
-const copied       = ref(false)
+const copied         = ref(false)
 const updatingFromInspect = ref(false)
 
 const cardRef      = ref<HTMLElement | null>(null)
@@ -259,17 +262,23 @@ watch(inspectOpen, (open) => {
   }
 })
 
-// Sync mode: form → inspect (preserve unknown keys the user typed in)
+// Form → inspect: live update whenever the textarea isn't focused
+// In sync mode, unknown keys typed into the textarea are preserved.
+// In validate mode, the textarea is replaced outright (user isn't editing it).
 watch(formValues, () => {
-  if (!inspectOpen.value || inspectMode.value !== 'sync' || updatingFromInspect.value) return
+  if (!inspectOpen.value || updatingFromInspect.value || inspectFocused.value) return
   let merged: Record<string, unknown> = { ...(formValues.value as Record<string, unknown>) }
-  try {
-    const cur = JSON.parse(inspectText.value) as Record<string, unknown>
-    const knownKeys = paramSchema.value?.properties ? new Set(Object.keys(paramSchema.value.properties)) : null
-    for (const [k, v] of Object.entries(cur))
-      if (!knownKeys || !knownKeys.has(k)) merged[k] = v
-  } catch { /* ignore */ }
+  if (inspectMode.value === 'sync') {
+    // Preserve unknown keys from whatever is currently in the textarea
+    try {
+      const cur = JSON.parse(inspectText.value) as Record<string, unknown>
+      const knownKeys = paramSchema.value?.properties ? new Set(Object.keys(paramSchema.value.properties)) : null
+      for (const [k, v] of Object.entries(cur))
+        if (!knownKeys || !knownKeys.has(k)) merged[k] = v
+    } catch { /* ignore */ }
+  }
   inspectText.value = JSON.stringify(merged, null, 2)
+  inspectParseError.value = ''
 }, { deep: true })
 
 function onInspectInput() {
