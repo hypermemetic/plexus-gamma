@@ -116,7 +116,7 @@
         <span v-if="errorCount > 0" class="footer-errors">&nbsp; {{ errorCount }} error{{ errorCount !== 1 ? 's' : '' }}</span>
       </span>
       <button
-        v-if="doneCount > 0"
+        v-if="doneCount > 0 || errorCount > 0"
         class="copy-results-btn"
         @click="copyAllResults"
       >
