@@ -10,13 +10,17 @@
         </div>
       </div>
       <p class="method-desc">{{ method.description }}</p>
+      <button class="copy-btn" @click="copyState" title="Copy full snapshot">{{ wasCopied('state') ? '✓' : '⎘' }}</button>
     </div>
 
     <!-- Params section -->
     <div class="params-section" @keydown.ctrl.enter.prevent="invoke">
       <div class="params-header">
         <span class="section-label">params</span>
-        <button v-if="hasParamForm" class="toggle-btn" @click="jsonMode = !jsonMode" :class="{ active: jsonMode }">JSON</button>
+        <div class="params-header-actions">
+          <button v-if="hasParamForm" class="toggle-btn" @click="jsonMode = !jsonMode" :class="{ active: jsonMode }">JSON</button>
+          <button v-if="hasParams" class="copy-btn" @click="copyParams" title="Copy params">{{ wasCopied('params') ? '✓' : '⎘' }}</button>
+        </div>
       </div>
 
       <div v-if="!hasParams" class="no-params">no parameters</div>
@@ -68,7 +72,7 @@
             @click="inspectMode = inspectMode === 'sync' ? 'validate' : 'sync'"
             title="Sync edits back to the form"
           >↔ sync</button>
-          <button class="toggle-btn" @click="copyInspect">{{ copied ? '✓' : 'copy' }}</button>
+          <button class="toggle-btn" @click="copyInspect">{{ wasCopied('inspect') ? '✓' : 'copy' }}</button>
         </div>
       </div>
       <textarea
@@ -89,11 +93,17 @@
 
     <!-- Returns section (collapsible) -->
     <div class="returns-section">
-      <button class="returns-toggle" @click="returnsOpen = !returnsOpen">
-        <span class="section-label">returns</span>
-        <span v-if="dataCount > 0" class="returns-count">{{ dataCount }}</span>
-        <span class="returns-icon">{{ returnsOpen ? '▾' : '▸' }}</span>
-      </button>
+      <div class="returns-header">
+        <button class="returns-toggle" @click="returnsOpen = !returnsOpen">
+          <span class="section-label">returns</span>
+          <span v-if="dataCount > 0" class="returns-count">{{ dataCount }}</span>
+          <span class="returns-icon">{{ returnsOpen ? '▾' : '▸' }}</span>
+        </button>
+        <div v-if="results.length > 0" class="returns-controls">
+          <button class="copy-btn" @click="copyResults" title="Copy all results">{{ wasCopied('results') ? '✓' : '⎘' }}</button>
+          <button class="clear-btn" @click="results = []">clear</button>
+        </div>
+      </div>
 
       <div v-if="returnsOpen" class="returns-body">
         <div v-if="results.length === 0 && !running" class="returns-empty">—</div>
@@ -110,7 +120,7 @@
               <button v-if="r.type === 'data'" class="toggle-btn" @click="r.raw = !r.raw">
                 {{ r.raw ? 'pretty' : 'raw' }}
               </button>
-              <button v-if="i === 0 && results.length > 0" class="clear-btn" @click="results = []">clear</button>
+              <button class="copy-btn" @click="copyResultItem(i, r)" title="Copy this result">{{ wasCopied(`r${i}`) ? '✓' : '⎘' }}</button>
             </div>
           </div>
           <pre v-if="r.type === 'data'" class="result-json">{{ r.raw ? JSON.stringify(r.content) : JSON.stringify(r.content, null, 2) }}</pre>
@@ -155,7 +165,7 @@ const inspectMode    = ref<'validate' | 'sync'>('validate')
 const inspectText    = ref('')
 const inspectFocused = ref(false)
 const inspectParseError = ref('')
-const copied         = ref(false)
+const copiedKey      = ref<string | null>(null)
 const updatingFromInspect = ref(false)
 
 const cardRef      = ref<HTMLElement | null>(null)
@@ -326,12 +336,50 @@ function onInspectInput() {
   nextTick(() => { updatingFromInspect.value = false })
 }
 
-async function copyInspect() {
+function copyTo(key: string, text: string) {
+  navigator.clipboard.writeText(text).then(() => {
+    copiedKey.value = key
+    setTimeout(() => { if (copiedKey.value === key) copiedKey.value = null }, 1500)
+  })
+}
+
+function wasCopied(key: string): boolean {
+  return copiedKey.value === key
+}
+
+function copyParams() {
+  copyTo('params', JSON.stringify(currentParams(), null, 2))
+}
+
+function copyResults() {
+  const data = results.value.filter(r => r.type === 'data').map(r => r.content)
+  copyTo('results', JSON.stringify(data.length === 1 ? data[0] : data, null, 2))
+}
+
+function copyResultItem(i: number, r: ResultItem) {
+  const text = r.type === 'data'
+    ? JSON.stringify(r.content, null, 2)
+    : (r.message ?? JSON.stringify(r))
+  copyTo(`r${i}`, text)
+}
+
+function copyState() {
+  const snapshot = {
+    method: fullPath.value,
+    params: currentParams(),
+    results: results.value.map(r =>
+      r.type === 'data'
+        ? { type: r.type, content: r.content }
+        : { type: r.type, message: r.message }
+    ),
+  }
+  copyTo('state', JSON.stringify(snapshot, null, 2))
+}
+
+function copyInspect() {
   let params: unknown
   try { params = JSON.parse(inspectText.value) } catch { params = inspectText.value }
-  await navigator.clipboard.writeText(JSON.stringify({ method: fullPath.value, params }, null, 2))
-  copied.value = true
-  setTimeout(() => { copied.value = false }, 1500)
+  copyTo('inspect', JSON.stringify({ method: fullPath.value, params }, null, 2))
 }
 
 useFormEnterNav(formRef, invoke)
@@ -660,4 +708,21 @@ async function invoke() {
   font-size: 10px; padding: 1px 6px; border-radius: 4px; cursor: pointer; font-family: inherit;
 }
 .clear-btn:hover { border-color: #484f58; color: #8b949e; }
+
+.copy-btn {
+  background: none; border: 1px solid #30363d; color: #484f58;
+  font-size: 11px; padding: 1px 6px; border-radius: 4px; cursor: pointer; font-family: inherit;
+  line-height: 1.4;
+}
+.copy-btn:hover { border-color: #8b949e; color: #8b949e; }
+
+.params-header-actions { display: flex; gap: 4px; align-items: center; }
+
+.returns-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0d1117;
+}
+.returns-controls { display: flex; gap: 4px; align-items: center; padding-right: 8px; }
 </style>
