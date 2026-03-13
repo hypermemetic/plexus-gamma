@@ -8,7 +8,7 @@
     </template>
 
     <!-- boolean → checkbox -->
-    <template v-else-if="schema.type === 'boolean'">
+    <template v-else-if="scalarType(schema) === 'boolean'">
       <label class="field-checkbox-label">
         <input
           type="checkbox"
@@ -21,7 +21,7 @@
     </template>
 
     <!-- integer / number → number input -->
-    <template v-else-if="schema.type === 'integer' || schema.type === 'number'">
+    <template v-else-if="scalarType(schema) === 'integer' || scalarType(schema) === 'number'">
       <input
         type="number"
         class="field-input"
@@ -34,7 +34,7 @@
     </template>
 
     <!-- string → text input -->
-    <template v-else-if="schema.type === 'string'">
+    <template v-else-if="scalarType(schema) === 'string'">
       <input
         type="text"
         class="field-input"
@@ -45,7 +45,7 @@
     </template>
 
     <!-- object with properties → nested grid -->
-    <template v-else-if="schema.type === 'object' && schema.properties">
+    <template v-else-if="scalarType(schema) === 'object' && schema.properties">
       <div class="field-object">
         <div
           v-for="(propSchema, propName) in schema.properties"
@@ -66,7 +66,7 @@
     </template>
 
     <!-- array → textarea (JSON paste) -->
-    <template v-else-if="schema.type === 'array'">
+    <template v-else-if="scalarType(schema) === 'array'">
       <textarea
         class="field-textarea"
         :value="modelValue !== undefined ? (typeof modelValue === 'string' ? modelValue : JSON.stringify(modelValue)) : ''"
@@ -118,7 +118,7 @@
 import { ref, onMounted } from 'vue'
 
 export interface JsonSchema {
-  type?: string
+  type?: string | string[]
   properties?: Record<string, JsonSchema>
   required?: string[]
   enum?: unknown[]
@@ -129,6 +129,8 @@ export interface JsonSchema {
   default?: unknown
   oneOf?: JsonSchema[]
   anyOf?: JsonSchema[]
+  $ref?: string
+  $defs?: Record<string, JsonSchema>
 }
 
 const props = defineProps<{
@@ -140,6 +142,15 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: unknown): void
 }>()
+
+// Normalize type: unwrap arrays and drop "null" → "boolean", "string", etc.
+function scalarType(schema: JsonSchema): string | undefined {
+  const t = schema.type
+  if (!t) return undefined
+  if (typeof t === 'string') return t === 'null' ? undefined : t
+  const nonNull = t.filter(x => x !== 'null')
+  return nonNull[0]
+}
 
 // Pre-fill from schema default on mount
 onMounted(() => {

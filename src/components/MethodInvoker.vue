@@ -141,10 +141,33 @@ const fullPath = computed(() => {
   return `${ns}.${props.method.name}`
 })
 
+// Resolve JSON Schema $refs against $defs at the root
+function resolveRefs(
+  schema: JsonSchema & { $ref?: string },
+  defs: Record<string, JsonSchema>,
+): JsonSchema {
+  if (schema.$ref) {
+    const name = schema.$ref.replace(/^#\/\$defs\//, '')
+    const resolved = defs[name]
+    return resolved ? resolveRefs(resolved, defs) : schema
+  }
+  const s = { ...schema }
+  if (s.properties)
+    s.properties = Object.fromEntries(
+      Object.entries(s.properties).map(([k, v]) => [k, resolveRefs(v as JsonSchema & { $ref?: string }, defs)])
+    )
+  if (s.items) s.items = resolveRefs(s.items as JsonSchema & { $ref?: string }, defs)
+  if (s.anyOf) s.anyOf = s.anyOf.map(x => resolveRefs(x as JsonSchema & { $ref?: string }, defs))
+  if (s.oneOf) s.oneOf = s.oneOf.map(x => resolveRefs(x as JsonSchema & { $ref?: string }, defs))
+  return s
+}
+
 const paramSchema = computed<JsonSchema | null>(() => {
   const p = props.method.params
   if (!p || typeof p !== 'object') return null
-  return p as JsonSchema
+  const raw = p as JsonSchema & { $defs?: Record<string, JsonSchema> }
+  const defs = raw.$defs ?? {}
+  return resolveRefs(raw, defs)
 })
 
 const hasParamForm = computed(() => {

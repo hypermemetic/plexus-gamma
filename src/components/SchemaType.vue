@@ -48,15 +48,22 @@ function enumDisplay(values: unknown[]): { text: string; clipped: boolean } {
 }
 
 
+function scalarType(schema: JsonSchema): string | undefined {
+  const t = schema.type
+  if (!t) return undefined
+  if (typeof t === 'string') return t === 'null' ? undefined : t
+  return t.filter(x => x !== 'null')[0]
+}
+
 function isScalar(schema: JsonSchema): boolean {
-  return ['string', 'number', 'integer', 'boolean'].includes(schema.type ?? '')
+  return ['string', 'number', 'integer', 'boolean'].includes(scalarType(schema) ?? '')
 }
 
 // Returns null if no extra detail needed (inline), or entries for expansion
 const expanded = computed<null | [string, JsonSchema][]>(() => {
   const schema = s.value
   if (!schema) return null
-  if (schema.type === 'object' && schema.properties) {
+  if (scalarType(schema) === 'object' && schema.properties) {
     const entries = Object.entries(schema.properties)
     const allScalar = entries.every(([, v]) => isScalar(v as JsonSchema))
     if (allScalar && entries.length <= 4) return null // inline
@@ -75,7 +82,7 @@ const display = computed<string>(() => {
     return enumDisplay(schema.enum).text
   }
 
-  const type = schema.type
+  const type = scalarType(schema)
   if (!type) return ''
 
   if (type === 'string' || type === 'number' || type === 'integer' || type === 'boolean') {
@@ -98,7 +105,7 @@ const display = computed<string>(() => {
       const req = schema.required ?? []
       const parts = entries.map(([k, v]) => {
         const opt = !req.includes(k) ? '?' : ''
-        return `${k}${opt}: ${(v as JsonSchema).type ?? 'any'}`
+        return `${k}${opt}: ${scalarType(v as JsonSchema) ?? 'any'}`
       })
       return `{ ${parts.join(', ')} }`
     }
@@ -129,7 +136,7 @@ class SchemaTypeDisplay {
     const s = this.schema
     if (!s) return 'any'
     if (s.enum) return s.enum.map(v => JSON.stringify(v)).join(' | ')
-    const t = s.type
+    const t = scalarType(s)
     if (!t) return 'any'
     if (t === 'array') {
       if (s.items) return `${new SchemaTypeDisplay(s.items as JsonSchema).inline()}[]`
