@@ -61,43 +61,43 @@
           <Transition name="content-fade" mode="out-in">
             <div v-if="schemaLoading" class="sheet-loading" :key="'loading-' + sheetPath"><span class="spinner">◌</span></div>
 
-          <template v-else-if="schema">
-            <div class="sheet-plugin-header">
-              <h2 class="sheet-plugin-name">{{ sheetLabel }}</h2>
-              <p v-if="schema.description" class="sheet-plugin-desc">{{ schema.description }}</p>
-            </div>
+            <div v-else-if="schema" :key="sheetPath" class="sheet-content">
+              <div class="sheet-plugin-header">
+                <h2 class="sheet-plugin-name">{{ sheetLabel }}</h2>
+                <p v-if="schema.description" class="sheet-plugin-desc">{{ schema.description }}</p>
+              </div>
 
-            <!-- Children -->
-            <div v-if="schema.children?.length" class="sheet-section">
-              <div class="sheet-section-title">namespaces</div>
-              <div class="chip-list">
+              <!-- Children -->
+              <div v-if="schema.children?.length" class="sheet-section">
+                <div class="sheet-section-title">namespaces</div>
+                <div class="chip-list">
+                  <button
+                    v-for="c in schema.children"
+                    :key="c.namespace"
+                    class="ns-chip"
+                    @click="navigateSheet(c.namespace)"
+                  >{{ c.namespace }}</button>
+                </div>
+              </div>
+
+              <!-- Methods -->
+              <div v-if="schema.methods.length" class="sheet-section">
+                <div class="sheet-section-title">methods</div>
                 <button
-                  v-for="c in schema.children"
-                  :key="c.namespace"
-                  class="ns-chip"
-                  @click="navigateSheet(c.namespace)"
-                >{{ c.namespace }}</button>
+                  v-for="m in schema.methods"
+                  :key="m.name"
+                  class="method-row-btn"
+                  @click="selectedMethod = m"
+                >
+                  <div class="method-row-left">
+                    <code class="method-row-name">{{ m.name }}</code>
+                    <span v-if="m.streaming" class="method-row-tag stream">stream</span>
+                    <span v-if="m.bidirectional" class="method-row-tag bidir">bidir</span>
+                  </div>
+                  <span class="method-row-desc">{{ m.description }}</span>
+                </button>
               </div>
             </div>
-
-            <!-- Methods -->
-            <div v-if="schema.methods.length" class="sheet-section">
-              <div class="sheet-section-title">methods</div>
-              <button
-                v-for="m in schema.methods"
-                :key="m.name"
-                class="method-row-btn"
-                @click="selectedMethod = m"
-              >
-                <div class="method-row-left">
-                  <code class="method-row-name">{{ m.name }}</code>
-                  <span v-if="m.streaming" class="method-row-tag stream">stream</span>
-                  <span v-if="m.bidirectional" class="method-row-tag bidir">bidir</span>
-                </div>
-                <span class="method-row-desc">{{ m.description }}</span>
-              </button>
-            </div>
-          </template>
           </Transition>
         </div>
       </div>

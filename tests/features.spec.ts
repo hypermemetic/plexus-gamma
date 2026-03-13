@@ -73,8 +73,8 @@ test.describe('connection bar', () => {
     await expect(page.locator('.palette-trigger')).toBeVisible()
   })
 
-  test('view switcher has three buttons', async ({ page }) => {
-    await expect(page.locator('.view-btn')).toHaveCount(3)
+  test('view switcher has four buttons', async ({ page }) => {
+    await expect(page.locator('.view-btn')).toHaveCount(4)
   })
 
   test('explorer view is active by default', async ({ page }) => {
