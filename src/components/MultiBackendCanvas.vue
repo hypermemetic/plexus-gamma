@@ -402,7 +402,7 @@ function onWheel(e: WheelEvent): void {
   const rect = canvas.getBoundingClientRect()
   const mx = e.clientX - rect.left, my = e.clientY - rect.top
   if (e.ctrlKey) {
-    const f = e.deltaY < 0 ? 1.05 : 1 / 1.05
+    const f = e.deltaY < 0 ? 1.02 : 1 / 1.02
     panX = mx + f * (panX - mx); panY = my + f * (panY - my)
     scale = Math.min(Math.max(scale * f, 0.04), 8)
   } else {
