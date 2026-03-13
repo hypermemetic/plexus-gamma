@@ -142,6 +142,13 @@ const fullPath = computed(() => {
 })
 
 // Resolve JSON Schema $refs against $defs at the root
+// transformKeys (RPC layer) converts property keys to camelCase but leaves
+// string array values alone, so required: ["loopback_enabled"] stays snake_case
+// while properties: { loopbackEnabled: ... } is already camelCase — re-align them.
+function toCamelCase(s: string): string {
+  return s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+
 function resolveRefs(
   schema: JsonSchema & { $ref?: string },
   defs: Record<string, JsonSchema>,
@@ -156,6 +163,8 @@ function resolveRefs(
     s.properties = Object.fromEntries(
       Object.entries(s.properties).map(([k, v]) => [k, resolveRefs(v as JsonSchema & { $ref?: string }, defs)])
     )
+  if (s.required)
+    s.required = s.required.map(toCamelCase)
   if (s.items) s.items = resolveRefs(s.items as JsonSchema & { $ref?: string }, defs)
   if (s.anyOf) s.anyOf = s.anyOf.map(x => resolveRefs(x as JsonSchema & { $ref?: string }, defs))
   if (s.oneOf) s.oneOf = s.oneOf.map(x => resolveRefs(x as JsonSchema & { $ref?: string }, defs))

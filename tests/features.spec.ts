@@ -310,3 +310,66 @@ test.describe('breadcrumb navigation', () => {
     await expect(page.locator('.path-sep').first()).toBeVisible()
   })
 })
+
+// ─── Schema form rendering ────────────────────────────────────────────────────
+//
+// Uses claudecode.create which has:
+//   - model:            $ref: #/$defs/Model  (enum: opus|sonnet|haiku)
+//   - loopback_enabled: type: ["boolean","null"]
+//   - system_prompt:    type: ["string","null"]
+//   - required:         name, working_dir, model
+
+test.describe('schema form rendering', () => {
+  let createCard: ReturnType<typeof import('@playwright/test').expect> extends never ? never : import('@playwright/test').Locator
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await waitForTree(page)
+    await clickNode(page, 'claudecode')
+    // Wait for plugin detail to load method cards
+    createCard = page.locator('.method-card', { hasText: 'create' }).first()
+    await expect(createCard).toBeVisible({ timeout: 8_000 })
+  })
+
+  test('$ref resolves — model field renders as enum select', async ({ page }) => {
+    const modelRow = createCard.locator('.field-row', { hasText: 'model' })
+    await expect(modelRow.locator('.field-select')).toBeVisible()
+  })
+
+  test('resolved enum select has correct options (opus / sonnet / haiku)', async ({ page }) => {
+    const modelSelect = createCard
+      .locator('.field-row', { hasText: 'model' })
+      .locator('.field-select')
+    const opts = await modelSelect.locator('option').allTextContents()
+    expect(opts).toContain('opus')
+    expect(opts).toContain('sonnet')
+    expect(opts).toContain('haiku')
+  })
+
+  test('nullable boolean renders as checkbox', async ({ page }) => {
+    // loopback_enabled → loopbackEnabled after transformKeys
+    const row = createCard.locator('.field-row', { hasText: 'loopbackEnabled' })
+    await expect(row.locator('.field-checkbox')).toBeVisible()
+  })
+
+  test('nullable string renders as text input', async ({ page }) => {
+    // system_prompt → systemPrompt after transformKeys
+    const row = createCard.locator('.field-row', { hasText: 'systemPrompt' })
+    await expect(row.locator('.field-input')).toBeVisible()
+  })
+
+  test('required fields show * indicator', async ({ page }) => {
+    // required array normalised to camelCase to match transformed property keys
+    for (const field of ['name', 'workingDir', 'model']) {
+      const row = createCard.locator('.field-row', { hasText: field })
+      await expect(row.locator('.field-required')).toBeVisible()
+    }
+  })
+
+  test('optional fields do not show * indicator', async ({ page }) => {
+    for (const field of ['systemPrompt', 'loopbackEnabled']) {
+      const row = createCard.locator('.field-row', { hasText: field })
+      await expect(row.locator('.field-required')).toHaveCount(0)
+    }
+  })
+})
