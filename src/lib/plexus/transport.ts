@@ -1,125 +1,12 @@
-// Plexus WebSocket transport — self-contained, no local dependencies
-// Protocol types, RPC helpers, and WebSocket client in one file.
-
-// ─── Protocol types ────────────────────────────────────────────────────────
-
-export interface StreamMetadata {
-  provenance: string[];
-  plexusHash: string;
-  timestamp: number;
-}
-
-export interface PlexusStreamItemData {
-  type: 'data';
-  metadata: StreamMetadata;
-  contentType: string;
-  content: unknown;
-}
-
-export interface PlexusStreamItemProgress {
-  type: 'progress';
-  metadata: StreamMetadata;
-  message: string;
-  percentage?: number;
-}
-
-export interface PlexusStreamItemError {
-  type: 'error';
-  metadata: StreamMetadata;
-  message: string;
-  code?: string;
-  recoverable: boolean;
-}
-
-export interface PlexusStreamItemDone {
-  type: 'done';
-  metadata: StreamMetadata;
-}
-
-export interface PlexusStreamItemRequest {
-  type: 'request';
-  requestId: string;
-  requestData: StandardRequest;
-  timeoutMs: number;
-}
-
-export type PlexusStreamItem =
-  | PlexusStreamItemData
-  | PlexusStreamItemProgress
-  | PlexusStreamItemError
-  | PlexusStreamItemDone
-  | PlexusStreamItemRequest;
-
-// ─── Bidirectional types ───────────────────────────────────────────────────
-
-export interface SelectOption {
-  value: string;
-  label: string;
-  description?: string;
-}
-
-export type StandardRequest =
-  | { type: 'confirm'; message: string; default?: boolean }
-  | { type: 'prompt';  message: string; default?: string; placeholder?: string }
-  | { type: 'select';  message: string; options: SelectOption[]; multiSelect?: boolean };
-
-export type StandardResponse =
-  | { type: 'confirmed'; value: boolean }
-  | { type: 'text';      value: string }
-  | { type: 'selected';  values: string[] }
-  | { type: 'cancelled' };
-
-// ─── Error ─────────────────────────────────────────────────────────────────
-
-export class PlexusError extends Error {
-  readonly code: string | undefined;
-  readonly recoverable: boolean;
-  readonly metadata: StreamMetadata | undefined;
-  constructor(message: string, code?: string, recoverable = false, metadata?: StreamMetadata) {
-    super(message);
-    this.name = 'PlexusError';
-    this.code = code;
-    this.recoverable = recoverable;
-    this.metadata = metadata;
-  }
-}
-
-// ─── RpcClient interface + helpers ─────────────────────────────────────────
-
-export interface RpcClient {
-  call(method: string, params?: unknown): AsyncGenerator<PlexusStreamItem>;
-}
-
-function toCamelCase(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-}
-
-function transformKeys(obj: unknown): unknown {
-  if (obj === null || obj === undefined) return obj;
-  if (typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) return obj.map(transformKeys);
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-    result[toCamelCase(key)] = transformKeys(value);
-  }
-  return result;
-}
-
-export async function* extractData<T>(stream: AsyncGenerator<PlexusStreamItem>): AsyncGenerator<T> {
-  for await (const item of stream) {
-    if (item.type === 'data')     { yield transformKeys(item.content) as T; }
-    else if (item.type === 'error') { throw new PlexusError(item.message, item.code, item.recoverable, item.metadata); }
-    else if (item.type === 'done')  { return; }
-  }
-}
-
-export async function collectOne<T>(stream: AsyncGenerator<PlexusStreamItem>): Promise<T> {
-  for await (const item of stream) {
-    if (item.type === 'data')     { return transformKeys(item.content) as T; }
-    if (item.type === 'error')    { throw new PlexusError(item.message, item.code, item.recoverable, item.metadata); }
-  }
-  throw new Error('No data received from method call');
-}
+// Plexus WebSocket transport
+// Depends on ./types (protocol types) and ./rpc (RpcClient interface + helpers).
+import type {
+  PlexusStreamItem,
+  PlexusStreamItemRequest,
+  StandardRequest,
+  StandardResponse,
+} from './types';
+import type { RpcClient } from './rpc';
 
 // ─── WebSocket transport ───────────────────────────────────────────────────
 
@@ -236,7 +123,7 @@ export class PlexusRpcClient implements RpcClient {
     const pending = this.pendingRequests.get(resp.id);
     if (!pending) { this.log('Unknown request id:', resp.id); return; }
     this.pendingRequests.delete(resp.id);
-    if ('error' in resp) { pending.reject(new Error(`RPC error ${resp.error.code}: ${resp.error.message}`)); }
+    if ('error' in resp) { const { code, message, data } = resp.error; pending.reject(new Error(`RPC error ${code}: ${message}${data !== undefined ? ` — ${JSON.stringify(data)}` : ''}`)); }
     else { pending.resolve(resp.result as number); }
   }
 
