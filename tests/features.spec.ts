@@ -70,11 +70,11 @@ test.describe('connection bar', () => {
   })
 
   test('Ctrl+K trigger button is visible', async ({ page }) => {
-    await expect(page.locator('.palette-trigger')).toBeVisible()
+    await expect(page.locator('.palette-trigger').first()).toBeVisible()
   })
 
-  test('view switcher has four buttons', async ({ page }) => {
-    await expect(page.locator('.view-btn')).toHaveCount(4)
+  test('view switcher has six buttons', async ({ page }) => {
+    await expect(page.locator('.view-btn')).toHaveCount(6)
   })
 
   test('explorer view is active by default', async ({ page }) => {
@@ -186,7 +186,7 @@ test.describe('command palette', () => {
   })
 
   test('Ctrl+K trigger button opens palette', async ({ page }) => {
-    await page.locator('.palette-trigger').click()
+    await page.locator('.palette-trigger').first().click()
     await expect(page.locator('.palette-backdrop')).toBeVisible()
   })
 

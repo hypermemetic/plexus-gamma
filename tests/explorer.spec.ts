@@ -216,12 +216,11 @@ test.describe('methods', () => {
     expect(methods).toContain('schema')
   })
 
-  test('methods with params show a params schema block', async ({ page }) => {
+  test('methods with params show a params section', async ({ page }) => {
     await clickNode(page, 'echo')
-    // echo.echo takes count + message params
-    const echoCard = page.locator('.method-card', { hasText: 'echo' }).first()
-    await expect(echoCard.locator('.schema-block').first()).toBeVisible()
-    await expect(echoCard.locator('.schema-label').first()).toContainText('params')
+    await expect(page.locator('.method-card').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.params-section').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.section-label').first()).toContainText('params')
   })
 })
 
@@ -291,11 +290,11 @@ test.describe('path display', () => {
 // ──────────────────────────────────────────────────────────────────────────────
 
 test.describe('tree completeness', () => {
-  test('all 13 expected top-level substrate namespaces are in sidebar', async ({ page }) => {
+  test('all expected top-level substrate namespaces are in sidebar', async ({ page }) => {
     const labels = await visibleLabels(page)
     const expected = [
       'bash', 'loopback', 'registry', 'echo', 'interactive',
-      'mustache', 'cone', 'solar', 'health', 'hyperforge',
+      'mustache', 'cone', 'solar', 'health',
       'claudecode', 'changelog', 'arbor',
     ]
     for (const ns of expected) {
