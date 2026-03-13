@@ -179,12 +179,22 @@ const fullPath = computed(() => {
   return `${ns}.${props.method.name}`
 })
 
-// Resolve JSON Schema $refs against $defs at the root
-// transformKeys (RPC layer) converts property keys to camelCase but leaves
-// string array values alone, so required: ["loopback_enabled"] stays snake_case
-// while properties: { loopbackEnabled: ... } is already camelCase — re-align them.
+// Key transformations — mirror what the RPC transport does on ingress,
+// and reverse it on egress so the backend receives snake_case.
 function toCamelCase(s: string): string {
   return s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+function toSnakeCase(s: string): string {
+  return s.replace(/([A-Z])/g, (_, c: string) => '_' + c.toLowerCase())
+}
+function keysToSnake(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj !== 'object') return obj
+  if (Array.isArray(obj)) return obj.map(keysToSnake)
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>))
+    out[toSnakeCase(k)] = keysToSnake(v)
+  return out
 }
 
 function resolveRefs(
@@ -226,8 +236,9 @@ const hasParams = computed(() => paramSchema.value !== null)
 
 const dataCount = computed(() => results.value.filter(r => r.type === 'data').length)
 
+// Returns the current params in snake_case — the actual outbound format.
 function currentParams(): unknown {
-  if (!jsonMode.value && hasParamForm.value) return formValues.value
+  if (!jsonMode.value && hasParamForm.value) return keysToSnake(formValues.value)
   if (hasParams.value) {
     const raw = paramsInput.value.trim()
     if (raw && raw !== '{}') {
@@ -239,6 +250,8 @@ function currentParams(): unknown {
 
 interface InspectValidation { unknown: string[]; missingRequired: string[] }
 
+// Inspect panel works in snake_case (matches the wire format).
+// Schema property keys are camelCase (post-transformKeys) so we convert them.
 const inspectValidation = computed<InspectValidation | null>(() => {
   if (!inspectText.value.trim() || inspectParseError.value) return null
   let parsed: unknown
@@ -246,8 +259,11 @@ const inspectValidation = computed<InspectValidation | null>(() => {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
   const obj = parsed as Record<string, unknown>
   const schema = paramSchema.value
-  const knownKeys = schema?.properties ? new Set(Object.keys(schema.properties)) : null
-  const required = schema?.required ?? []
+  // Convert camelCase schema keys → snake_case for comparison with inspect JSON
+  const knownKeys = schema?.properties
+    ? new Set(Object.keys(schema.properties).map(toSnakeCase))
+    : null
+  const required = (schema?.required ?? []).map(toSnakeCase)
   return {
     unknown: knownKeys ? Object.keys(obj).filter(k => !knownKeys.has(k)) : [],
     missingRequired: required.filter(k => !(k in obj)),
@@ -267,14 +283,17 @@ watch(inspectOpen, (open) => {
 // In validate mode, the textarea is replaced outright (user isn't editing it).
 watch(formValues, () => {
   if (!inspectOpen.value || updatingFromInspect.value || inspectFocused.value) return
-  let merged: Record<string, unknown> = { ...(formValues.value as Record<string, unknown>) }
+  // Inspect always shows snake_case (wire format)
+  let merged = keysToSnake(formValues.value) as Record<string, unknown>
   if (inspectMode.value === 'sync') {
-    // Preserve unknown keys from whatever is currently in the textarea
+    // Preserve unknown (snake_case) keys the user typed into the inspect panel
     try {
       const cur = JSON.parse(inspectText.value) as Record<string, unknown>
-      const knownKeys = paramSchema.value?.properties ? new Set(Object.keys(paramSchema.value.properties)) : null
+      const knownSnake = paramSchema.value?.properties
+        ? new Set(Object.keys(paramSchema.value.properties).map(toSnakeCase))
+        : null
       for (const [k, v] of Object.entries(cur))
-        if (!knownKeys || !knownKeys.has(k)) merged[k] = v
+        if (!knownSnake || !knownSnake.has(k)) merged[k] = v
     } catch { /* ignore */ }
   }
   inspectText.value = JSON.stringify(merged, null, 2)
@@ -292,13 +311,17 @@ function onInspectInput() {
     inspectParseError.value = 'Expected a JSON object'; return
   }
   if (inspectMode.value !== 'sync' || !hasParamForm.value) return
-  // Sync mode (A): push known keys back into formValues
+  // Sync mode (A): inspect is snake_case → convert to camelCase for formValues
   const obj = parsed as Record<string, unknown>
-  const knownKeys = paramSchema.value?.properties ? new Set(Object.keys(paramSchema.value.properties)) : null
+  const knownKeysCamel = paramSchema.value?.properties
+    ? new Set(Object.keys(paramSchema.value.properties))
+    : null
   updatingFromInspect.value = true
   const next: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(obj))
-    if (!knownKeys || knownKeys.has(k)) next[k] = v
+  for (const [k, v] of Object.entries(obj)) {
+    const camel = toCamelCase(k)
+    if (!knownKeysCamel || knownKeysCamel.has(camel)) next[camel] = v
+  }
   formValues.value = next
   nextTick(() => { updatingFromInspect.value = false })
 }
@@ -349,7 +372,7 @@ async function invoke() {
   let params: unknown = {}
 
   if (!jsonMode.value && hasParamForm.value) {
-    params = formValues.value
+    params = keysToSnake(formValues.value)
   } else if (hasParams.value) {
     const raw = paramsInput.value.trim()
     if (raw && raw !== '{}') {
