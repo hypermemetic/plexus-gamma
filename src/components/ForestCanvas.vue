@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { PlexusRpcClient } from '../lib/plexus/transport'
+import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { buildTree } from '../schema-walker'
 import type { PluginNode, MethodSchema } from '../plexus-schema'
 
@@ -380,7 +380,7 @@ function onWheel(e: WheelEvent): void {
 }
 
 // ─── Data loading ────────────────────────────────────────────
-const rpc = new PlexusRpcClient({ backend: props.connection.name, url: props.connection.url })
+const rpc = getSharedClient(props.connection.name, props.connection.url)
 
 async function refresh(): Promise<void> {
   loading.value = true
@@ -414,7 +414,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   ro?.disconnect()
-  rpc.disconnect()
 })
 </script>
 

@@ -169,6 +169,43 @@ test.describe('view switching', () => {
     await btn.click()
     await expect(btn).toHaveClass(/active/)
   })
+
+  test('explorer tree still works after canvas → explorer round-trip', async ({ page }) => {
+    // Switch away from explorer to canvas
+    await page.locator('.view-btn').nth(1).click()
+    await expect(page.locator('.main-canvas')).toBeVisible({ timeout: 8_000 })
+
+    // Switch back — this is where the connection-timeout bug would surface
+    await page.locator('.view-btn').first().click()
+    await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 8_000 })
+    // No error banner means no "connection timed out" message
+    await expect(page.locator('.error-banner')).toHaveCount(0)
+    // Tree is interactive — clicking a node updates the detail pane
+    await page.locator('.node-row', { hasText: 'echo' }).first().click()
+    await expect(page.locator('.detail-path')).toContainText('echo', { timeout: 5_000 })
+  })
+
+  test('explorer tree still works after multi → explorer round-trip', async ({ page }) => {
+    await page.locator('.view-btn').nth(2).click()
+    await expect(page.locator('.canvas-toolbar')).toBeVisible({ timeout: 8_000 })
+
+    await page.locator('.view-btn').first().click()
+    await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 8_000 })
+    await expect(page.locator('.error-banner')).toHaveCount(0)
+    await page.locator('.node-row', { hasText: 'health' }).first().click()
+    await expect(page.locator('.detail-path')).toContainText('health', { timeout: 5_000 })
+  })
+
+  test('explorer tree survives rapid view cycling', async ({ page }) => {
+    // canvas → multi → sheet → explorer in quick succession
+    await page.locator('.view-btn').nth(1).click()
+    await page.locator('.view-btn').nth(2).click()
+    await page.locator('.view-btn').nth(3).click()
+    await page.locator('.view-btn').first().click()
+
+    await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.error-banner')).toHaveCount(0)
+  })
 })
 
 // ─── Command palette ──────────────────────────────────────────────────────────

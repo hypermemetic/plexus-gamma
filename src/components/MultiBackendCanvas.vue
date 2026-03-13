@@ -36,7 +36,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { PlexusRpcClient } from '../lib/plexus/transport'
+import { getSharedClient } from '../lib/plexus/clientRegistry'
+import type { PlexusRpcClient } from '../lib/plexus/transport'
 import { buildTree } from '../schema-walker'
 import type { PluginNode, MethodSchema } from '../plexus-schema'
 
@@ -416,7 +417,7 @@ async function loadBackend(be: BackendState): Promise<void> {
   be.status = 'loading'
   let rpc = rpcs.get(be.name)
   if (!rpc) {
-    rpc = new PlexusRpcClient({ backend: be.name, url: be.url })
+    rpc = getSharedClient(be.name, be.url)
     rpcs.set(be.name, rpc)
   }
   try {
@@ -463,7 +464,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   ro?.disconnect()
-  for (const rpc of rpcs.values()) rpc.disconnect()
 })
 </script>
 

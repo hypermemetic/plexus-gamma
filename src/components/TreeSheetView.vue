@@ -107,7 +107,7 @@
 
 <script setup lang="ts">
 import { ref, computed, provide, watch, onMounted, onUnmounted } from 'vue'
-import { PlexusRpcClient } from '../lib/plexus/transport'
+import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
 import { buildTree } from '../schema-walker'
 import type { PluginNode, PluginSchema, MethodSchema } from '../plexus-schema'
@@ -124,7 +124,7 @@ const emit = defineEmits<{
 }>()
 
 // ─── RPC client ───────────────────────────────────────────────
-const rpc = new PlexusRpcClient({ backend: props.connection.name, url: props.connection.url })
+const rpc = getSharedClient(props.connection.name, props.connection.url)
 provide('rpc', rpc)
 provide('backendName', props.connection.name)
 
@@ -255,7 +255,6 @@ onMounted(() => {
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
-  rpc.disconnect()
 })
 </script>
 
