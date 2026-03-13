@@ -25,10 +25,10 @@
     </div>
 
     <!-- Invoke section: collapsible -->
-    <div class="invoke-toggle" @click="invokeOpen = !invokeOpen" @keydown.ctrl.enter.prevent="invoke">
+    <button class="invoke-toggle" @click="invokeOpen = !invokeOpen" @keydown.ctrl.enter.prevent="invoke">
       <span class="invoke-toggle-icon">{{ invokeOpen ? '▾' : '▸' }}</span>
       <span class="invoke-toggle-label">call  <code class="full-path">{{ fullPath }}</code></span>
-    </div>
+    </button>
 
     <div v-if="invokeOpen" class="invoke-body" @keydown.ctrl.enter.prevent="invoke">
       <!-- JSON toggle -->
@@ -271,6 +271,12 @@ async function invoke() {
   margin-top: 10px;
   display: flex;
   align-items: center;
+  background: none;
+  border: none;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+  outline-offset: 2px;
   gap: 6px;
   cursor: pointer;
   user-select: none;

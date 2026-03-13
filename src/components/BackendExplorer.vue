@@ -18,7 +18,7 @@
         <span class="spinner">◌</span> Scanning…
       </div>
 
-      <nav v-if="tree" class="tree">
+      <nav v-if="tree" class="tree" @keydown="onTreeKeydown">
         <PluginTreeNode
           :key="refreshKey"
           :node="tree"
@@ -113,6 +113,40 @@ async function refresh() {
     connectError.value = e instanceof Error ? e.message : String(e)
   } finally {
     loading.value = false
+  }
+}
+
+function onTreeKeydown(e: KeyboardEvent) {
+  if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
+  const nav = e.currentTarget as HTMLElement
+  const rows = Array.from(nav.querySelectorAll<HTMLElement>('.node-row'))
+  const idx  = rows.indexOf(document.activeElement as HTMLElement)
+  if (idx === -1) return
+  const row = rows[idx]
+  if (!row) return
+  e.preventDefault()
+
+  if (e.key === 'ArrowDown') {
+    rows[idx + 1]?.focus()
+  } else if (e.key === 'ArrowUp') {
+    rows[idx - 1]?.focus()
+  } else if (e.key === 'ArrowRight') {
+    const nodeDiv    = row.parentElement
+    const isExpanded = !!nodeDiv?.querySelector(':scope > .node-children')
+    const isHub      = row.classList.contains('hub')
+    if (isHub && !isExpanded) row.click()
+    else if (isHub && isExpanded) rows[idx + 1]?.focus()
+  } else if (e.key === 'ArrowLeft') {
+    const nodeDiv    = row.parentElement
+    const isExpanded = !!nodeDiv?.querySelector(':scope > .node-children')
+    if (row.classList.contains('hub') && isExpanded) {
+      row.click()
+    } else {
+      // jump to parent row
+      const parentRow = nodeDiv?.parentElement?.closest('.node')
+        ?.querySelector<HTMLElement>(':scope > .node-row')
+      parentRow?.focus()
+    }
   }
 }
 

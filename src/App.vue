@@ -48,6 +48,7 @@
           <button class="view-btn" :class="{ active: view === 'explorer' }" @click="view = 'explorer'" title="Explorer">⊞</button>
           <button class="view-btn" :class="{ active: view === 'canvas' }"   @click="view = 'canvas'"   title="Forest canvas">⊠</button>
           <button class="view-btn" :class="{ active: view === 'multi' }"    @click="view = 'multi'"    title="Multi-backend canvas">⊟</button>
+          <button class="view-btn" :class="{ active: view === 'sheet' }"    @click="view = 'sheet'"    title="Tree + sheet">⊕</button>
         </div>
       </div>
     </header>
@@ -83,11 +84,25 @@
       </template>
 
       <!-- Multi-backend canvas view -->
-      <template v-else>
+      <template v-else-if="view === 'multi'">
         <MultiBackendCanvas
           :connections="connections"
           @select="onMultiCanvasSelect"
         />
+      </template>
+
+      <!-- Tree + sheet view -->
+      <template v-else-if="view === 'sheet'">
+        <TreeSheetView
+          v-if="activeConn"
+          :key="activeConn.name + activeConn.url"
+          :connection="activeConn"
+          @tree-ready="onTreeReady"
+          @registry-backends="onRegistryBackends"
+        />
+        <div v-else class="no-conn">
+          <p>No backend selected. Add one with <strong>+</strong>.</p>
+        </div>
       </template>
     </main>
   </div>
@@ -98,6 +113,7 @@ import { ref, provide, onMounted } from 'vue'
 import BackendExplorer from './components/BackendExplorer.vue'
 import ForestCanvas from './components/ForestCanvas.vue'
 import MultiBackendCanvas from './components/MultiBackendCanvas.vue'
+import TreeSheetView from './components/TreeSheetView.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import type { MethodEntry } from './components/CommandPalette.vue'
 import { scanPortRange } from './lib/plexus/discover'
@@ -115,7 +131,7 @@ const connections = ref<BackendConnection[]>([
 ])
 
 const activeConn = ref<BackendConnection | null>(connections.value[0] ?? null)
-const view       = ref<'explorer' | 'canvas' | 'multi'>('explorer')
+const view       = ref<'explorer' | 'canvas' | 'multi' | 'sheet'>('explorer')
 const showAdd    = ref(false)
 const newName    = ref('')
 const newUrl     = ref('ws://127.0.0.1:')
