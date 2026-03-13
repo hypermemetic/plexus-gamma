@@ -60,10 +60,29 @@
     <!-- Inspect panel -->
     <div v-if="inspectOpen" class="inspect-panel">
       <div class="inspect-header">
-        <span class="section-label">request preview</span>
-        <button class="toggle-btn" @click="copyInspect" title="Copy to clipboard">{{ copied ? '✓' : 'copy' }}</button>
+        <span class="section-label">params</span>
+        <div class="inspect-actions">
+          <button
+            class="toggle-btn"
+            :class="{ active: inspectMode === 'sync' }"
+            @click="inspectMode = inspectMode === 'sync' ? 'validate' : 'sync'"
+            title="Sync edits back to the form"
+          >↔ sync</button>
+          <button class="toggle-btn" @click="copyInspect">{{ copied ? '✓' : 'copy' }}</button>
+        </div>
       </div>
-      <pre class="inspect-json">{{ inspectPayload }}</pre>
+      <textarea
+        v-model="inspectText"
+        class="inspect-textarea"
+        spellcheck="false"
+        @input="onInspectInput"
+      />
+      <div v-if="inspectParseError" class="inspect-status iv-error">⚠ {{ inspectParseError }}</div>
+      <div v-else-if="inspectValidation" class="inspect-status">
+        <span v-if="inspectValidation.unknown.length" class="iv-unknown">unknown: {{ inspectValidation.unknown.join(', ') }}</span>
+        <span v-if="inspectValidation.missingRequired.length" class="iv-missing">missing: {{ inspectValidation.missingRequired.join(', ') }}</span>
+        <span v-if="!inspectValidation.unknown.length && !inspectValidation.missingRequired.length" class="iv-ok">✓ valid</span>
+      </div>
     </div>
 
     <!-- Returns section (collapsible) -->
@@ -130,7 +149,11 @@ const running      = ref(false)
 const cancelFlag   = ref(false)
 const returnsOpen  = ref(false)
 const inspectOpen  = ref(false)
+const inspectMode  = ref<'validate' | 'sync'>('validate')
+const inspectText  = ref('')
+const inspectParseError = ref('')
 const copied       = ref(false)
+const updatingFromInspect = ref(false)
 
 const cardRef      = ref<HTMLElement | null>(null)
 const formRef      = ref<HTMLElement | null>(null)
@@ -200,21 +223,81 @@ const hasParams = computed(() => paramSchema.value !== null)
 
 const dataCount = computed(() => results.value.filter(r => r.type === 'data').length)
 
-const inspectPayload = computed(() => {
-  let params: unknown = {}
-  if (!jsonMode.value && hasParamForm.value) {
-    params = formValues.value
-  } else if (hasParams.value) {
+function currentParams(): unknown {
+  if (!jsonMode.value && hasParamForm.value) return formValues.value
+  if (hasParams.value) {
     const raw = paramsInput.value.trim()
     if (raw && raw !== '{}') {
-      try { params = JSON.parse(raw) } catch { params = paramsInput.value }
+      try { return JSON.parse(raw) } catch { /* fall through */ }
     }
   }
-  return JSON.stringify({ method: fullPath.value, params }, null, 2)
+  return {}
+}
+
+interface InspectValidation { unknown: string[]; missingRequired: string[] }
+
+const inspectValidation = computed<InspectValidation | null>(() => {
+  if (!inspectText.value.trim() || inspectParseError.value) return null
+  let parsed: unknown
+  try { parsed = JSON.parse(inspectText.value) } catch { return null }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
+  const obj = parsed as Record<string, unknown>
+  const schema = paramSchema.value
+  const knownKeys = schema?.properties ? new Set(Object.keys(schema.properties)) : null
+  const required = schema?.required ?? []
+  return {
+    unknown: knownKeys ? Object.keys(obj).filter(k => !knownKeys.has(k)) : [],
+    missingRequired: required.filter(k => !(k in obj)),
+  }
 })
 
+// Open: seed the textarea from the current form state
+watch(inspectOpen, (open) => {
+  if (open) {
+    inspectText.value = JSON.stringify(currentParams(), null, 2)
+    inspectParseError.value = ''
+  }
+})
+
+// Sync mode: form → inspect (preserve unknown keys the user typed in)
+watch(formValues, () => {
+  if (!inspectOpen.value || inspectMode.value !== 'sync' || updatingFromInspect.value) return
+  let merged: Record<string, unknown> = { ...(formValues.value as Record<string, unknown>) }
+  try {
+    const cur = JSON.parse(inspectText.value) as Record<string, unknown>
+    const knownKeys = paramSchema.value?.properties ? new Set(Object.keys(paramSchema.value.properties)) : null
+    for (const [k, v] of Object.entries(cur))
+      if (!knownKeys || !knownKeys.has(k)) merged[k] = v
+  } catch { /* ignore */ }
+  inspectText.value = JSON.stringify(merged, null, 2)
+}, { deep: true })
+
+function onInspectInput() {
+  inspectParseError.value = ''
+  const text = inspectText.value.trim()
+  if (!text) return
+  let parsed: unknown
+  try { parsed = JSON.parse(text) }
+  catch (e) { inspectParseError.value = e instanceof Error ? e.message : 'Invalid JSON'; return }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    inspectParseError.value = 'Expected a JSON object'; return
+  }
+  if (inspectMode.value !== 'sync' || !hasParamForm.value) return
+  // Sync mode (A): push known keys back into formValues
+  const obj = parsed as Record<string, unknown>
+  const knownKeys = paramSchema.value?.properties ? new Set(Object.keys(paramSchema.value.properties)) : null
+  updatingFromInspect.value = true
+  const next: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj))
+    if (!knownKeys || knownKeys.has(k)) next[k] = v
+  formValues.value = next
+  nextTick(() => { updatingFromInspect.value = false })
+}
+
 async function copyInspect() {
-  await navigator.clipboard.writeText(inspectPayload.value)
+  let params: unknown
+  try { params = JSON.parse(inspectText.value) } catch { params = inspectText.value }
+  await navigator.clipboard.writeText(JSON.stringify({ method: fullPath.value, params }, null, 2))
   copied.value = true
   setTimeout(() => { copied.value = false }, 1500)
 }
@@ -426,16 +509,35 @@ async function invoke() {
   align-items: center;
   justify-content: space-between;
 }
-.inspect-json {
-  margin: 0;
-  font-size: 11px;
+.inspect-actions { display: flex; gap: 4px; }
+
+.inspect-textarea {
+  width: 100%;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 4px;
   color: #c9d1d9;
-  white-space: pre-wrap;
-  word-break: break-all;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 6px 8px;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
   line-height: 1.5;
-  max-height: 200px;
-  overflow-y: auto;
+  min-height: 80px;
 }
+.inspect-textarea:focus { border-color: #58a6ff; }
+
+.inspect-status {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  flex-wrap: wrap;
+}
+.iv-ok      { color: #3fb950; }
+.iv-error   { color: #f85149; font-size: 10px; }
+.iv-unknown { color: #f85149; }
+.iv-missing { color: #e3b341; }
 
 /* Returns */
 .returns-section {
