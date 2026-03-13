@@ -29,6 +29,13 @@
       </nav>
     </aside>
 
+    <!-- Schema diff banner (feature: schema-diff) -->
+    <SchemaDiffBanner
+      :diff="pendingDiff"
+      @dismiss="dismiss"
+      @accept="() => { accept(); void refresh() }"
+    />
+
     <!-- Main: plugin detail -->
     <PluginDetail
       v-if="!treeOnly"
@@ -46,6 +53,9 @@ import { buildTree } from '../schema-walker'
 import type { PluginNode } from '../plexus-schema'
 import PluginTreeNode from './PluginTreeNode.vue'
 import PluginDetail from './PluginDetail.vue'
+// ─── Feature: schema-diff (remove 3 lines to disable) ────────
+import { useSchemaDiff } from '../features/schema-diff/useSchemaDiff'
+import SchemaDiffBanner from '../features/schema-diff/SchemaDiffBanner.vue'
 
 interface RegistryBackend {
   name: string
@@ -74,6 +84,7 @@ provide('rpc', rpc)
 provide('backendName', props.connection.name)
 
 const tree         = ref<PluginNode | null>(null)
+const { pendingDiff, dismiss, accept } = useSchemaDiff(rpc, props.connection.name, tree)
 const loading      = ref(false)
 const connectError = ref('')
 const refreshKey   = ref(0)

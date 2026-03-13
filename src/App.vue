@@ -24,6 +24,9 @@
       </div>
 
       <div class="conn-bar-right">
+        <!-- Health strip (feature: health) -->
+        <HealthDashboard :connections="connections" />
+
         <!-- Scan badge -->
         <span v-if="scanning" class="scan-badge">
           <span class="pulse-dot">◌</span> scanning…
@@ -33,6 +36,9 @@
         <button class="palette-trigger" @click="paletteOpen = true" title="Search methods (Ctrl+K)">
           ⌘K
         </button>
+
+        <!-- Replay history (feature: replay) -->
+        <button class="palette-trigger" @click="replayOpen = !replayOpen" title="Invocation history">⏱</button>
 
         <!-- Add connection form -->
         <form v-if="showAdd" class="add-form" @submit.prevent="addConnection">
@@ -48,7 +54,9 @@
           <button class="view-btn" :class="{ active: view === 'explorer' }" @click="view = 'explorer'" title="Explorer">⊞</button>
           <button class="view-btn" :class="{ active: view === 'canvas' }"   @click="view = 'canvas'"   title="Forest canvas">⊠</button>
           <button class="view-btn" :class="{ active: view === 'multi' }"    @click="view = 'multi'"    title="Multi-backend canvas">⊟</button>
-          <button class="view-btn" :class="{ active: view === 'sheet' }"    @click="view = 'sheet'"    title="Tree + sheet">⊕</button>
+          <button class="view-btn" :class="{ active: view === 'sheet' }"         @click="view = 'sheet'"         title="Tree + sheet">⊕</button>
+          <button class="view-btn" :class="{ active: view === 'wiring' }"        @click="view = 'wiring'"        title="Method wiring">⊡</button>
+          <button class="view-btn" :class="{ active: view === 'orchestration' }" @click="view = 'orchestration'" title="Orchestration">⊛</button>
         </div>
       </div>
     </header>
@@ -104,7 +112,19 @@
           <p>No backend selected. Add one with <strong>+</strong>.</p>
         </div>
       </template>
+      <!-- Method wiring view (feature: method-wiring) -->
+      <template v-else-if="view === 'wiring'">
+        <MethodWiringCanvas :connections="connections" :method-index="methodIndex" />
+      </template>
+
+      <!-- Orchestration view (feature: orchestration) -->
+      <template v-else-if="view === 'orchestration'">
+        <OrchestrationCanvas :connections="connections" :method-index="methodIndex" />
+      </template>
     </main>
+
+    <!-- Replay panel (feature: replay) -->
+    <ReplayPanel :open="replayOpen" @close="replayOpen = false" />
   </div>
 </template>
 
@@ -120,6 +140,12 @@ import { scanPortRange } from './lib/plexus/discover'
 import { useKeymap } from './lib/useKeymap'
 import { flattenTree } from './schema-walker'
 import type { PluginNode } from './plexus-schema'
+// ─── Features (remove any import + usage to disable) ─────────
+import MethodWiringCanvas from './features/method-wiring/MethodWiringCanvas.vue'
+import OrchestrationCanvas from './features/orchestration/OrchestrationCanvas.vue'
+import HealthDashboard from './features/health/HealthDashboard.vue'
+import ReplayPanel from './features/replay/ReplayPanel.vue'
+import { useInvocationHistory } from './features/replay/useInvocationHistory'
 
 interface BackendConnection {
   name: string
@@ -131,7 +157,7 @@ const connections = ref<BackendConnection[]>([
 ])
 
 const activeConn = ref<BackendConnection | null>(connections.value[0] ?? null)
-const view       = ref<'explorer' | 'canvas' | 'multi' | 'sheet'>('explorer')
+const view       = ref<'explorer' | 'canvas' | 'multi' | 'sheet' | 'wiring' | 'orchestration'>('explorer')
 const showAdd    = ref(false)
 const newName    = ref('')
 const newUrl     = ref('ws://127.0.0.1:')
@@ -199,6 +225,11 @@ const navigateTo   = ref<{ path: string[] } | null>(null)
 const pendingMethod = ref<string | null>(null)
 
 provide('pendingMethod', pendingMethod)
+
+// ─── Replay history ───────────────────────────────────────────
+const invocationHistory = useInvocationHistory()
+provide('invocationHistory', invocationHistory)
+const replayOpen = ref(false)
 
 function onPaletteSelect(entry: MethodEntry) {
   view.value = 'explorer'

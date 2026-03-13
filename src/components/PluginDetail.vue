@@ -55,13 +55,17 @@
       <section v-if="schema.methods.length" class="section">
         <h3 class="section-title">Methods ({{ schema.methods.length }})</h3>
         <div class="method-list">
-          <MethodInvoker
-            v-for="method in schema.methods"
-            :key="method.name"
-            :method="method"
-            :namespace="namespace"
-            :backend-name="backendName"
-          />
+          <template v-for="method in schema.methods" :key="method.name">
+            <MethodInvoker
+              :method="method"
+              :namespace="namespace"
+              :backend-name="backendName"
+            />
+            <!-- features: remove any line below to disable that feature -->
+            <AgentTranscript :method="method" :namespace="namespace" :backend-name="backendName" />
+            <BatchRunner     :method="method" :namespace="namespace" :backend-name="backendName" />
+            <AssertionSuite  :method="method" :namespace="namespace" :backend-name="backendName" />
+          </template>
         </div>
       </section>
 
@@ -86,6 +90,10 @@ import type { PlexusRpcClient } from '../lib/plexus/transport'
 import { collectOne } from '../lib/plexus/rpc'
 import type { PluginSchema } from '../plexus-schema'
 import MethodInvoker from './MethodInvoker.vue'
+// ─── Features (remove any import + usage pair to disable) ────
+import AgentTranscript from '../features/agent-transcript/AgentTranscript.vue'
+import BatchRunner from '../features/batch-runner/BatchRunner.vue'
+import AssertionSuite from '../features/assertions/AssertionSuite.vue'
 
 const props = defineProps<{
   path: string[] | null
