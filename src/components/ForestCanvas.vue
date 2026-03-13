@@ -368,7 +368,7 @@ function onWheel(e: WheelEvent): void {
   const mx = e.clientX - rect.left, my = e.clientY - rect.top
   if (e.ctrlKey) {
     // pinch-to-zoom (browser sets ctrlKey for pinch gestures)
-    const f = e.deltaY < 0 ? 1.12 : 1 / 1.12
+    const f = e.deltaY < 0 ? 1.05 : 1 / 1.05
     panX = mx + f * (panX - mx)
     panY = my + f * (panY - my)
     scale = Math.min(Math.max(scale * f, 0.04), 8)
