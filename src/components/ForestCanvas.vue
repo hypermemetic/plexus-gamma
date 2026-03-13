@@ -136,8 +136,8 @@ function layoutNode(node: CNode, x: number, yRef: { v: number }): void {
     return
   }
   for (const c of node.children) layoutNode(c, childX, yRef)
-  const first = node.children[0]
-  const last  = node.children[node.children.length - 1]
+  const first = node.children[0]!
+  const last  = node.children[node.children.length - 1]!
   node.y = (first.y + last.y + last.h) / 2 - node.h / 2
 }
 
@@ -302,7 +302,6 @@ function initialView(): void {
   const canvas = canvasRef.value
   if (!canvas || !rootNode) return
   const dpr = Number(canvas.dataset.dpr || '1')
-  const cW  = (canvas.width || 1280) / dpr
   const cH  = (canvas.height || 720) / dpr
   scale = 0.65
   panX  = 48

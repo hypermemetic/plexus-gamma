@@ -93,7 +93,7 @@
         </select>
         <SchemaField
           :name="name"
-          :schema="(schema.anyOf ?? schema.oneOf!)[selectedBranch]"
+          :schema="(schema.anyOf ?? schema.oneOf!)[selectedBranch]!"
           :model-value="modelValue"
           @update:model-value="emit('update:modelValue', $event)"
         />

@@ -47,16 +47,6 @@ function enumDisplay(values: unknown[]): { text: string; clipped: boolean } {
   return { text: `${strs.slice(0, 3).join(' | ')} | … (${values.length})`, clipped: true }
 }
 
-interface PropEntry { schema: JsonSchema; required: boolean }
-
-function objectProps(schema: JsonSchema): Record<string, PropEntry> {
-  const result: Record<string, PropEntry> = {}
-  if (!schema.properties) return result
-  for (const [k, v] of Object.entries(schema.properties)) {
-    result[k] = { schema: v, required: schema.required?.includes(k) ?? false }
-  }
-  return result
-}
 
 function isScalar(schema: JsonSchema): boolean {
   return ['string', 'number', 'integer', 'boolean'].includes(schema.type ?? '')
@@ -133,7 +123,8 @@ const typeClass = computed(() => {
 
 // Helper class for recursive inline display (avoids component recursion for simple cases)
 class SchemaTypeDisplay {
-  constructor(private schema: JsonSchema) {}
+  schema: JsonSchema
+  constructor(schema: JsonSchema) { this.schema = schema }
   inline(): string {
     const s = this.schema
     if (!s) return 'any'

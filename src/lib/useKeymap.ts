@@ -13,7 +13,7 @@ interface ParsedKey {
 
 function parseBinding(spec: string): Omit<ParsedKey, 'fn'> {
   const parts = spec.toLowerCase().split('+')
-  const key = parts[parts.length - 1]
+  const key = parts[parts.length - 1] ?? ''
   return {
     key,
     ctrl:  parts.includes('ctrl'),

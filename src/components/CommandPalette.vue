@@ -61,7 +61,7 @@ const colorMap = new Map<string, string>()
 let colorIdx = 0
 
 function backendColor(name: string): string {
-  if (!colorMap.has(name)) colorMap.set(name, BACKEND_COLORS[colorIdx++ % BACKEND_COLORS.length])
+  if (!colorMap.has(name)) colorMap.set(name, BACKEND_COLORS[colorIdx++ % BACKEND_COLORS.length]!)
   return colorMap.get(name)!
 }
 
