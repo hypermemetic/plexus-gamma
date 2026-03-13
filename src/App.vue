@@ -178,7 +178,7 @@ const scanning   = ref(false)
 async function runScan() {
   scanning.value = true
   try {
-    for await (const b of scanPortRange(4440, 44200)) {
+    for await (const b of scanPortRange(4440, 4450)) {
       if (!connections.value.find(c => c.name === b.name || c.url === b.url)) {
         connections.value.push({ name: b.name, url: b.url })
         if (!activeConn.value) activeConn.value = connections.value[0] ?? null
