@@ -47,7 +47,7 @@
 
 <script setup lang="ts">
 import { ref, provide, watch, onMounted, onUnmounted } from 'vue'
-import { PlexusRpcClient } from '../lib/plexus/transport'
+import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
 import { buildTree } from '../schema-walker'
 import type { PluginNode } from '../plexus-schema'
@@ -75,10 +75,7 @@ const emit = defineEmits<{
   'registry-backends': [backends: RegistryBackend[]]
 }>()
 
-const rpc = new PlexusRpcClient({
-  backend: props.connection.name,
-  url: props.connection.url,
-})
+const rpc = getSharedClient(props.connection.name, props.connection.url)
 
 provide('rpc', rpc)
 provide('backendName', props.connection.name)
@@ -210,7 +207,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (hashTimer) clearInterval(hashTimer)
-  rpc.disconnect()
 })
 </script>
 
