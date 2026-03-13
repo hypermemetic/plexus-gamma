@@ -54,6 +54,16 @@
         <span class="call-path">{{ running ? '◌' : '▶' }} <code>{{ fullPath }}</code></span>
       </button>
       <button v-if="running" class="cancel-btn" @click="cancelFlag = true" title="Stop">◼</button>
+      <button v-if="!running" class="inspect-btn" @click="inspectOpen = !inspectOpen" :class="{ active: inspectOpen }" title="Inspect request">{ }</button>
+    </div>
+
+    <!-- Inspect panel -->
+    <div v-if="inspectOpen" class="inspect-panel">
+      <div class="inspect-header">
+        <span class="section-label">request preview</span>
+        <button class="toggle-btn" @click="copyInspect" title="Copy to clipboard">{{ copied ? '✓' : 'copy' }}</button>
+      </div>
+      <pre class="inspect-json">{{ inspectPayload }}</pre>
     </div>
 
     <!-- Returns section (collapsible) -->
@@ -113,12 +123,14 @@ const props = defineProps<{
 const rpc           = inject<PlexusRpcClient>('rpc')!
 const pendingMethod = inject<Ref<string | null>>('pendingMethod', ref(null))
 
-const jsonMode    = ref(false)
-const paramsInput = ref('{}')
-const parseError  = ref('')
-const running     = ref(false)
-const cancelFlag  = ref(false)
-const returnsOpen = ref(false)
+const jsonMode     = ref(false)
+const paramsInput  = ref('{}')
+const parseError   = ref('')
+const running      = ref(false)
+const cancelFlag   = ref(false)
+const returnsOpen  = ref(false)
+const inspectOpen  = ref(false)
+const copied       = ref(false)
 
 const cardRef      = ref<HTMLElement | null>(null)
 const formRef      = ref<HTMLElement | null>(null)
@@ -187,6 +199,25 @@ const hasParamForm = computed(() => {
 const hasParams = computed(() => paramSchema.value !== null)
 
 const dataCount = computed(() => results.value.filter(r => r.type === 'data').length)
+
+const inspectPayload = computed(() => {
+  let params: unknown = {}
+  if (!jsonMode.value && hasParamForm.value) {
+    params = formValues.value
+  } else if (hasParams.value) {
+    const raw = paramsInput.value.trim()
+    if (raw && raw !== '{}') {
+      try { params = JSON.parse(raw) } catch { params = paramsInput.value }
+    }
+  }
+  return JSON.stringify({ method: fullPath.value, params }, null, 2)
+})
+
+async function copyInspect() {
+  await navigator.clipboard.writeText(inspectPayload.value)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 1500)
+}
 
 useFormEnterNav(formRef, invoke)
 
@@ -372,6 +403,39 @@ async function invoke() {
   cursor: pointer; font-family: inherit; flex-shrink: 0;
 }
 .cancel-btn:hover { background: #3d1a1a; }
+
+.inspect-btn {
+  background: none; border: 1px solid #30363d; color: #484f58;
+  font-size: 11px; padding: 5px 8px; border-radius: 4px;
+  cursor: pointer; font-family: inherit; flex-shrink: 0; letter-spacing: 0.05em;
+}
+.inspect-btn:hover { border-color: #8b949e; color: #8b949e; }
+.inspect-btn.active { border-color: #58a6ff; color: #58a6ff; background: #1a2840; }
+
+.inspect-panel {
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  background: #0d1117;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.inspect-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.inspect-json {
+  margin: 0;
+  font-size: 11px;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow-y: auto;
+}
 
 /* Returns */
 .returns-section {
