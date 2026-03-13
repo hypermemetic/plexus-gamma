@@ -94,7 +94,7 @@ async function refresh() {
     if (tree.value.children.some(c => c.schema.namespace === 'registry')) {
       try {
         const result = await collectOne<{ backends: RegistryBackend[] }>(
-          rpc.call(`${props.connection.name}.registry.list`, { active_only: true })
+          rpc.call('registry.list', { active_only: true })
         )
         if (result.backends?.length) emit('registry-backends', result.backends)
       } catch { /* registry call failed, ignore */ }
