@@ -45,7 +45,21 @@
 
         <!-- Plugin overview -->
         <div class="sheet-content" :class="{ hidden: !!selectedMethod }">
-          <div v-if="schemaLoading" class="sheet-loading"><span class="spinner">◌</span></div>
+          <!-- Breadcrumb path -->
+          <div class="sheet-breadcrumb" v-if="sheetSegments.length > 0">
+            <button class="crumb crumb-root" @click="sheetPath = ''">{{ connection.name }}</button>
+            <template v-for="(seg, i) in sheetSegments" :key="i">
+              <span class="crumb-sep">›</span>
+              <button
+                class="crumb"
+                :class="{ 'crumb-active': i === sheetSegments.length - 1 }"
+                @click="sheetPath = sheetSegments.slice(0, i + 1).join('.')"
+              >{{ seg }}</button>
+            </template>
+          </div>
+
+          <Transition name="content-fade" mode="out-in">
+            <div v-if="schemaLoading" class="sheet-loading" :key="'loading-' + sheetPath"><span class="spinner">◌</span></div>
 
           <template v-else-if="schema">
             <div class="sheet-plugin-header">
@@ -84,6 +98,7 @@
               </button>
             </div>
           </template>
+          </Transition>
         </div>
       </div>
     </Transition>
@@ -146,10 +161,13 @@ const selectedMethod = ref<MethodSchema | null>(null)
 const schema         = ref<PluginSchema | null>(null)
 const schemaLoading  = ref(false)
 
+const sheetSegments = computed(() =>
+  sheetPath.value ? sheetPath.value.split('.').filter(Boolean) : []
+)
+
 const sheetLabel = computed(() => {
-  if (!sheetPath.value) return ''
-  const parts = sheetPath.value.split('.').filter(Boolean)
-  return parts.length === 0 ? props.connection.name : parts[parts.length - 1]
+  const segs = sheetSegments.value
+  return segs.length === 0 ? props.connection.name : (segs[segs.length - 1] ?? props.connection.name)
 })
 
 const sheetNamespace = computed(() => sheetPath.value ?? '')
@@ -342,6 +360,38 @@ onUnmounted(() => {
   color: #8b949e;
   text-align: center;
 }
+
+/* Breadcrumb */
+.sheet-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+
+.crumb {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 11px;
+  color: #484f58;
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+.crumb:hover { color: #8b949e; background: #161b22; }
+.crumb-root { color: #484f58; }
+.crumb-active { color: #58a6ff; cursor: default; }
+.crumb-active:hover { background: none; }
+.crumb-sep { color: #30363d; padding: 0 1px; }
+
+/* Content fade transition */
+.content-fade-enter-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.content-fade-leave-active { transition: opacity 0.1s ease; }
+.content-fade-enter-from { opacity: 0; transform: translateY(6px); }
+.content-fade-leave-to   { opacity: 0; }
 
 .sheet-plugin-header {
   margin-bottom: 14px;
