@@ -62,6 +62,7 @@
           :connection="activeConn"
           :navigate-to="navigateTo"
           @tree-ready="onTreeReady"
+          @registry-backends="onRegistryBackends"
         />
         <div v-else class="no-conn">
           <p>No backend selected. Add one with <strong>+</strong>.</p>
@@ -119,7 +120,17 @@ const showAdd    = ref(false)
 const newName    = ref('')
 const newUrl     = ref('ws://127.0.0.1:')
 
-// ─── Discovery ───────────────────────────────────────────────
+// ─── Registry auto-discovery ─────────────────────────────────
+function onRegistryBackends(backends: { name: string; host: string; port: number; protocol: string }[]) {
+  for (const b of backends) {
+    const url = `${b.protocol}://${b.host}:${b.port}`
+    if (!connections.value.find(c => c.name === b.name || c.url === url)) {
+      connections.value.push({ name: b.name, url })
+    }
+  }
+}
+
+// ─── Port-scan discovery ──────────────────────────────────────
 const scanning   = ref(false)
 
 async function runScan() {

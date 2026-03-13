@@ -47,6 +47,13 @@ import type { PluginNode } from '../plexus-schema'
 import PluginTreeNode from './PluginTreeNode.vue'
 import PluginDetail from './PluginDetail.vue'
 
+interface RegistryBackend {
+  name: string
+  host: string
+  port: number
+  protocol: string
+}
+
 const props = defineProps<{
   connection: { name: string; url: string }
   treeOnly?: boolean
@@ -55,6 +62,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'tree-ready': [node: PluginNode, backendName: string]
+  'registry-backends': [backends: RegistryBackend[]]
 }>()
 
 const rpc = new PlexusRpcClient({
@@ -82,6 +90,15 @@ async function refresh() {
     await rpc.connect()
     tree.value = await buildTree(rpc, props.connection.name)
     emit('tree-ready', tree.value, props.connection.name)
+    // Auto-discover backends if this hub has a registry plugin
+    if (tree.value.children.some(c => c.schema.namespace === 'registry')) {
+      try {
+        const result = await collectOne<{ backends: RegistryBackend[] }>(
+          rpc.call(`${props.connection.name}.registry.list`, { active_only: true })
+        )
+        if (result.backends?.length) emit('registry-backends', result.backends)
+      } catch { /* registry call failed, ignore */ }
+    }
     refreshKey.value++
     if (props.navigateTo) {
       selectedPath.value = props.navigateTo.path.join('.')
