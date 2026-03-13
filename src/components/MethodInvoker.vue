@@ -1,6 +1,6 @@
 <template>
-  <div class="method-card">
-    <!-- Header row: name + tags + description -->
+  <div class="method-card" ref="cardRef">
+    <!-- Header -->
     <div class="method-header">
       <div class="method-left">
         <code class="method-name">{{ method.name }}</code>
@@ -12,33 +12,16 @@
       <p class="method-desc">{{ method.description }}</p>
     </div>
 
-    <!-- Compact schema hints -->
-    <div v-if="method.params || method.returns" class="schema-hints schema-block">
-      <div v-if="method.params" class="hint-row">
-        <span class="schema-label">params</span>
-        <SchemaType :schema="method.params" />
-      </div>
-      <div v-if="method.returns" class="hint-row">
-        <span class="schema-label">returns</span>
-        <SchemaType :schema="method.returns" />
-      </div>
-    </div>
-
-    <!-- Invoke section: collapsible -->
-    <button class="invoke-toggle" @click="invokeOpen = !invokeOpen" @keydown.ctrl.enter.prevent="invoke">
-      <span class="invoke-toggle-icon">{{ invokeOpen ? '▾' : '▸' }}</span>
-      <span class="invoke-toggle-label">call  <code class="full-path">{{ fullPath }}</code></span>
-    </button>
-
-    <div v-if="invokeOpen" class="invoke-body" @keydown.ctrl.enter.prevent="invoke">
-      <!-- JSON toggle -->
-      <div class="invoke-toolbar">
-        <button class="toggle-btn" @click="jsonMode = !jsonMode" :class="{ active: jsonMode }">JSON</button>
-        <button v-if="results.length" class="clear-btn" @click="results = []">clear</button>
+    <!-- Params section -->
+    <div class="params-section" @keydown.ctrl.enter.prevent="invoke">
+      <div class="params-header">
+        <span class="section-label">params</span>
+        <button v-if="hasParamForm" class="toggle-btn" @click="jsonMode = !jsonMode" :class="{ active: jsonMode }">JSON</button>
       </div>
 
-      <!-- Form or raw textarea -->
-      <div v-if="!jsonMode && hasParamForm" class="param-form" ref="formRef">
+      <div v-if="!hasParams" class="no-params">no parameters</div>
+
+      <div v-else-if="!jsonMode && hasParamForm" class="param-form" ref="formRef">
         <SchemaField
           name="params"
           :schema="paramSchema!"
@@ -46,9 +29,10 @@
           @update:model-value="formValues = $event as Record<string, unknown>"
         />
       </div>
-      <template v-else>
+      <template v-else-if="hasParams">
         <textarea
           v-model="paramsInput"
+          ref="textareaRef"
           class="params-editor"
           placeholder="{}"
           spellcheck="false"
@@ -57,24 +41,32 @@
       </template>
 
       <div v-if="parseError" class="parse-error">{{ parseError }}</div>
+    </div>
 
-      <!-- Call button + cancel at bottom -->
-      <div class="call-row">
-        <button
-          class="call-btn"
-          :class="{ running }"
-          :disabled="running"
-          @click="invoke"
-        >{{ running ? '◌ running…' : '▶ call' }}</button>
-        <button
-          v-if="running"
-          class="cancel-btn"
-          @click="cancelFlag = true"
-          title="Stop"
-        >◼</button>
-      </div>
+    <!-- Call row -->
+    <div class="call-row">
+      <button
+        class="call-btn"
+        :class="{ running }"
+        :disabled="running"
+        @click="invoke"
+      >
+        <span class="call-path">{{ running ? '◌' : '▶' }} <code>{{ fullPath }}</code></span>
+      </button>
+      <button v-if="running" class="cancel-btn" @click="cancelFlag = true" title="Stop">◼</button>
+    </div>
 
-      <div v-if="results.length" class="results-panel" ref="resultsPanel">
+    <!-- Returns section (collapsible) -->
+    <div class="returns-section">
+      <button class="returns-toggle" @click="returnsOpen = !returnsOpen">
+        <span class="section-label">returns</span>
+        <span v-if="dataCount > 0" class="returns-count">{{ dataCount }}</span>
+        <span class="returns-icon">{{ returnsOpen ? '▾' : '▸' }}</span>
+      </button>
+
+      <div v-if="returnsOpen" class="returns-body">
+        <div v-if="results.length === 0 && !running" class="returns-empty">—</div>
+
         <div
           v-for="(r, i) in results"
           :key="i"
@@ -83,9 +75,12 @@
         >
           <div class="result-row">
             <span class="result-type">{{ r.type }}</span>
-            <button v-if="r.type === 'data'" class="toggle-btn" @click="r.raw = !r.raw">
-              {{ r.raw ? 'pretty' : 'raw' }}
-            </button>
+            <div class="result-actions">
+              <button v-if="r.type === 'data'" class="toggle-btn" @click="r.raw = !r.raw">
+                {{ r.raw ? 'pretty' : 'raw' }}
+              </button>
+              <button v-if="i === 0 && results.length > 0" class="clear-btn" @click="results = []">clear</button>
+            </div>
           </div>
           <pre v-if="r.type === 'data'" class="result-json">{{ r.raw ? JSON.stringify(r.content) : JSON.stringify(r.content, null, 2) }}</pre>
           <span v-else-if="r.type === 'progress'" class="result-message">
@@ -94,7 +89,7 @@
           <span v-else-if="r.type === 'error'" class="result-message">
             {{ r.message }}<span v-if="r.code" class="result-code"> [{{ r.code }}]</span>
           </span>
-          <span v-else-if="r.type === 'done'" class="result-message">✓ completed</span>
+          <span v-else-if="r.type === 'done'" class="result-message">✓ done</span>
         </div>
       </div>
     </div>
@@ -107,29 +102,29 @@ import type { PlexusRpcClient } from '../lib/plexus/transport'
 import type { MethodSchema } from '../plexus-schema'
 import SchemaField from './SchemaField.vue'
 import type { JsonSchema } from './SchemaField.vue'
-import SchemaType from './SchemaType.vue'
 import { useFormEnterNav } from '../lib/useFormEnterNav'
 
 const props = defineProps<{
   method: MethodSchema
-  namespace: string    // e.g. "echo", "solar.earth", or "" for root
-  backendName: string  // e.g. "substrate"
+  namespace: string
+  backendName: string
 }>()
 
-const rpc          = inject<PlexusRpcClient>('rpc')!
+const rpc           = inject<PlexusRpcClient>('rpc')!
 const pendingMethod = inject<Ref<string | null>>('pendingMethod', ref(null))
 
-const invokeOpen  = ref(false)
 const jsonMode    = ref(false)
 const paramsInput = ref('{}')
 const parseError  = ref('')
 const running     = ref(false)
 const cancelFlag  = ref(false)
+const returnsOpen = ref(false)
 
-const formRef     = ref<HTMLElement | null>(null)
+const cardRef      = ref<HTMLElement | null>(null)
+const formRef      = ref<HTMLElement | null>(null)
+const textareaRef  = ref<HTMLTextAreaElement | null>(null)
 const resultsPanel = ref<HTMLElement | null>(null)
-
-const formValues  = ref<Record<string, unknown>>({})
+const formValues   = ref<Record<string, unknown>>({})
 
 interface ResultItem {
   type: 'data' | 'progress' | 'error' | 'done'
@@ -157,28 +152,42 @@ const hasParamForm = computed(() => {
   return s !== null && s.type === 'object' && !!s.properties
 })
 
-// Enter-to-advance in form fields
+const hasParams = computed(() => paramSchema.value !== null)
+
+const dataCount = computed(() => results.value.filter(r => r.type === 'data').length)
+
 useFormEnterNav(formRef, invoke)
 
-// Auto-focus first input when invoke section opens
-watch(invokeOpen, v => {
-  if (v) nextTick(() => formRef.value?.querySelector<HTMLElement>('input, select, textarea')?.focus())
+// Auto-focus first input when params form is ready (on pending method open)
+watch(() => props.method.name, () => {
+  nextTick(() => formRef.value?.querySelector<HTMLElement>('input, select, textarea')?.focus())
 })
 
-// Auto-scroll results
+// Auto-scroll results panel
 watch(results, () => {
   nextTick(() => {
     if (resultsPanel.value) resultsPanel.value.scrollTop = resultsPanel.value.scrollHeight
   })
 }, { deep: true })
 
-// Auto-open when pending method matches
+// Auto-open returns when results arrive
+watch(() => results.value.length, (n) => {
+  if (n > 0) returnsOpen.value = true
+})
+
+// Auto-focus when pending method matches (immediate: catches case where pendingMethod
+// was already set before this component mounted)
 watch(pendingMethod, (method) => {
   if (method !== null && method === fullPath.value) {
-    invokeOpen.value = true
     pendingMethod.value = null
+    nextTick(() => {
+      const input = formRef.value?.querySelector<HTMLElement>('input, select, textarea')
+        ?? textareaRef.value
+      input?.focus()
+      cardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
   }
-})
+}, { immediate: true })
 
 async function invoke() {
   parseError.value = ''
@@ -186,7 +195,7 @@ async function invoke() {
 
   if (!jsonMode.value && hasParamForm.value) {
     params = formValues.value
-  } else {
+  } else if (hasParams.value) {
     const raw = paramsInput.value.trim()
     if (raw && raw !== '{}') {
       try { params = JSON.parse(raw) }
@@ -197,15 +206,16 @@ async function invoke() {
   results.value = []
   running.value = true
   cancelFlag.value = false
+  returnsOpen.value = true
   try {
     for await (const item of rpc.call(fullPath.value, params)) {
       if (cancelFlag.value) break
       if (item.type === 'data') {
         results.value.push({ type: 'data', content: item.content, raw: false })
       } else if (item.type === 'progress') {
-        results.value.push({ type: 'progress', message: item.message, percentage: item.percentage })
+        results.value.push({ type: 'progress', message: item.message, percentage: item.percentage ?? undefined })
       } else if (item.type === 'error') {
-        results.value.push({ type: 'error', message: item.message, code: item.code })
+        results.value.push({ type: 'error', message: item.message, code: item.code ?? undefined })
         break
       } else if (item.type === 'done') {
         results.value.push({ type: 'done' })
@@ -227,114 +237,77 @@ async function invoke() {
   border: 1px solid #21262d;
   border-radius: 8px;
   padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
+/* Header */
 .method-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 4px;
   gap: 12px;
 }
-
 .method-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
 .method-name { color: #d2a8ff; font-size: 13px; }
-
 .method-tags { display: flex; gap: 5px; }
 .tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .tag.stream { background: #1a2840; color: #58a6ff; }
 .tag.bidir  { background: #271a3a; color: #bc8cff; }
-
 .method-desc { color: #8b949e; margin: 0; line-height: 1.5; font-size: 12px; flex: 1; }
 
-/* Compact schema hints */
-.schema-hints { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
-
-.hint-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.schema-label {
+/* Section label */
+.section-label {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #484f58;
-  flex-shrink: 0;
-  min-width: 44px;
 }
 
-/* Invoke section */
-.invoke-toggle {
-  margin-top: 10px;
+/* Params */
+.params-section {
   display: flex;
-  align-items: center;
-  background: none;
-  border: none;
-  font-family: inherit;
-  width: 100%;
-  text-align: left;
-  outline-offset: 2px;
+  flex-direction: column;
   gap: 6px;
-  cursor: pointer;
-  user-select: none;
-  padding: 4px 0;
-}
-.invoke-toggle:hover .invoke-toggle-label { color: #c9d1d9; }
-.invoke-toggle-icon { color: #484f58; font-size: 10px; width: 10px; }
-.invoke-toggle-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #484f58; }
-.full-path { color: #79c0ff; font-size: 10px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
-
-.invoke-body { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
-
-.invoke-toolbar { display: flex; gap: 6px; align-items: center; }
-
-.toggle-btn {
-  background: none;
-  border: 1px solid #30363d;
-  color: #8b949e;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-}
-.toggle-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-.toggle-btn.active { border-color: #58a6ff; color: #58a6ff; background: #1a2840; }
-
-.clear-btn {
-  background: none; border: 1px solid #30363d; color: #8b949e;
-  font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-family: inherit;
-}
-.clear-btn:hover { border-color: #484f58; }
-
-.param-form {
-  background: #0d1117;
   border: 1px solid #21262d;
   border-radius: 6px;
-  padding: 10px 12px;
+  padding: 8px 10px;
+  background: #0d1117;
 }
+
+.params-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.no-params {
+  font-size: 11px;
+  color: #30363d;
+  font-style: italic;
+}
+
+.param-form { display: flex; flex-direction: column; gap: 4px; }
 
 .params-editor {
   width: 100%;
   background: #0d1117;
   border: 1px solid #30363d;
-  border-radius: 6px;
+  border-radius: 4px;
   color: #c9d1d9;
   font-family: inherit;
   font-size: 12px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   resize: vertical;
   box-sizing: border-box;
   outline: none;
   line-height: 1.5;
 }
 .params-editor:focus { border-color: #58a6ff; }
-
 .parse-error { color: #f85149; font-size: 11px; }
 
+/* Call row */
 .call-row {
   display: flex;
   gap: 6px;
@@ -342,13 +315,24 @@ async function invoke() {
 }
 
 .call-btn {
-  background: #1a2840; border: 1px solid #1f3a5f; color: #58a6ff;
-  font-size: 11px; font-weight: 600; padding: 5px 0; border-radius: 4px;
-  cursor: pointer; font-family: inherit; flex: 1;
+  background: #1a2840;
+  border: 1px solid #1f3a5f;
+  color: #58a6ff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  flex: 1;
+  text-align: left;
 }
 .call-btn:hover:not(:disabled) { background: #1f3a5f; }
 .call-btn:disabled { opacity: 0.6; cursor: default; }
 .call-btn.running { color: #8b949e; }
+.call-path { display: flex; align-items: center; gap: 6px; }
+.call-path code { color: #79c0ff; font-weight: 400; font-size: 11px; }
+.call-btn.running .call-path code { color: #484f58; }
 
 .cancel-btn {
   background: #2d1117; border: 1px solid #3d2121; color: #f85149;
@@ -357,12 +341,48 @@ async function invoke() {
 }
 .cancel-btn:hover { background: #3d1a1a; }
 
-.results-panel {
+/* Returns */
+.returns-section {
   border: 1px solid #21262d;
   border-radius: 6px;
   overflow: hidden;
+}
+
+.returns-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #0d1117;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.returns-toggle:hover { background: #111823; }
+
+.returns-count {
+  font-size: 10px;
+  background: #21262d;
+  color: #8b949e;
+  border-radius: 8px;
+  padding: 0 5px;
+  line-height: 1.6;
+}
+
+.returns-icon { font-size: 10px; color: #484f58; margin-left: auto; }
+
+.returns-body {
+  border-top: 1px solid #21262d;
   max-height: 360px;
   overflow-y: auto;
+}
+
+.returns-empty {
+  padding: 10px 12px;
+  font-size: 11px;
+  color: #30363d;
 }
 
 .result-item {
@@ -372,10 +392,16 @@ async function invoke() {
 }
 .result-item:last-child { border-bottom: none; }
 
-.result-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.result-actions { display: flex; gap: 4px; }
 
 .result-type { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
-
 .result-item.data     { background: #0d1117; }
 .result-item.data     .result-type { color: #3fb950; }
 .result-item.progress { background: #0f1420; }
@@ -389,4 +415,19 @@ async function invoke() {
 .result-message { color: #c9d1d9; }
 .result-pct { color: #58a6ff; }
 .result-code { color: #f85149; }
+
+/* Shared small buttons */
+.toggle-btn {
+  background: none; border: 1px solid #30363d; color: #8b949e;
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  cursor: pointer; font-family: inherit;
+}
+.toggle-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.toggle-btn.active { border-color: #58a6ff; color: #58a6ff; background: #1a2840; }
+
+.clear-btn {
+  background: none; border: 1px solid #30363d; color: #484f58;
+  font-size: 10px; padding: 1px 6px; border-radius: 4px; cursor: pointer; font-family: inherit;
+}
+.clear-btn:hover { border-color: #484f58; color: #8b949e; }
 </style>
