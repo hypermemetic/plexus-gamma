@@ -356,6 +356,19 @@
               @input="setEdgeRouteConfig(routingPicker.edgeId, 'initial', ($event.target as HTMLInputElement).value)"
             />
           </template>
+          <template v-if="routingPickerTypeVariants.length">
+            <div class="routing-section-title">filter types</div>
+            <div class="routing-type-filters">
+              <label v-for="t in routingPickerTypeVariants" :key="t" class="routing-type-label">
+                <input
+                  type="checkbox"
+                  :checked="getEdge(routingPicker!.edgeId)!.routeConfig.typeFilter.includes(t)"
+                  @change="toggleTypeFilter(routingPicker!.edgeId, t)"
+                />
+                {{ t }}
+              </label>
+            </div>
+          </template>
           <button class="routing-del-btn" @click="removeEdge(routingPicker.edgeId)">delete edge</button>
         </div>
 
@@ -409,7 +422,7 @@ import { useCanvasPanZoom } from './useCanvasPanZoom'
 import type { PanelMode } from '../../components/FloatPanel.vue'
 import { useNodeLayout } from './useNodeLayout'
 import { useWiringPersist } from './useWiringPersist'
-import type { WireNode, WireEdge, NodeKind, RouteMode, RouteConfig } from './wiringTypes'
+import type { WireNode, WireEdge, NodeKind, RouteMode } from './wiringTypes'
 
 const { focus } = useContainedFocus()
 
@@ -929,7 +942,7 @@ function onInputPortClick(toNodeId: string, toParam: string) {
   edges.value.push({
     id: makeEdgeId(), fromNodeId, toNodeId, toParam,
     routing: 'auto',
-    routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '' },
+    routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [] },
   })
   pendingEdge.value = null
 }
@@ -982,10 +995,40 @@ function setEdgeRouting(edgeId: string, mode: RouteMode): void {
   if (edge) edge.routing = mode
 }
 
-function setEdgeRouteConfig(edgeId: string, key: keyof RouteConfig, value: string): void {
+function setEdgeRouteConfig(edgeId: string, key: 'separator' | 'predicate' | 'reducer' | 'initial', value: string): void {
   const edge = getEdge(edgeId)
   if (edge) edge.routeConfig[key] = value
 }
+
+function toggleTypeFilter(edgeId: string, type: string): void {
+  const edge = getEdge(edgeId)
+  if (!edge) return
+  const cur = edge.routeConfig.typeFilter
+  edge.routeConfig.typeFilter = cur.includes(type) ? cur.filter(t => t !== type) : [...cur, type]
+}
+
+function extractTypeVariants(schema: unknown): string[] {
+  if (!schema || typeof schema !== 'object') return []
+  const s = schema as Record<string, unknown>
+  const branches = (s.anyOf ?? s.oneOf) as unknown[] | undefined
+  if (!Array.isArray(branches)) return []
+  return branches.flatMap(b => {
+    if (typeof b !== 'object' || b === null) return []
+    const props = (b as Record<string, unknown>).properties as Record<string, unknown> | undefined
+    const tf = props?.type as Record<string, unknown> | undefined
+    if (typeof tf?.const === 'string') return [tf.const]
+    if (Array.isArray(tf?.enum)) return (tf.enum as unknown[]).filter((e): e is string => typeof e === 'string')
+    return []
+  })
+}
+
+const routingPickerTypeVariants = computed<string[]>(() => {
+  if (!routingPicker.value) return []
+  const edge = getEdge(routingPicker.value.edgeId)
+  if (!edge) return []
+  const fromNode = nodes.value.find(n => n.id === edge.fromNodeId)
+  return extractTypeVariants(fromNode?.method?.method.returns)
+})
 
 function edgeMidpoint(edge: WireEdge): { x: number; y: number } | null {
   const from = outputPortPos(edge.fromNodeId)
@@ -1148,6 +1191,16 @@ function onImportFile(e: Event) {
   reader.readAsText(file)
 }
 
+// ─── Type filter ──────────────────────────────────────────────
+function filterByType(items: unknown[], typeFilter: string[]): unknown[] {
+  if (typeFilter.length === 0) return items
+  return items.filter(item => {
+    if (typeof item !== 'object' || item === null) return true
+    const t = (item as Record<string, unknown>).type
+    return typeof t === 'string' && typeFilter.includes(t)
+  })
+}
+
 // ─── Template interpolation ───────────────────────────────────
 function getPath(obj: unknown, path: string): unknown {
   // normalise bracket notation: [0] or ['key'] → .0 / .key
@@ -1277,7 +1330,8 @@ async function executeNodeWithRouting(
 
   const scalarInputs = new Map<string, unknown>()
   for (const edge of otherEdges) {
-    scalarInputs.set(edge.toParam, applyRouting(nodeEmissions.get(edge.fromNodeId) ?? [], edge))
+    const items = filterByType(nodeEmissions.get(edge.fromNodeId) ?? [], edge.routeConfig.typeFilter)
+    scalarInputs.set(edge.toParam, applyRouting(items, edge))
   }
 
   let allEmissions: unknown[]
@@ -1287,9 +1341,7 @@ async function executeNodeWithRouting(
     const eachStreams = eachEdges.map(edge => ({
       param: edge.toParam,
       fromNodeId: edge.fromNodeId,
-      items: (nodeEmissions.get(edge.fromNodeId) ?? []).filter(
-        item => !(typeof item === 'object' && item !== null && (item as Record<string, unknown>).type === 'exit')
-      ),
+      items: filterByType(nodeEmissions.get(edge.fromNodeId) ?? [], edge.routeConfig.typeFilter),
     }))
     const minLen = Math.min(...eachStreams.map(s => s.items.length))
     allEmissions = []
@@ -2018,6 +2070,18 @@ function resultPreview(result: unknown): string {
 }
 .routing-config-input:focus { border-color: #58a6ff; }
 .routing-config-input::placeholder { color: #484f58; }
+
+.routing-section-title {
+  font-size: 9px;
+  color: #484f58;
+  letter-spacing: 0.05em;
+  padding: 4px 8px 2px;
+  border-top: 1px solid #21262d;
+  margin-top: 2px;
+}
+.routing-type-filters { padding: 2px 8px 6px; display: flex; flex-direction: column; gap: 3px; }
+.routing-type-label { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #8b949e; cursor: pointer; }
+.routing-type-label input[type="checkbox"] { accent-color: #58a6ff; cursor: pointer; }
 
 .routing-del-btn {
   display: block;

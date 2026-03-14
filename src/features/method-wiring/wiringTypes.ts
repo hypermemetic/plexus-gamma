@@ -8,6 +8,7 @@ export interface RouteConfig {
   predicate: string
   reducer: string
   initial: string
+  typeFilter: string[]
 }
 
 export interface WireNode {
