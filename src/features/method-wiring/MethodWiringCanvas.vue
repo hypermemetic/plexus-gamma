@@ -1707,7 +1707,7 @@ function resultPreview(result: unknown): string {
 .canvas-wrap {
   flex: 1;
   position: relative;
-  overflow: hidden;
+  overflow: clip;  /* prevents programmatic scroll from focus events */
   background-color: #080a0e;
   background-image: radial-gradient(circle, #1e2530 1px, transparent 1px);
   background-size: 20px 20px;

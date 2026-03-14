@@ -253,7 +253,7 @@ onUnmounted(() => {
 function focusFirstField() {
   nextTick(() => {
     const el = panelEl.value?.querySelector<HTMLElement>('input:not([disabled]), textarea:not([disabled])')
-    el?.focus()
+    el?.focus({ preventScroll: true })
   })
 }
 
@@ -266,7 +266,7 @@ function focusNext(e: KeyboardEvent) {
   const next = fields[idx + 1]
   if (next) {
     e.preventDefault()
-    next.focus()
+    next.focus({ preventScroll: true })
   }
 }
 
