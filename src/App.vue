@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, provide, onMounted } from 'vue'
+import { ref, provide, onMounted, watch } from 'vue'
 import MultiBackendCanvas from './components/MultiBackendCanvas.vue'
 import MultiBackendExplorer from './components/MultiBackendExplorer.vue'
 import TreeSheetView from './components/TreeSheetView.vue'
@@ -123,7 +123,11 @@ const connections = ref<BackendConnection[]>([
 ])
 
 const activeConn = ref<BackendConnection | null>(connections.value[0] ?? null)
-const view       = ref<'multi-explorer' | 'canvas' | 'sheet' | 'wiring' | 'orchestration'>('multi-explorer')
+type ViewName = 'multi-explorer' | 'canvas' | 'sheet' | 'wiring' | 'orchestration'
+const VALID_VIEWS: ViewName[] = ['multi-explorer', 'canvas', 'sheet', 'wiring', 'orchestration']
+const savedView = localStorage.getItem('plexus-active-view') as ViewName | null
+const view = ref<ViewName>(VALID_VIEWS.includes(savedView!) ? savedView! : 'multi-explorer')
+watch(view, v => localStorage.setItem('plexus-active-view', v))
 const healthOpen = ref(false)
 const showAdd    = ref(false)
 const newName    = ref('')
