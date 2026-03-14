@@ -739,7 +739,6 @@ function startDrag(e: MouseEvent, nodeId: string) {
 // ─── Canvas mouse handlers ────────────────────────────────────
 function onCanvasMouseDown(e: MouseEvent) {
   beginPan(e)
-  e.preventDefault()
 }
 
 function onCanvasTouchStart(e: TouchEvent) {
