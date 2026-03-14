@@ -1178,6 +1178,9 @@ async function executeNodeOnce(
   const paramSchema = resolvedParamSchema(node)
   const resolvedParams: Record<string, unknown> = { ...node.params }
   for (const [k, v] of inputs) {
+    // Only flow wired value in if param is not already configured by the user
+    const configured = node.params[k]
+    if (configured !== undefined && configured !== null && configured !== '') continue
     const expectedType = (paramSchema?.properties as Record<string, { type?: string }>)?.[k]?.type
     if (typeof v === 'object' && v !== null && expectedType === 'string') {
       const obj = v as Record<string, unknown>
@@ -1734,6 +1737,8 @@ function resultPreview(result: unknown): string {
   overflow: hidden;
   max-height: 60px;
   overflow-y: auto;
+  user-select: text;
+  cursor: text;
 }
 .node-result-error .result-value { color: #f85149; }
 
