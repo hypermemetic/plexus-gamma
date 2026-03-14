@@ -761,10 +761,7 @@ function onCanvasWheel(e: WheelEvent) {
 }
 
 function onMouseMove(e: MouseEvent) {
-  if (isPanning.value) {
-    onPanMove(e)
-    return
-  }
+  if (onPanMove(e)) return
   if (resizeState) {
     const node = nodes.value.find(n => n.id === resizeState!.nodeId)
     if (node) {

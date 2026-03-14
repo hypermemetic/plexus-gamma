@@ -11,7 +11,7 @@ export function useCanvasPanZoom(): {
   onWheel(e: WheelEvent, rect: DOMRect): void
   onPanStart(e: MouseEvent): boolean
   beginPan(e: MouseEvent): void
-  onPanMove(e: MouseEvent): void
+  onPanMove(e: MouseEvent): boolean
   onPanEnd(): void
   onKeyDown(e: KeyboardEvent): void
   onKeyUp(e: KeyboardEvent): void
@@ -75,7 +75,7 @@ export function useCanvasPanZoom(): {
     pendingPan = { mouseX: e.clientX, mouseY: e.clientY, panX: pan.value.x, panY: pan.value.y }
   }
 
-  function onPanMove(e: MouseEvent): void {
+  function onPanMove(e: MouseEvent): boolean {
     if (pendingPan && !panState) {
       const dx = e.clientX - pendingPan.mouseX
       const dy = e.clientY - pendingPan.mouseY
@@ -85,11 +85,12 @@ export function useCanvasPanZoom(): {
         isPanning.value = true
       }
     }
-    if (!panState) return
+    if (!panState) return false
     pan.value = {
       x: panState.panX + (e.clientX - panState.mouseX),
       y: panState.panY + (e.clientY - panState.mouseY),
     }
+    return true
   }
 
   function onPanEnd(): void {
