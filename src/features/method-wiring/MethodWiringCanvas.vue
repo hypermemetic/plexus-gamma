@@ -13,7 +13,7 @@
     </div>
 
     <div class="body-split">
-      <!-- Left sidebar: tree browser -->
+      <!-- Left sidebar: tree browser + transforms -->
       <aside class="sidebar">
         <input
           ref="sidebarInput"
@@ -86,6 +86,17 @@
               <div v-if="selectedNodeMethods.length === 0" class="sidebar-empty">No methods</div>
             </div>
           </template>
+
+          <!-- Transform nodes section -->
+          <div class="transforms-section">
+            <div class="transforms-header">Transforms</div>
+            <div class="transforms-row">
+              <button class="transform-btn" @click="addTransformNode('extract')">Extract</button>
+              <button class="transform-btn" @click="addTransformNode('template')">Template</button>
+              <button class="transform-btn" @click="addTransformNode('merge')">Merge</button>
+              <button class="transform-btn" @click="addTransformNode('script')">Script</button>
+            </div>
+          </div>
         </template>
       </aside>
 
@@ -132,7 +143,11 @@
             'status-done': node.status === 'done',
             'status-error': node.status === 'error',
           }"
-          :style="{ left: `${node.pos.x}px`, top: `${node.pos.y}px` }"
+          :style="{
+            left: `${node.pos.x}px`,
+            top: `${node.pos.y}px`,
+            background: nodeBackground(node.kind),
+          }"
           @mousedown.stop="startDrag($event, node.id)"
           @click.stop
           @contextmenu.prevent.stop="showContextMenu($event, node.id)"
@@ -140,8 +155,8 @@
           <!-- Status dot -->
           <span class="status-dot" :class="`status-dot-${node.status}`"></span>
 
-          <!-- Method name -->
-          <div class="node-title">{{ node.method.fullPath }}</div>
+          <!-- Node title -->
+          <div class="node-title">{{ nodeTitle(node) }}</div>
 
           <!-- Input ports (params) on the left -->
           <div class="node-ports-left">
@@ -174,30 +189,87 @@
             ></div>
           </div>
 
-          <!-- Return type when selected -->
-          <div v-if="selectedNodeId === node.id && node.method.method.returns" class="returns-section" @mousedown.stop @click.stop>
+          <!-- Returns schema (RPC only, when selected) -->
+          <div v-if="selectedNodeId === node.id && node.kind === 'rpc' && node.method?.method.returns" class="returns-section" @mousedown.stop @click.stop>
             <div class="returns-title">returns</div>
             <pre class="returns-schema">{{ formatSchema(node.method.method.returns) }}</pre>
           </div>
 
-          <!-- Inline param form when selected -->
-          <div v-if="selectedNodeId === node.id && getParamNames(node).length > 0" class="param-form" @mousedown.stop @click.stop>
-            <div class="param-form-title">Params</div>
-            <div
-              v-for="param in getParamNames(node)"
-              :key="param"
-              class="param-row"
-            >
-              <label class="param-label">{{ param }}</label>
-              <input
-                class="param-input"
-                :placeholder="isParamConnected(node.id, param) ? '(wired)' : 'value'"
-                :disabled="isParamConnected(node.id, param)"
-                :value="nodeParamValue(node, param)"
-                @input="setParam(node.id, param, ($event.target as HTMLInputElement).value)"
-              />
-            </div>
-          </div>
+          <!-- Inline param/config when selected -->
+          <template v-if="selectedNodeId === node.id">
+            <!-- RPC: SchemaField if schema available, else plain inputs -->
+            <template v-if="node.kind === 'rpc'">
+              <div v-if="getParamNames(node).length > 0" class="param-form" @mousedown.stop @click.stop>
+                <div class="param-form-title">
+                  Params
+                  <span v-if="availableRefIds(node.id).length" class="param-hint">
+                    ref: {{ availableRefIds(node.id).map(id => `{${id}}`).join(' ') }}
+                  </span>
+                </div>
+                <SchemaField
+                  v-if="resolvedParamSchema(node)"
+                  name="params"
+                  :schema="resolvedParamSchema(node)!"
+                  :model-value="node.params"
+                  @update:model-value="node.params = $event as Record<string, unknown>"
+                  class="param-schema-field"
+                  @mousedown.stop
+                  @click.stop
+                />
+                <template v-else>
+                  <div v-for="param in getParamNames(node)" :key="param" class="param-row">
+                    <label class="param-label">{{ param }}</label>
+                    <input
+                      class="param-input"
+                      :placeholder="isParamConnected(node.id, param) ? '(wired)' : 'value'"
+                      :disabled="isParamConnected(node.id, param)"
+                      :value="nodeParamValue(node, param)"
+                      @input="setParam(node.id, param, ($event.target as HTMLInputElement).value)"
+                    />
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- Transform config -->
+            <template v-else>
+              <div class="param-form" @mousedown.stop @click.stop>
+                <!-- Extract -->
+                <template v-if="node.kind === 'extract'">
+                  <div class="param-form-title">dot-path</div>
+                  <input v-model="node.transform.path" class="param-input" placeholder="e.g. result.text" />
+                </template>
+
+                <!-- Template -->
+                <template v-else-if="node.kind === 'template'">
+                  <div class="param-form-title">template <span class="param-hint">use &#123;&#123;name&#125;&#125;</span></div>
+                  <textarea v-model="node.transform.template" class="transform-textarea" placeholder="Hello {{input}}" rows="2" />
+                  <div class="param-form-title" style="margin-top:6px">ports</div>
+                  <div v-for="(_, pi) in node.transform.inputNames" :key="pi" class="param-row">
+                    <input v-model="node.transform.inputNames[pi]" class="param-input param-port-name" placeholder="port name" />
+                    <button class="port-del-btn" @click.stop="node.transform.inputNames.splice(pi, 1)" title="Remove">✕</button>
+                  </div>
+                  <button class="add-port-btn" @click.stop="node.transform.inputNames.push('port' + node.transform.inputNames.length)">+ port</button>
+                </template>
+
+                <!-- Merge -->
+                <template v-else-if="node.kind === 'merge'">
+                  <div class="param-form-title">ports</div>
+                  <div v-for="(_, pi) in node.transform.inputNames" :key="pi" class="param-row">
+                    <input v-model="node.transform.inputNames[pi]" class="param-input param-port-name" placeholder="field name" />
+                    <button class="port-del-btn" @click.stop="node.transform.inputNames.splice(pi, 1)" title="Remove">✕</button>
+                  </div>
+                  <button class="add-port-btn" @click.stop="node.transform.inputNames.push('field' + node.transform.inputNames.length)">+ port</button>
+                </template>
+
+                <!-- Script -->
+                <template v-else-if="node.kind === 'script'">
+                  <div class="param-form-title">code <span class="param-hint">fn(input)</span></div>
+                  <textarea v-model="node.transform.code" class="transform-textarea" placeholder="x => x.result" rows="3" />
+                </template>
+              </div>
+            </template>
+          </template>
 
           <!-- Result preview when done -->
           <div v-if="node.status === 'done' && node.result !== undefined" class="node-result" @mousedown.stop @click.stop>
@@ -239,6 +311,8 @@ import { getCachedTree } from '../../lib/plexus/schemaCache'
 import { flattenTree } from '../../schema-walker'
 import type { PluginNode, MethodSchema } from '../../plexus-schema'
 import PluginTreeNode from '../../components/PluginTreeNode.vue'
+import SchemaField from '../../components/SchemaField.vue'
+import type { JsonSchema } from '../../components/SchemaField.vue'
 
 // ─── Props ────────────────────────────────────────────────────
 const props = defineProps<{
@@ -348,9 +422,18 @@ function getClient(backend: string) {
 }
 
 // ─── Data model ───────────────────────────────────────────────
+type NodeKind = 'rpc' | 'extract' | 'template' | 'merge' | 'script'
+
 interface WireNode {
   id: string
-  method: MethodEntry
+  kind: NodeKind
+  method?: MethodEntry  // 'rpc' only
+  transform: {
+    path: string        // 'extract': dot-path
+    template: string    // 'template': "Hello {{name}}"
+    code: string        // 'script': "x => x.result"
+    inputNames: string[] // 'template'/'merge': named input ports
+  }
   pos: { x: number; y: number }
   params: Record<string, unknown>
   status: 'idle' | 'running' | 'done' | 'error'
@@ -414,7 +497,9 @@ function addNode(entry: MethodEntry) {
   const baseY = snap(60 + Math.floor(nodes.value.length / 4) * 180)
   const node: WireNode = {
     id: makeNodeId(),
+    kind: 'rpc',
     method: entry,
+    transform: { path: '', template: '', code: '', inputNames: [] },
     pos: { x: baseX, y: baseY },
     params: {},
     status: 'idle',
@@ -422,6 +507,49 @@ function addNode(entry: MethodEntry) {
   }
   nodes.value.push(node)
   selectedNodeId.value = node.id
+}
+
+function addTransformNode(kind: Exclude<NodeKind, 'rpc'>) {
+  const baseX = snap(60 + (nodes.value.length % 4) * 240)
+  const baseY = snap(60 + Math.floor(nodes.value.length / 4) * 180)
+  const node: WireNode = {
+    id: makeNodeId(),
+    kind,
+    method: undefined,
+    transform: {
+      path: '',
+      template: '',
+      code: '',
+      inputNames: kind === 'template' || kind === 'merge' ? ['input'] : [],
+    },
+    pos: { x: baseX, y: baseY },
+    params: {},
+    status: 'idle',
+    result: undefined,
+  }
+  nodes.value.push(node)
+  selectedNodeId.value = node.id
+}
+
+// ─── Node appearance helpers ──────────────────────────────────
+function nodeBackground(kind: NodeKind): string {
+  switch (kind) {
+    case 'extract':  return '#3a2a0a'
+    case 'template': return '#1a2a10'
+    case 'merge':    return '#0a2a2a'
+    case 'script':   return '#2a0a3a'
+    default:         return '#111114'
+  }
+}
+
+function nodeTitle(node: WireNode): string {
+  switch (node.kind) {
+    case 'rpc':      return node.method?.fullPath ?? ''
+    case 'extract':  return 'Extract'
+    case 'template': return 'Template'
+    case 'merge':    return 'Merge'
+    case 'script':   return 'Script'
+  }
 }
 
 // ─── Dragging ─────────────────────────────────────────────────
@@ -588,7 +716,10 @@ function removeEdge(edgeId: string) {
 
 // ─── Params ───────────────────────────────────────────────────
 function getParamNames(node: WireNode): string[] {
-  const params = node.method.method.params
+  if (node.kind === 'extract' || node.kind === 'script') return ['input']
+  if (node.kind === 'template' || node.kind === 'merge') return [...node.transform.inputNames]
+  // rpc
+  const params = node.method?.method.params
   if (!params || typeof params !== 'object') return []
   const p = params as Record<string, unknown>
   if (p['type'] === 'object' && p['properties'] && typeof p['properties'] === 'object') {
@@ -611,6 +742,71 @@ function setParam(nodeId: string, param: string, value: string) {
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return
   node.params[param] = value
+}
+
+function availableRefIds(nodeId: string): string[] {
+  return nodes.value.filter(n => n.id !== nodeId).map(n => n.id)
+}
+
+// ─── SchemaField + resolveRefs for RPC nodes ─────────────────
+function toCamelCase(s: string): string {
+  return s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+
+function resolveRefs(schema: JsonSchema & { $ref?: string }, defs: Record<string, JsonSchema>): JsonSchema {
+  if (schema.$ref) {
+    const name = schema.$ref.replace(/^#\/\$defs\//, '')
+    const resolved = defs[name]
+    return resolved ? resolveRefs(resolved, defs) : schema
+  }
+  const s = { ...schema }
+  if (s.properties)
+    s.properties = Object.fromEntries(
+      Object.entries(s.properties).map(([k, v]) => [k, resolveRefs(v as JsonSchema & { $ref?: string }, defs)])
+    )
+  if (s.required) s.required = s.required.map(toCamelCase)
+  if (s.items) s.items = resolveRefs(s.items as JsonSchema & { $ref?: string }, defs)
+  if (s.anyOf) s.anyOf = s.anyOf.map(x => resolveRefs(x as JsonSchema & { $ref?: string }, defs))
+  if (s.oneOf) s.oneOf = s.oneOf.map(x => resolveRefs(x as JsonSchema & { $ref?: string }, defs))
+  return s
+}
+
+function resolvedParamSchema(node: WireNode): JsonSchema | null {
+  if (node.kind !== 'rpc' || !node.method) return null
+  const p = node.method.method.params
+  if (!p || typeof p !== 'object') return null
+  const raw = p as JsonSchema & { $defs?: Record<string, JsonSchema> }
+  const defs = raw.$defs ?? {}
+  const resolved = resolveRefs(raw, defs)
+  if (resolved.type !== 'object' || !resolved.properties) return null
+  return resolved
+}
+
+// ─── Template interpolation ───────────────────────────────────
+function getPath(obj: unknown, path: string): unknown {
+  return path.split('.').reduce((a, k) => (a as Record<string, unknown>)?.[k], obj)
+}
+
+function resolveTemplateRefs(value: string, results: Map<string, unknown>): unknown {
+  const m = value.match(/^\{(\w+)(?:\.(.+))?\}$/)
+  if (m) return m[2] ? getPath(results.get(m[1] as string), m[2] as string) : results.get(m[1] as string)
+  return value.replace(/\{(\w+)(?:\.([^}]+))?\}/g, (_, id: string, path: string) =>
+    String(path ? getPath(results.get(id), path) : (results.get(id) ?? '')))
+}
+
+// ─── Transform node execution ─────────────────────────────────
+function executeTransform(node: WireNode, inputs: Map<string, unknown>): unknown {
+  switch (node.kind) {
+    case 'extract':  return getPath(inputs.get('input'), node.transform.path)
+    case 'template': return node.transform.template.replace(/\{\{(\w+)\}\}/g,
+                       (_, k: string) => String(inputs.get(k) ?? ''))
+    case 'merge':    return Object.assign({}, ...node.transform.inputNames
+                       .map(n => (inputs.get(n) ?? {}) as object))
+    case 'script':   return new Function('input',
+                       `"use strict"; return (${node.transform.code || 'x => x'})(input)`
+                     )(inputs.get('input'))
+    default: return undefined
+  }
 }
 
 // ─── Topological sort ─────────────────────────────────────────
@@ -656,32 +852,48 @@ async function runPipeline() {
     for (const node of sorted) {
       node.status = 'running'
       try {
-        const client = getClient(node.method.backend)
-        const resolvedParams: Record<string, unknown> = { ...node.params }
+        // Build inputs map from wired edges
+        const inputs = new Map<string, unknown>()
         for (const edge of edges.value.filter(e => e.toNodeId === node.id)) {
-          const upstreamResult = nodeResults.get(edge.fromNodeId)
-          if (upstreamResult !== undefined) {
-            resolvedParams[edge.toParam] = upstreamResult
-          }
-        }
-
-        const finalParams: Record<string, unknown> = {}
-        for (const [k, v] of Object.entries(resolvedParams)) {
-          if (typeof v === 'string') {
-            try { finalParams[k] = JSON.parse(v) } catch { finalParams[k] = v }
-          } else {
-            finalParams[k] = v
-          }
+          inputs.set(edge.toParam, nodeResults.get(edge.fromNodeId))
         }
 
         let firstDataResult: unknown = undefined
-        for await (const item of client.call(node.method.fullPath, finalParams)) {
-          if (item.type === 'data') {
-            if (firstDataResult === undefined) firstDataResult = item.content
-          } else if (item.type === 'error') {
-            throw new Error(item.message)
+
+        if (node.kind !== 'rpc') {
+          firstDataResult = executeTransform(node, inputs)
+        } else {
+          const client = getClient(node.method!.backend)
+          const resolvedParams: Record<string, unknown> = { ...node.params }
+          // Apply wired edges (overwrite params)
+          for (const [k, v] of inputs) {
+            resolvedParams[k] = v
+          }
+          // Template ref resolution in string params
+          for (const [k, v] of Object.entries(resolvedParams)) {
+            if (typeof v === 'string') {
+              resolvedParams[k] = resolveTemplateRefs(v, nodeResults)
+            }
+          }
+          // JSON parse strings
+          const finalParams: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(resolvedParams)) {
+            if (typeof v === 'string') {
+              try { finalParams[k] = JSON.parse(v) } catch { finalParams[k] = v }
+            } else {
+              finalParams[k] = v
+            }
+          }
+
+          for await (const item of client.call(node.method!.fullPath, finalParams)) {
+            if (item.type === 'data') {
+              if (firstDataResult === undefined) firstDataResult = item.content
+            } else if (item.type === 'error') {
+              throw new Error(item.message)
+            }
           }
         }
+
         nodeResults.set(node.id, firstDataResult)
         node.result = firstDataResult
         node.status = 'done'
@@ -708,10 +920,12 @@ function exportJson() {
   const pipeline = {
     nodes: nodes.value.map(n => ({
       id: n.id,
-      method: n.method.fullPath,
-      backend: n.method.backend,
+      kind: n.kind,
+      method: n.method?.fullPath,
+      backend: n.method?.backend,
       pos: n.pos,
       params: n.params,
+      transform: n.transform,
     })),
     edges: edges.value.map(e => ({
       id: e.id,
@@ -933,6 +1147,39 @@ function resultPreview(result: unknown): string {
 
 .sidebar-empty { padding: 12px 10px; color: #484f58; font-size: 11px; }
 
+/* ── Transforms section ──────────────────────────────────────── */
+.transforms-section {
+  border-top: 1px solid #21262d;
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+.transforms-header {
+  font-size: 10px;
+  color: #484f58;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.transforms-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.transform-btn {
+  background: #111114;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.transform-btn:hover { border-color: #58a6ff; color: #58a6ff; background: #0d1a2a; }
+
 /* ── Canvas ──────────────────────────────────────────────────── */
 .canvas-wrap {
   flex: 1;
@@ -1048,7 +1295,17 @@ function resultPreview(result: unknown): string {
   cursor: default;
 }
 
-.param-form-title { font-size: 10px; color: #484f58; margin-bottom: 4px; letter-spacing: 0.05em; }
+.param-form-title {
+  font-size: 10px;
+  color: #484f58;
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.param-hint { font-size: 9px; color: #3a5a3a; font-style: italic; }
 
 .param-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .param-label { font-size: 10px; color: #8b949e; min-width: 50px; flex-shrink: 0; }
@@ -1066,6 +1323,51 @@ function resultPreview(result: unknown): string {
 }
 .param-input:focus { border-color: #58a6ff; }
 .param-input:disabled { color: #484f58; background: #0a0c10; }
+.param-port-name { min-width: 80px; max-width: 120px; flex: 1; }
+
+.port-del-btn {
+  background: none;
+  border: none;
+  color: #484f58;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 3px;
+  flex-shrink: 0;
+}
+.port-del-btn:hover { color: #f85149; }
+
+.add-port-btn {
+  background: none;
+  border: 1px solid #30363d;
+  color: #484f58;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-top: 3px;
+}
+.add-port-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+
+.transform-textarea {
+  width: 100%;
+  background: #0a0c10;
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  color: #c9d1d9;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 5px;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+  line-height: 1.4;
+}
+.transform-textarea:focus { border-color: #58a6ff; }
+
+.param-schema-field {
+  margin-top: 2px;
+}
 
 /* ── Returns section ─────────────────────────────────────────── */
 .returns-section {

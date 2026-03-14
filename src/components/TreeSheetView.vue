@@ -1,5 +1,12 @@
 <template>
   <div class="sheet-view">
+    <!-- Backend selector (shown when multiple connections) -->
+    <div v-if="connections.length > 1" class="sheet-conn-sel">
+      <select v-model="selectedConnName" class="conn-select">
+        <option v-for="c in connections" :key="c.name" :value="c.name">{{ c.name }}</option>
+      </select>
+    </div>
+
     <!-- Full-width tree -->
     <div class="tree-area">
       <div v-if="loading && !tree" class="loading-state">
@@ -10,7 +17,7 @@
         <PluginTreeNode
           :node="tree"
           :selected-path="sheetPath ?? ''"
-          :backend-name="connection.name"
+          :backend-name="activeConn?.name ?? ''"
           @select="onNodeSelect"
         />
       </nav>
@@ -28,17 +35,24 @@
 
         <!-- Method full-page (slides up over the plugin overview) -->
         <Transition name="method-slide">
-          <div v-if="selectedMethod" class="method-page" @keydown.ctrl.enter.prevent="() => {}">
+          <div v-if="selectedMethod && activeConn" class="method-page" @keydown.ctrl.enter.prevent="() => {}">
             <div class="method-page-header">
               <button class="back-btn" @click="selectedMethod = null">← back</button>
               <code class="method-page-title">{{ selectedMethodPath }}</code>
             </div>
             <div class="method-page-body">
-              <MethodInvoker
-                :method="selectedMethod"
-                :namespace="sheetNamespace"
-                :backend-name="connection.name"
-              />
+              <!-- BackendDetailProvider keyed by connection so RPC re-provides on switch -->
+              <BackendDetailProvider
+                :key="selectedConnName"
+                :rpc="activeRpc!"
+                :backend-name="selectedConnName"
+              >
+                <MethodInvoker
+                  :method="selectedMethod"
+                  :namespace="sheetNamespace"
+                  :backend-name="activeConn.name"
+                />
+              </BackendDetailProvider>
             </div>
           </div>
         </Transition>
@@ -47,7 +61,7 @@
         <div class="sheet-content" :class="{ hidden: !!selectedMethod }">
           <!-- Breadcrumb path -->
           <div class="sheet-breadcrumb" v-if="sheetSegments.length > 0">
-            <button class="crumb crumb-root" @click="sheetPath = ''">{{ connection.name }}</button>
+            <button class="crumb crumb-root" @click="sheetPath = ''">{{ activeConn?.name ?? '' }}</button>
             <template v-for="(seg, i) in sheetSegments" :key="i">
               <span class="crumb-sep">›</span>
               <button
@@ -106,16 +120,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, provide, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
 import { getCachedTree } from '../lib/plexus/schemaCache'
 import type { PluginNode, PluginSchema, MethodSchema } from '../plexus-schema'
 import PluginTreeNode from './PluginTreeNode.vue'
 import MethodInvoker from './MethodInvoker.vue'
+import BackendDetailProvider from './BackendDetailProvider.vue'
 
 const props = defineProps<{
-  connection: { name: string; url: string }
+  connections: { name: string; url: string }[]
 }>()
 
 const emit = defineEmits<{
@@ -123,10 +138,29 @@ const emit = defineEmits<{
   'registry-backends': [backends: { name: string; host: string; port: number; protocol: string }[]]
 }>()
 
-// ─── RPC client ───────────────────────────────────────────────
-const rpc = getSharedClient(props.connection.name, props.connection.url)
-provide('rpc', rpc)
-provide('backendName', props.connection.name)
+// ─── Active connection selection ──────────────────────────────
+const selectedConnName = ref(props.connections[0]?.name ?? '')
+const activeConn = computed(() => props.connections.find(c => c.name === selectedConnName.value) ?? props.connections[0])
+const activeRpc  = computed(() => {
+  const conn = activeConn.value
+  return conn ? getSharedClient(conn.name, conn.url) : null
+})
+
+// When connection changes, reset sheet state and refresh
+watch(activeConn, (conn) => {
+  if (!conn) return
+  sheetPath.value = null
+  selectedMethod.value = null
+  schema.value = null
+  refresh()
+})
+
+// When new connections are added, update if first connection
+watch(() => props.connections, (conns) => {
+  if (!conns.find(c => c.name === selectedConnName.value)) {
+    selectedConnName.value = conns[0]?.name ?? ''
+  }
+}, { deep: true })
 
 // ─── Tree state ───────────────────────────────────────────────
 const tree         = ref<PluginNode | null>(null)
@@ -134,12 +168,15 @@ const loading      = ref(false)
 const connectError = ref('')
 
 async function refresh() {
+  const conn = activeConn.value
+  const rpc  = activeRpc.value
+  if (!conn || !rpc) return
   loading.value = true
   connectError.value = ''
   try {
     await rpc.connect()
-    tree.value = await getCachedTree(rpc, props.connection.name)
-    emit('tree-ready', tree.value, props.connection.name)
+    tree.value = await getCachedTree(rpc, conn.name)
+    emit('tree-ready', tree.value, conn.name)
     if (tree.value.children.some(c => c.schema.namespace === 'registry')) {
       try {
         const result = await collectOne<{ backends: { name: string; host: string; port: number; protocol: string }[] }>(
@@ -167,7 +204,7 @@ const sheetSegments = computed(() =>
 
 const sheetLabel = computed(() => {
   const segs = sheetSegments.value
-  return segs.length === 0 ? props.connection.name : (segs[segs.length - 1] ?? props.connection.name)
+  return segs.length === 0 ? (activeConn.value?.name ?? '') : (segs[segs.length - 1] ?? '')
 })
 
 const sheetNamespace = computed(() => sheetPath.value ?? '')
@@ -200,13 +237,16 @@ function onKeydown(e: KeyboardEvent) {
 let fetchSeq = 0
 watch(sheetPath, async (path) => {
   if (path === null) { schema.value = null; return }
+  const rpc  = activeRpc.value
+  const conn = activeConn.value
+  if (!rpc || !conn) return
   const seq = ++fetchSeq
   schemaLoading.value = true
   schema.value = null
   try {
     const parts = path.split('.').filter(Boolean)
     const method = parts.length === 0
-      ? `${props.connection.name}.schema`
+      ? `${conn.name}.schema`
       : `${parts.join('.')}.schema`
     const s = await collectOne<PluginSchema>(rpc.call(method, {}))
     if (seq === fetchSeq) schema.value = s
@@ -267,6 +307,27 @@ onUnmounted(() => {
   overflow: hidden;
   background: #0d0d0f;
 }
+
+/* ── Backend selector ─────────────────────────────────────────── */
+.sheet-conn-sel {
+  padding: 6px 12px;
+  border-bottom: 1px solid #21262d;
+  flex-shrink: 0;
+}
+
+.conn-select {
+  background: #161b22;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+.conn-select:focus { border-color: #58a6ff; }
+.conn-select option { background: #161b22; }
 
 /* ── Tree area ────────────────────────────────────────────────── */
 .tree-area {

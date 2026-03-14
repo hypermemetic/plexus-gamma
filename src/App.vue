@@ -15,7 +15,9 @@
         :connections="connections"
         :active-backend="activeConn?.name"
         :scanning="scanning"
+        :open="healthOpen"
         @select="onHealthSelect"
+        @close="healthOpen = false"
       />
 
       <div class="conn-bar-right">
@@ -39,7 +41,6 @@
         <!-- View switcher -->
         <div class="view-tabs">
           <button class="view-tab" :class="{ active: view === 'multi-explorer' }" @click="view = 'multi-explorer'">all</button>
-          <button class="view-tab" :class="{ active: view === 'explorer' }"       @click="view = 'explorer'">explorer</button>
           <button class="view-tab" :class="{ active: view === 'canvas' }"         @click="view = 'canvas'">canvas</button>
           <button class="view-tab" :class="{ active: view === 'sheet' }"          @click="view = 'sheet'">sheet</button>
           <button class="view-tab" :class="{ active: view === 'wiring' }"         @click="view = 'wiring'">wiring</button>
@@ -56,57 +57,25 @@
           :connections="connections"
           @tree-ready="onTreeReady"
           @registry-backends="onRegistryBackends"
+          @open-health="healthOpen = true"
         />
       </template>
 
-      <!-- Explorer view -->
-      <template v-else-if="view === 'explorer'">
-        <BackendExplorer
-          v-if="activeConn"
-          :key="activeConn.name + activeConn.url"
-          :connection="activeConn"
-          :navigate-to="navigateTo"
-          @tree-ready="onTreeReady"
-          @registry-backends="onRegistryBackends"
-        />
-        <div v-else class="no-conn">
-          <p>No backend selected. Add one with <strong>+</strong>.</p>
-        </div>
-      </template>
-
-      <!-- Single-backend canvas view -->
+      <!-- Multi-backend canvas view -->
       <template v-else-if="view === 'canvas'">
-        <ForestCanvas
-          v-if="activeConn"
-          :key="activeConn.name + activeConn.url"
-          :connection="activeConn"
-          @select="onCanvasSelect"
-        />
-        <div v-else class="no-conn">
-          <p>No backend selected. Add one with <strong>+</strong>.</p>
-        </div>
-      </template>
-
-      <!-- Multi-backend canvas view (kept, not in tabs) -->
-      <template v-else-if="view === 'multi'">
         <MultiBackendCanvas
           :connections="connections"
-          @select="onMultiCanvasSelect"
+          @select="onCanvasSelect"
         />
       </template>
 
-      <!-- Tree + sheet view -->
+      <!-- Tree + sheet view (multi-backend) -->
       <template v-else-if="view === 'sheet'">
         <TreeSheetView
-          v-if="activeConn"
-          :key="activeConn.name + activeConn.url"
-          :connection="activeConn"
+          :connections="connections"
           @tree-ready="onTreeReady"
           @registry-backends="onRegistryBackends"
         />
-        <div v-else class="no-conn">
-          <p>No backend selected. Add one with <strong>+</strong>.</p>
-        </div>
       </template>
 
       <!-- Method wiring view (feature: method-wiring) -->
@@ -127,8 +96,6 @@
 
 <script setup lang="ts">
 import { ref, provide, onMounted } from 'vue'
-import BackendExplorer from './components/BackendExplorer.vue'
-import ForestCanvas from './components/ForestCanvas.vue'
 import MultiBackendCanvas from './components/MultiBackendCanvas.vue'
 import MultiBackendExplorer from './components/MultiBackendExplorer.vue'
 import TreeSheetView from './components/TreeSheetView.vue'
@@ -155,7 +122,8 @@ const connections = ref<BackendConnection[]>([
 ])
 
 const activeConn = ref<BackendConnection | null>(connections.value[0] ?? null)
-const view       = ref<'multi-explorer' | 'explorer' | 'canvas' | 'multi' | 'sheet' | 'wiring' | 'orchestration'>('multi-explorer')
+const view       = ref<'multi-explorer' | 'canvas' | 'sheet' | 'wiring' | 'orchestration'>('multi-explorer')
+const healthOpen = ref(false)
 const showAdd    = ref(false)
 const newName    = ref('')
 const newUrl     = ref('ws://127.0.0.1:')
@@ -230,7 +198,7 @@ provide('invocationHistory', invocationHistory)
 const replayOpen = ref(false)
 
 function onPaletteSelect(entry: MethodEntry) {
-  view.value = 'explorer'
+  view.value = 'multi-explorer'
   const conn = connections.value.find(c => c.name === entry.backend)
   if (conn) activeConn.value = conn
   navigateTo.value   = { path: entry.path }
@@ -239,14 +207,9 @@ function onPaletteSelect(entry: MethodEntry) {
   setTimeout(() => { navigateTo.value = null }, 3000)
 }
 
-// ─── Canvas select → explorer navigate ───────────────────────
-function onCanvasSelect(path: string[]) {
-  view.value = 'explorer'
-  navigateTo.value = { path }
-}
-
-function onMultiCanvasSelect(backend: string, path: string[]) {
-  view.value = 'explorer'
+// ─── Canvas select → multi-explorer navigate ─────────────────
+function onCanvasSelect(backend: string, path: string[]) {
+  view.value = 'multi-explorer'
   const conn = connections.value.find(c => c.name === backend)
   if (conn) activeConn.value = conn
   navigateTo.value = { path }

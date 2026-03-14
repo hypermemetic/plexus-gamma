@@ -1,9 +1,9 @@
 /**
  * Feature tests for:
- *   - Method Wiring Canvas (view tab "wiring", index 4)
- *   - Orchestration Canvas  (view tab "orchestrate", index 5)
+ *   - Method Wiring Canvas (view tab "wiring", index 3)
+ *   - Orchestration Canvas  (view tab "orchestrate", index 4)
  *
- * Tab layout: [0]=all  [1]=explorer  [2]=canvas  [3]=sheet  [4]=wiring  [5]=orchestrate
+ * Tab layout: [0]=all  [1]=canvas  [2]=sheet  [3]=wiring  [4]=orchestrate
  *
  * Prerequisites (already running in dev environment):
  *   - substrate on ws://127.0.0.1:4444 (has registry plugin)
@@ -19,8 +19,8 @@ async function waitForTree(page: Page) {
   await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 15_000 })
 }
 
-const WIRING_BTN_IDX        = 4
-const ORCHESTRATION_BTN_IDX = 5
+const WIRING_BTN_IDX        = 3
+const ORCHESTRATION_BTN_IDX = 4
 
 // ─── Method Wiring Canvas ─────────────────────────────────────────────────────
 

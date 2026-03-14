@@ -3,16 +3,15 @@
     <!-- Left sidebar: merged tree -->
     <aside class="sidebar">
       <div v-for="conn in connections" :key="conn.name" class="backend-group">
-        <!-- Backend header with collapse toggle -->
-        <div class="group-header" @click="toggleCollapse(conn.name)">
-          <span class="group-toggle">{{ collapsed[conn.name] ? '▸' : '▾' }}</span>
+        <!-- Backend header — click to open health dashboard -->
+        <div class="group-header" @click="$emit('open-health', conn.name)">
           <span class="backend-label">{{ conn.name }}</span>
           <span v-if="loading[conn.name]" class="group-spinner">◌</span>
           <span v-if="hashChanged[conn.name]" class="hash-indicator" title="Schema changed — refreshed">↯</span>
         </div>
 
-        <!-- Tree -->
-        <div v-if="!collapsed[conn.name]">
+        <!-- Tree (always visible) -->
+        <div>
           <div v-if="loading[conn.name] && !trees[conn.name]" class="group-loading">
             <span class="spinner">◌</span> Connecting…
           </div>
@@ -73,12 +72,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   'tree-ready': [node: PluginNode, backendName: string]
   'registry-backends': [backends: RegistryBackend[]]
+  'open-health': [name: string]
 }>()
 
 // ─── Tree state ───────────────────────────────────────────────
 const trees      = reactive<Record<string, PluginNode>>({})
 const loading    = reactive<Record<string, boolean>>({})
-const collapsed  = reactive<Record<string, boolean>>({})
 const hashChanged = reactive<Record<string, boolean>>({})
 const lastHashes: Record<string, string> = {}
 
@@ -150,10 +149,6 @@ function onSelect(backendName: string, node: PluginNode): void {
   selectedPath.value = node.path
 }
 
-function toggleCollapse(name: string): void {
-  collapsed[name] = !collapsed[name]
-}
-
 // ─── Watch for new connections ────────────────────────────────
 watch(() => props.connections, (conns) => {
   for (const conn of conns) {
@@ -208,13 +203,6 @@ onUnmounted(() => {
   border-bottom: 1px solid #21262d;
 }
 .group-header:hover { background: #131820; }
-
-.group-toggle {
-  font-size: 10px;
-  color: #484f58;
-  width: 10px;
-  flex-shrink: 0;
-}
 
 .backend-label {
   font-size: 11px;
