@@ -90,7 +90,7 @@
       </aside>
 
       <!-- Right canvas -->
-      <div class="canvas-wrap" ref="canvasWrap" @click="onCanvasClick" @mousemove="onMouseMove" @mouseup="onMouseUp">
+      <div class="canvas-wrap" ref="canvasWrap" @click="onCanvasClick" @contextmenu.prevent="onCanvasClick" @mousemove="onMouseMove" @mouseup="onMouseUp">
         <!-- SVG overlay for edges -->
         <svg
           class="edge-svg"
@@ -125,6 +125,7 @@
           v-for="node in nodes"
           :key="node.id"
           class="wire-node"
+          :data-id="node.id"
           :class="{
             selected: selectedNodeId === node.id,
             'status-running': node.status === 'running',
@@ -133,7 +134,8 @@
           }"
           :style="{ left: `${node.pos.x}px`, top: `${node.pos.y}px` }"
           @mousedown.stop="startDrag($event, node.id)"
-          @click.stop="selectNode(node.id)"
+          @click.stop
+          @contextmenu.prevent.stop="showContextMenu($event, node.id)"
         >
           <!-- Status dot -->
           <span class="status-dot" :class="`status-dot-${node.status}`"></span>
@@ -172,6 +174,12 @@
             ></div>
           </div>
 
+          <!-- Return type when selected -->
+          <div v-if="selectedNodeId === node.id && node.method.method.returns" class="returns-section" @mousedown.stop @click.stop>
+            <div class="returns-title">returns</div>
+            <pre class="returns-schema">{{ formatSchema(node.method.method.returns) }}</pre>
+          </div>
+
           <!-- Inline param form when selected -->
           <div v-if="selectedNodeId === node.id && getParamNames(node).length > 0" class="param-form" @mousedown.stop @click.stop>
             <div class="param-form-title">Params</div>
@@ -205,6 +213,18 @@
         <!-- Empty state -->
         <div v-if="nodes.length === 0" class="canvas-empty">
           Click a method in the sidebar to add it to the canvas
+        </div>
+
+        <!-- Context menu -->
+        <div
+          v-if="contextMenu"
+          class="ctx-menu"
+          :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+          @mousedown.stop
+          @click.stop
+        >
+          <button class="ctx-item ctx-item-danger" @click="deleteNode(contextMenu!.nodeId)">Delete node</button>
+          <button class="ctx-item" @click="disconnectNode(contextMenu!.nodeId)">Disconnect edges</button>
         </div>
       </div>
     </div>
@@ -462,11 +482,11 @@ const hoveredEdge = ref<string | null>(null)
 function outputPortPos(nodeId: string): { x: number; y: number } | null {
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return null
-  const el = canvasWrap.value?.querySelector<HTMLElement>(`.wire-node[data-id="${nodeId}"]`)
-  if (el) {
-    const rect = el.getBoundingClientRect()
+  const portEl = canvasWrap.value?.querySelector<HTMLElement>(`.wire-node[data-id="${nodeId}"] .port-out`)
+  if (portEl) {
+    const rect = portEl.getBoundingClientRect()
     const wrap = canvasWrap.value!.getBoundingClientRect()
-    return { x: rect.right - wrap.left, y: rect.top + rect.height / 2 - wrap.top }
+    return { x: rect.left + rect.width / 2 - wrap.left, y: rect.top + rect.height / 2 - wrap.top }
   }
   return { x: node.pos.x + 200, y: node.pos.y + 40 }
 }
@@ -477,6 +497,12 @@ function inputPortPos(nodeId: string, param: string): { x: number; y: number } |
   const paramNames = getParamNames(node)
   const idx = paramNames.indexOf(param)
   if (idx < 0) return null
+  const portEls = canvasWrap.value?.querySelectorAll<HTMLElement>(`.wire-node[data-id="${nodeId}"] .port-in`)
+  if (portEls && portEls[idx]) {
+    const rect = portEls[idx].getBoundingClientRect()
+    const wrap = canvasWrap.value!.getBoundingClientRect()
+    return { x: rect.left + rect.width / 2 - wrap.left, y: rect.top + rect.height / 2 - wrap.top }
+  }
   return { x: node.pos.x, y: node.pos.y + 40 + idx * 22 + 8 }
 }
 
@@ -509,11 +535,33 @@ function onInputPortClick(toNodeId: string, toParam: string) {
 function onCanvasClick() {
   pendingEdge.value = null
   selectedNodeId.value = null
+  contextMenu.value = null
 }
 
-function selectNode(nodeId: string) {
-  selectedNodeId.value = selectedNodeId.value === nodeId ? null : nodeId
+// ─── Context menu ─────────────────────────────────────────────
+interface ContextMenu { x: number; y: number; nodeId: string }
+const contextMenu = ref<ContextMenu | null>(null)
+
+function showContextMenu(e: MouseEvent, nodeId: string) {
+  const wrap = canvasWrap.value?.getBoundingClientRect()
+  const x = wrap ? e.clientX - wrap.left : e.clientX
+  const y = wrap ? e.clientY - wrap.top  : e.clientY
+  selectedNodeId.value = nodeId
+  contextMenu.value = { x, y, nodeId }
 }
+
+function deleteNode(nodeId: string) {
+  nodes.value = nodes.value.filter(n => n.id !== nodeId)
+  edges.value = edges.value.filter(e => e.fromNodeId !== nodeId && e.toNodeId !== nodeId)
+  if (selectedNodeId.value === nodeId) selectedNodeId.value = null
+  contextMenu.value = null
+}
+
+function disconnectNode(nodeId: string) {
+  edges.value = edges.value.filter(e => e.fromNodeId !== nodeId && e.toNodeId !== nodeId)
+  contextMenu.value = null
+}
+
 
 // ─── Edge paths (bezier) ──────────────────────────────────────
 function edgePath(edge: WireEdge): string {
@@ -679,6 +727,11 @@ function exportJson() {
 }
 
 // ─── Misc helpers ─────────────────────────────────────────────
+function formatSchema(schema: unknown): string {
+  if (!schema || typeof schema !== 'object') return String(schema ?? '')
+  return JSON.stringify(schema, null, 2)
+}
+
 function resultPreview(result: unknown): string {
   if (result === null || result === undefined) return 'null'
   const s = JSON.stringify(result)
@@ -1014,6 +1067,31 @@ function resultPreview(result: unknown): string {
 .param-input:focus { border-color: #58a6ff; }
 .param-input:disabled { color: #484f58; background: #0a0c10; }
 
+/* ── Returns section ─────────────────────────────────────────── */
+.returns-section {
+  margin-top: 8px;
+  border-top: 1px solid #21262d;
+  padding-top: 6px;
+  cursor: default;
+}
+
+.returns-title { font-size: 10px; color: #484f58; margin-bottom: 3px; letter-spacing: 0.05em; }
+
+.returns-schema {
+  font-size: 9px;
+  color: #a371f7;
+  background: #100d1a;
+  border: 1px solid #2d1f4e;
+  border-radius: 3px;
+  padding: 4px 6px;
+  margin: 0;
+  max-height: 80px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: inherit;
+}
+
 /* ── Result preview ──────────────────────────────────────────── */
 .node-result {
   margin-top: 6px;
@@ -1035,6 +1113,34 @@ function resultPreview(result: unknown): string {
   overflow-y: auto;
 }
 .node-result-error .result-value { color: #f85149; }
+
+/* ── Context menu ────────────────────────────────────────────── */
+.ctx-menu {
+  position: absolute;
+  z-index: 100;
+  background: #1a1d23;
+  border: 1px solid #30363d;
+  border-radius: 5px;
+  padding: 3px 0;
+  min-width: 150px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.ctx-item {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #c9d1d9;
+  font-family: inherit;
+  font-size: 11px;
+  text-align: left;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.ctx-item:hover { background: #21262d; }
+.ctx-item-danger { color: #f85149; }
+.ctx-item-danger:hover { background: #2a1515; }
 
 /* ── Canvas empty state ──────────────────────────────────────── */
 .canvas-empty {
