@@ -50,6 +50,11 @@
             />
           </div>
         </template>
+        <!-- Returns schema -->
+        <template v-if="node.method?.method.returns">
+          <div class="pf-section-title" style="margin-top:8px">returns</div>
+          <pre class="pf-returns">{{ formatSchema(node.method.method.returns) }}</pre>
+        </template>
       </template>
 
       <!-- Extract -->
@@ -265,9 +270,12 @@ function focusNext(e: KeyboardEvent) {
   }
 }
 
-// Auto-focus first field when a new node is selected
+// When switching to a new node: reset drag position and auto-focus
 watch(() => props.node?.id, (id) => {
-  if (id) focusFirstField()
+  if (id) {
+    manualPos.value = null
+    focusFirstField()
+  }
 })
 
 // ─── Output helpers ──────────────────────────────────────────
@@ -284,6 +292,10 @@ function copyOutput() {
 }
 
 // ─── Form helpers ─────────────────────────────────────────────
+function formatSchema(s: unknown): string {
+  return JSON.stringify(s, null, 2)
+}
+
 function getParamNames(): string[] {
   const node = props.node
   if (!node) return []
@@ -510,6 +522,22 @@ function updatePortName(pi: number, value: string) {
 }
 .pf-add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
 .pf-schema-field { margin-top: 2px; }
+
+/* ── Returns schema ──────────────────────────────────────────── */
+.pf-returns {
+  font-size: 9px;
+  color: #a371f7;
+  background: #100d1a;
+  border: 1px solid #2d1f4e;
+  border-radius: 3px;
+  padding: 4px 6px;
+  margin: 0;
+  max-height: 100px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: inherit;
+}
 
 /* ── Output section ──────────────────────────────────────────── */
 .pf-output-header {

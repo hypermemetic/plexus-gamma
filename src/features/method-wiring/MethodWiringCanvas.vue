@@ -270,12 +270,6 @@
               ></div>
             </div>
 
-            <!-- Returns schema (RPC only, when selected) -->
-            <div v-if="selectedNodeId === node.id && node.kind === 'rpc' && node.method?.method.returns" class="returns-section" @mousedown.stop @click.stop>
-              <div class="returns-title">returns</div>
-              <pre class="returns-schema">{{ formatSchema(node.method.method.returns) }}</pre>
-            </div>
-
             <!-- Result preview when done -->
             <div v-if="node.status === 'done' && node.result !== undefined" class="node-result" @mousedown.stop @click.stop>
               <span class="result-label">result:</span>
@@ -608,6 +602,13 @@ watch(() => props.connections, loadSidebarTrees, { deep: true })
 
 // After each pan/zoom DOM update, re-render edges so getBoundingClientRect reads fresh positions
 watch(transformStyle, () => { layoutTick.value++ }, { flush: 'post' })
+
+// Re-render edges after DOM updates when node status/result changes (result preview adds height)
+watch(
+  () => nodes.value.map(n => `${n.id}:${n.status}:${n.result !== undefined}`),
+  () => { layoutTick.value++ },
+  { flush: 'post' },
+)
 
 onMounted(() => {
   loadSidebarTrees()
@@ -1446,11 +1447,6 @@ function clearCanvas() {
 }
 
 // ─── Misc helpers ─────────────────────────────────────────────
-function formatSchema(schema: unknown): string {
-  if (!schema || typeof schema !== 'object') return String(schema ?? '')
-  return JSON.stringify(schema, null, 2)
-}
-
 function resultPreview(result: unknown): string {
   if (result === null || result === undefined) return 'null'
   const s = JSON.stringify(result)
@@ -1833,31 +1829,6 @@ function resultPreview(result: unknown): string {
 .port.port-connected { background: #1f3a5f; border-color: #58a6ff; }
 
 .port-label { font-size: 10px; color: #8b949e; }
-
-/* ── Returns section ─────────────────────────────────────────── */
-.returns-section {
-  margin-top: 8px;
-  border-top: 1px solid #21262d;
-  padding-top: 6px;
-  cursor: default;
-}
-
-.returns-title { font-size: 10px; color: #484f58; margin-bottom: 3px; letter-spacing: 0.05em; }
-
-.returns-schema {
-  font-size: 9px;
-  color: #a371f7;
-  background: #100d1a;
-  border: 1px solid #2d1f4e;
-  border-radius: 3px;
-  padding: 4px 6px;
-  margin: 0;
-  max-height: 80px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-  font-family: inherit;
-}
 
 /* ── Result preview ──────────────────────────────────────────── */
 .node-result {
