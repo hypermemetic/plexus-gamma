@@ -12,6 +12,7 @@
       <button class="tb-btn" @click="autoLayout" title="Auto-arrange nodes">[Auto Layout]</button>
       <button class="tb-btn" @click="resetView" title="Reset pan/zoom">[Reset View]</button>
       <button class="tb-btn" @click="triggerImport" title="Import pipeline JSON">[Import]</button>
+      <button class="tb-btn" @click="copySnapshot" title="Copy run snapshot to clipboard">[Snapshot]</button>
       <input type="file" ref="importFileInput" accept=".json" style="display:none" @change="onImportFile" />
       <span v-if="runError" class="tb-error">{{ runError }}</span>
     </div>
@@ -149,7 +150,7 @@
         @mousemove="onMouseMove"
         @mouseup="onMouseUp"
         @wheel.prevent="onCanvasWheel"
-        @keydown="onKeyDown"
+        @keydown="handleKeyDown"
         @keyup="onKeyUp"
         @touchstart.prevent="onCanvasTouchStart"
         @touchmove.prevent="onCanvasTouchMove"
@@ -224,6 +225,7 @@
               width: `${node.w}px`,
               background: nodeBackground(node.kind),
             }"
+            @mousedown.capture="onNodeCaptureMousedown(node.id)"
             @mousedown.stop="startDrag($event, node.id)"
             @click.stop
             @contextmenu.prevent.stop="showContextMenu($event, node.id)"
@@ -277,10 +279,12 @@
             <div v-if="node.status === 'done' && node.result !== undefined" class="node-result" @mousedown.stop @click.stop>
               <span class="result-label">result:</span>
               <span class="result-value">{{ resultPreview(node.result) }}</span>
+              <button class="result-copy-btn" @click.stop="copyNodeResult(node)" title="Copy">⎘</button>
             </div>
             <div v-if="node.status === 'error' && node.result !== undefined" class="node-result node-result-error" @mousedown.stop @click.stop>
               <span class="result-label">error:</span>
               <span class="result-value">{{ String(node.result) }}</span>
+              <button class="result-copy-btn" @click.stop="copyNodeResult(node)" title="Copy">⎘</button>
             </div>
 
             <!-- Resize handle (bottom-right corner) -->
@@ -301,6 +305,9 @@
           @mousedown.stop
           @click.stop
         >
+          <button class="ctx-item" @click="rerunNode(contextMenu!.nodeId, false); contextMenu = null">Rerun node</button>
+          <button class="ctx-item" @click="rerunNode(contextMenu!.nodeId, true); contextMenu = null">Rerun + downstream</button>
+          <div class="ctx-sep"></div>
           <button class="ctx-item ctx-item-danger" @click="deleteNode(contextMenu!.nodeId)">Delete node</button>
           <button class="ctx-item" @click="disconnectNode(contextMenu!.nodeId)">Disconnect edges</button>
           <button class="ctx-item" @click="contextMenu = null">Cancel</button>
@@ -761,6 +768,18 @@ function onCanvasTouchEnd(e: TouchEvent) {
 function onCanvasWheel(e: WheelEvent) {
   const rect = canvasWrap.value?.getBoundingClientRect()
   if (rect) panZoomWheel(e, rect)
+}
+
+function handleKeyDown(e: KeyboardEvent) {
+  onKeyDown(e)
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault()
+    runPipeline()
+  }
+}
+
+function onNodeCaptureMousedown(nodeId: string) {
+  if (!pendingEdge.value) selectedNodeId.value = nodeId
 }
 
 function onMouseMove(e: MouseEvent) {
@@ -1279,6 +1298,9 @@ function topoSort(nodeList: WireNode[], edgeList: WireEdge[]): WireNode[] {
 }
 
 // ─── Pipeline execution ───────────────────────────────────────
+// Persisted emissions map — rebuilt after each run, used for selective re-runs
+const persistedEmissions = ref(new Map<string, unknown[]>())
+
 async function runPipeline() {
   if (running.value || nodes.value.length === 0) return
   running.value = true
@@ -1306,7 +1328,84 @@ async function runPipeline() {
     }
   } finally {
     running.value = false
+    persistedEmissions.value = new Map(nodeEmissions)
   }
+}
+
+// ─── Selective re-run ─────────────────────────────────────────
+function getDownstreamNodes(startId: string): WireNode[] {
+  const visited = new Set<string>()
+  const queue = [startId]
+  while (queue.length) {
+    const id = queue.shift()!
+    if (visited.has(id)) continue
+    visited.add(id)
+    for (const e of edges.value) {
+      if (e.fromNodeId === id && !visited.has(e.toNodeId)) queue.push(e.toNodeId)
+    }
+  }
+  visited.delete(startId)
+  return topoSort(nodes.value.filter(n => visited.has(n.id)), edges.value)
+}
+
+async function rerunNode(nodeId: string, includeDownstream: boolean) {
+  if (running.value) return
+  const node = nodes.value.find(n => n.id === nodeId)
+  if (!node) return
+  running.value = true
+
+  // Build fresh maps from persisted results of other nodes
+  const nodeEmissions = new Map<string, unknown[]>(persistedEmissions.value)
+  const nodeResults = new Map<string, unknown>()
+  for (const [id, emissions] of persistedEmissions.value) {
+    const collapsed = emissions.length === 1 ? emissions[0] : emissions.length > 1 ? emissions : undefined
+    nodeResults.set(id, collapsed)
+  }
+
+  const nodesToRun = [node, ...(includeDownstream ? getDownstreamNodes(nodeId) : [])]
+
+  try {
+    for (const n of nodesToRun) {
+      n.status = 'running'
+      try {
+        await executeNodeWithRouting(n, nodeEmissions, nodeResults)
+      } catch (err) {
+        n.status = 'error'
+        n.result = err instanceof Error ? err.message : String(err)
+        nodeEmissions.set(n.id, [])
+      }
+    }
+  } finally {
+    running.value = false
+    // Merge updated emissions back
+    for (const n of nodesToRun) {
+      const em = nodeEmissions.get(n.id)
+      if (em) persistedEmissions.value.set(n.id, em)
+    }
+  }
+}
+
+// ─── Snapshot / copy ──────────────────────────────────────────
+function copyNodeResult(node: WireNode) {
+  const text = node.result === undefined || node.result === null ? ''
+    : typeof node.result === 'string' ? node.result
+    : JSON.stringify(node.result, null, 2)
+  navigator.clipboard.writeText(text).catch(() => { alert(text) })
+}
+
+function copySnapshot() {
+  const snapshot = {
+    timestamp: new Date().toISOString(),
+    nodes: nodes.value.map(n => ({
+      id: n.id,
+      kind: n.kind,
+      label: n.method?.fullPath ?? n.kind,
+      status: n.status,
+      result: n.result,
+    })),
+  }
+  const text = JSON.stringify(snapshot, null, 2)
+  navigator.clipboard.writeText(text).catch(() => { alert(text) })
 }
 
 // ─── Toolbar actions ──────────────────────────────────────────
@@ -1772,6 +1871,20 @@ function resultPreview(result: unknown): string {
 .ctx-item:hover { background: #21262d; }
 .ctx-item-danger { color: #f85149; }
 .ctx-item-danger:hover { background: #2a1515; }
+.ctx-sep { border-top: 1px solid #21262d; margin: 3px 0; }
+
+.result-copy-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #484f58;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.result-copy-btn:hover { color: #58a6ff; }
 
 /* ── Canvas empty state ──────────────────────────────────────── */
 .canvas-empty {

@@ -109,6 +109,17 @@
           @input="emit('update:transform', { code: ($event.target as HTMLTextAreaElement).value })"
         />
       </template>
+
+      <!-- Output / error -->
+      <template v-if="node.status === 'done' || node.status === 'error'">
+        <div class="pf-output-header">
+          <span class="pf-section-title" :class="node.status === 'error' ? 'pf-output-error-title' : 'pf-output-ok-title'">
+            {{ node.status === 'error' ? '✕ error' : '✓ output' }}
+          </span>
+          <button class="pf-copy-btn" @click.stop="copyOutput" title="Copy output">⎘</button>
+        </div>
+        <pre class="pf-output" :class="{ 'pf-output-error': node.status === 'error' }">{{ outputText }}</pre>
+      </template>
     </div>
   </div>
 
@@ -225,6 +236,19 @@ onUnmounted(() => {
   document.removeEventListener('pointermove', onDragMove)
   document.removeEventListener('pointerup', onDragEnd)
 })
+
+// ─── Output helpers ──────────────────────────────────────────
+const outputText = computed(() => {
+  const r = props.node?.result
+  if (r === undefined || r === null) return ''
+  if (typeof r === 'string') return r
+  return JSON.stringify(r, null, 2)
+})
+
+function copyOutput() {
+  const text = outputText.value
+  navigator.clipboard.writeText(text).catch(() => { alert(text) })
+}
 
 // ─── Form helpers ─────────────────────────────────────────────
 function getParamNames(): string[] {
@@ -450,4 +474,41 @@ function updatePortName(pi: number, value: string) {
 }
 .pf-add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
 .pf-schema-field { margin-top: 2px; }
+
+/* ── Output section ──────────────────────────────────────────── */
+.pf-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.pf-output-ok-title { color: #3fb950; }
+.pf-output-error-title { color: #f85149; }
+.pf-copy-btn {
+  background: none;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1;
+}
+.pf-copy-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.pf-output {
+  font-size: 11px;
+  color: #3fb950;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 4px 0 0;
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+  cursor: text;
+}
+.pf-output.pf-output-error { color: #f85149; }
 </style>
