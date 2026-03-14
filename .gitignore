@@ -38,3 +38,5 @@ npm-debug.log*
 *.swp
 *.swo
 .DS_Store
+core
+diag.spec.ts
