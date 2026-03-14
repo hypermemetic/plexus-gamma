@@ -206,6 +206,7 @@
           :style="{
             left: `${node.pos.x}px`,
             top: `${node.pos.y}px`,
+            width: `${node.w}px`,
             background: nodeBackground(node.kind),
           }"
           @mousedown.stop="startDrag($event, node.id)"
@@ -229,6 +230,7 @@
                 class="port port-in"
                 :class="{ 'port-connected': isParamConnected(node.id, param), 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === param }"
                 :title="`Input: ${param}`"
+                @mousedown.stop
                 @mouseenter="hoveredPort = { nodeId: node.id, param }"
                 @mouseleave="hoveredPort = null"
                 @click.stop="onInputPortClick(node.id, param)"
@@ -243,6 +245,7 @@
               class="port port-out"
               :class="{ 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === '__out' }"
               title="Output"
+              @mousedown.stop
               @mouseenter="hoveredPort = { nodeId: node.id, param: '__out' }"
               @mouseleave="hoveredPort = null"
               @click.stop="onOutputPortClick(node.id)"
@@ -340,6 +343,9 @@
             <span class="result-label">error:</span>
             <span class="result-value">{{ String(node.result) }}</span>
           </div>
+
+          <!-- Resize handle (bottom-right corner) -->
+          <div class="resize-handle" @mousedown.stop="startResize($event, node.id)" title="Drag to resize"></div>
         </div>
 
         <!-- Empty state -->
@@ -586,6 +592,7 @@ interface WireNode {
     inputNames: string[]
   }
   pos: { x: number; y: number }
+  w: number                        // node width in px (min 160, default 220)
   params: Record<string, unknown>
   status: 'idle' | 'running' | 'done' | 'error'
   result: unknown
@@ -625,6 +632,8 @@ const nodes = ref<WireNode[]>([])
 const edges = ref<WireEdge[]>([])
 const selectedNodeId = ref<string | null>(null)
 const running = ref(false)
+// Bump to force edge SVG re-render after node resize (DOM positions change non-reactively)
+const layoutTick = ref(0)
 const runError = ref<string | null>(null)
 
 // ─── SVG dimensions (ResizeObserver) ─────────────────────────
@@ -675,6 +684,7 @@ function addNode(entry: MethodEntry, pos?: { x: number; y: number }) {
     method: entry,
     transform: { path: '', template: '', code: '', inputNames: [] },
     pos: { x: baseX, y: baseY },
+    w: 220,
     params: {},
     status: 'idle',
     result: undefined,
@@ -697,6 +707,7 @@ function addTransformNode(kind: Exclude<NodeKind, 'rpc'>) {
       inputNames: kind === 'template' || kind === 'merge' ? ['input'] : [],
     },
     pos: { x: baseX, y: baseY },
+    w: 220,
     params: {},
     status: 'idle',
     result: undefined,
@@ -737,6 +748,16 @@ interface DragState {
 
 let dragState: DragState | null = null
 
+interface ResizeState { nodeId: string; startMouseX: number; startW: number }
+let resizeState: ResizeState | null = null
+
+function startResize(e: MouseEvent, nodeId: string) {
+  const node = nodes.value.find(n => n.id === nodeId)
+  if (!node) return
+  resizeState = { nodeId, startMouseX: e.clientX, startW: node.w }
+  e.stopPropagation()
+}
+
 function startDrag(e: MouseEvent, nodeId: string) {
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return
@@ -755,6 +776,15 @@ function startDrag(e: MouseEvent, nodeId: string) {
 }
 
 function onMouseMove(e: MouseEvent) {
+  if (resizeState) {
+    const node = nodes.value.find(n => n.id === resizeState!.nodeId)
+    if (node) {
+      const dx = e.clientX - resizeState.startMouseX
+      node.w = Math.max(160, snap(resizeState.startW + dx))
+      layoutTick.value++
+    }
+    return
+  }
   if (dragState) {
     const node = nodes.value.find(n => n.id === dragState!.nodeId)
     if (node) {
@@ -762,6 +792,7 @@ function onMouseMove(e: MouseEvent) {
       const dy = e.clientY - dragState.startMouseY
       node.pos.x = snap(dragState.startNodeX + dx)
       node.pos.y = snap(dragState.startNodeY + dy)
+      layoutTick.value++
     }
   }
   if (pendingEdge.value) {
@@ -775,6 +806,7 @@ function onMouseMove(e: MouseEvent) {
 
 function onMouseUp() {
   dragState = null
+  resizeState = null
 }
 
 // ─── Drop from sidebar ────────────────────────────────────────
@@ -806,6 +838,7 @@ interface RoutingPicker { edgeId: string; x: number; y: number }
 const routingPicker = ref<RoutingPicker | null>(null)
 
 function outputPortPos(nodeId: string): { x: number; y: number } | null {
+  void layoutTick.value  // reactive dependency — re-evaluates on node move/resize
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return null
   const portEl = canvasWrap.value?.querySelector<HTMLElement>(`.wire-node[data-id="${nodeId}"] .port-out`)
@@ -814,7 +847,7 @@ function outputPortPos(nodeId: string): { x: number; y: number } | null {
     const wrap = canvasWrap.value!.getBoundingClientRect()
     return { x: rect.left + rect.width / 2 - wrap.left, y: rect.top + rect.height / 2 - wrap.top }
   }
-  return { x: node.pos.x + 200, y: node.pos.y + 40 }
+  return { x: node.pos.x + node.w + 6, y: node.pos.y + 40 }
 }
 
 function inputPortPos(nodeId: string, param: string): { x: number; y: number } | null {
@@ -1528,8 +1561,6 @@ function resultPreview(result: unknown): string {
 /* ── Wire node ───────────────────────────────────────────────── */
 .wire-node {
   position: absolute;
-  min-width: 200px;
-  max-width: 280px;
   background: #111114;
   border: 1px solid #21262d;
   border-radius: 6px;
@@ -1538,6 +1569,7 @@ function resultPreview(result: unknown): string {
   user-select: none;
   box-sizing: border-box;
   transition: border-color 0.15s, box-shadow 0.15s;
+  overflow: visible;
 }
 .wire-node:active { cursor: grabbing; }
 .wire-node.selected { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff33; }
@@ -1770,6 +1802,23 @@ function resultPreview(result: unknown): string {
   pointer-events: none;
   letter-spacing: 0.03em;
 }
+
+/* ── Resize handle ───────────────────────────────────────────── */
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 0.15s;
+  /* diagonal grip lines */
+  background-image:
+    linear-gradient(135deg, transparent 40%, #484f58 40%, #484f58 50%, transparent 50%),
+    linear-gradient(135deg, transparent 60%, #484f58 60%, #484f58 70%, transparent 70%);
+}
+.wire-node:hover .resize-handle { opacity: 1; }
 
 @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 
