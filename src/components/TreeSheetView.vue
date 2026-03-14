@@ -109,7 +109,7 @@
 import { ref, computed, provide, watch, onMounted, onUnmounted } from 'vue'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
-import { buildTree } from '../schema-walker'
+import { getCachedTree } from '../lib/plexus/schemaCache'
 import type { PluginNode, PluginSchema, MethodSchema } from '../plexus-schema'
 import PluginTreeNode from './PluginTreeNode.vue'
 import MethodInvoker from './MethodInvoker.vue'
@@ -138,7 +138,7 @@ async function refresh() {
   connectError.value = ''
   try {
     await rpc.connect()
-    tree.value = await buildTree(rpc, props.connection.name)
+    tree.value = await getCachedTree(rpc, props.connection.name)
     emit('tree-ready', tree.value, props.connection.name)
     if (tree.value.children.some(c => c.schema.namespace === 'registry')) {
       try {

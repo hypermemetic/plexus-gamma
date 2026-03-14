@@ -38,7 +38,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
 import type { PlexusRpcClient } from '../lib/plexus/transport'
-import { buildTree } from '../schema-walker'
+import { getCachedTree } from '../lib/plexus/schemaCache'
 import type { PluginNode, MethodSchema } from '../plexus-schema'
 
 const props = defineProps<{
@@ -422,7 +422,7 @@ async function loadBackend(be: BackendState): Promise<void> {
   }
   try {
     await rpc.connect()
-    const pluginTree = await buildTree(rpc, be.name)
+    const pluginTree = await getCachedTree(rpc, be.name)
     be.root = buildCNode(pluginTree, be.name)
     be.status = 'ok'
   } catch (e) {
