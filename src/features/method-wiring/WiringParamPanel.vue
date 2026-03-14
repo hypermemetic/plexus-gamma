@@ -112,12 +112,6 @@
     </div>
   </div>
 
-  <!-- Backdrop for bottom mode -->
-  <div
-    v-if="effectiveMode === 'bottom' && node"
-    class="param-panel-backdrop"
-    @pointerdown="emit('close')"
-  />
 </template>
 
 <script setup lang="ts">
@@ -317,12 +311,6 @@ function updatePortName(pi: number, value: string) {
 .panel-bottom.panel-open { transform: translateY(0); }
 
 /* ── Backdrop ────────────────────────────────────────────────── */
-.param-panel-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 299;
-  background: rgba(0,0,0,0.2);
-}
 
 /* ── Header ──────────────────────────────────────────────────── */
 .panel-handle-row {
