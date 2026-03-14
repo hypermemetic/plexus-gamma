@@ -813,12 +813,13 @@ function onMouseMove(e: MouseEvent) {
     return
   }
   if (dragState) {
+    const screenDx = e.clientX - dragState.startMouseX
+    const screenDy = e.clientY - dragState.startMouseY
+    if (Math.hypot(screenDx, screenDy) < 5) return
     const node = nodes.value.find(n => n.id === dragState!.nodeId)
     if (node) {
-      const dx = (e.clientX - dragState.startMouseX) / zoom.value
-      const dy = (e.clientY - dragState.startMouseY) / zoom.value
-      node.pos.x = snap(dragState.startNodeX + dx)
-      node.pos.y = snap(dragState.startNodeY + dy)
+      node.pos.x = snap(dragState.startNodeX + screenDx / zoom.value)
+      node.pos.y = snap(dragState.startNodeY + screenDy / zoom.value)
       layoutTick.value++
     }
   }
