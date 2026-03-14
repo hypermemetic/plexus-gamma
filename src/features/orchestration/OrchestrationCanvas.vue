@@ -132,8 +132,23 @@
               <!-- Params editor -->
               <div class="step-body">
                 <div class="step-params-row">
-                  <span class="step-section-label">params</span>
+                  <div class="step-params-header">
+                    <span class="step-section-label">params</span>
+                    <button
+                      v-if="resolvedStepSchema(step)"
+                      class="json-toggle-btn"
+                      @click="jsonMode[step.id] = !jsonMode[step.id]"
+                    >{{ jsonMode[step.id] ? 'form' : 'JSON' }}</button>
+                  </div>
+                  <SchemaField
+                    v-if="!jsonMode[step.id] && resolvedStepSchema(step)"
+                    :name="step.id"
+                    :schema="resolvedStepSchema(step)!"
+                    :model-value="step.params"
+                    @update:model-value="val => { step.params = val as Record<string,unknown>; persistWorkflows() }"
+                  />
                   <textarea
+                    v-else
                     v-model="paramsText[step.id]"
                     class="step-params-textarea"
                     :class="{ invalid: paramsError[step.id] }"
@@ -230,10 +245,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import type { MethodEntry } from '../../components/CommandPalette.vue'
 import { createClient } from '../../lib/plexus/transport'
 import type { PlexusRpcClient } from '../../lib/plexus/transport'
+import SchemaField from '../../components/SchemaField.vue'
+import type { JsonSchema } from '../../components/SchemaField.vue'
+import { getCachedTreeSync } from '../../lib/plexus/schemaCache'
+import { flattenTree } from '../../schema-walker'
+import type { MethodSchema } from '../../plexus-schema'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -316,6 +336,9 @@ const stepSearchIdx = ref(0)
 const stepSearchRef = ref<HTMLInputElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
 
+// JSON/form toggle per step
+const jsonMode = reactive<Record<string, boolean>>({})
+
 // Wire-add state
 const addingWireForStepId = ref<string | null>(null)
 const newWire = ref<{ fromStepId: string; fromPath: string; toParam: string }>({
@@ -323,6 +346,53 @@ const newWire = ref<{ fromStepId: string; fromPath: string; toParam: string }>({
   fromPath: '',
   toParam: '',
 })
+
+// ─── Schema helpers ───────────────────────────────────────────────────────────
+
+function toCamelCase(s: string): string {
+  return s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+
+function resolveRefs(
+  schema: JsonSchema & { $ref?: string },
+  defs: Record<string, JsonSchema>,
+): JsonSchema {
+  if (schema.$ref) {
+    const name = schema.$ref.replace(/^#\/\$defs\//, '')
+    const resolved = defs[name]
+    return resolved ? resolveRefs(resolved, defs) : schema
+  }
+  const s = { ...schema }
+  if (s.properties)
+    s.properties = Object.fromEntries(
+      Object.entries(s.properties).map(([k, v]) => [toCamelCase(k), resolveRefs(v as JsonSchema & { $ref?: string }, defs)])
+    )
+  if (s.required) s.required = s.required.map(toCamelCase)
+  if (s.items) s.items = resolveRefs(s.items as JsonSchema & { $ref?: string }, defs)
+  if (s.anyOf) s.anyOf = s.anyOf.map(x => resolveRefs(x as JsonSchema & { $ref?: string }, defs))
+  if (s.oneOf) s.oneOf = s.oneOf.map(x => resolveRefs(x as JsonSchema & { $ref?: string }, defs))
+  return s
+}
+
+function findMethodSchema(backend: string, fullPath: string): MethodSchema | null {
+  const tree = getCachedTreeSync(backend)
+  if (!tree) return null
+  for (const node of flattenTree(tree)) {
+    const ns = node.path.length === 0 ? backend : node.path.join('.')
+    for (const m of node.schema.methods)
+      if (`${ns}.${m.name}` === fullPath) return m
+  }
+  return null
+}
+
+function resolvedStepSchema(step: WorkflowStep): JsonSchema | null {
+  const m = findMethodSchema(step.backend, step.method)
+  if (!m?.params || typeof m.params !== 'object') return null
+  const raw = m.params as JsonSchema & { $defs?: Record<string, JsonSchema> }
+  const resolved = resolveRefs(raw, raw.$defs ?? {})
+  if (resolved.type !== 'object' || !resolved.properties) return null
+  return resolved
+}
 
 // ─── RPC client pool ──────────────────────────────────────────────────────────
 
@@ -1048,6 +1118,24 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 4px;
 }
+
+.step-params-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.json-toggle-btn {
+  background: none;
+  border: 1px solid #30363d;
+  color: #484f58;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.json-toggle-btn:hover { border-color: #58a6ff; color: #58a6ff; }
 
 .step-params-textarea {
   background: #0a0a0c;

@@ -27,9 +27,7 @@ async function visibleLabels(page: Page): Promise<string[]> {
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await waitForTree(page)
-  // Switch to single-backend explorer view (default is now "all")
-  await page.locator('.view-tab').nth(1).click()
-  await waitForTree(page)
+  // Default view IS multi-explorer — no tab switch needed
 })
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -232,33 +230,15 @@ test.describe('methods', () => {
 // ──────────────────────────────────────────────────────────────────────────────
 
 test.describe('refresh', () => {
-  test('refresh button is visible', async ({ page }) => {
-    await expect(page.locator('.refresh-btn')).toBeVisible()
+  test('tree remains visible after 3 seconds (hash poll stable)', async ({ page }) => {
+    await page.waitForTimeout(3_000)
+    await expect(page.locator('.node-row').first()).toBeVisible()
   })
 
-  test('clicking refresh reloads the tree', async ({ page }) => {
+  test('tree remains interactive after hash polling', async ({ page }) => {
+    await page.waitForTimeout(3_000)
     await clickNode(page, 'echo')
-
-    await page.locator('.refresh-btn').click()
-    // Briefly disabled while loading
-    await page.waitForTimeout(100)
-    await waitForTree(page)
-
-    // Tree is still present and functional after refresh
-    const labels = await visibleLabels(page)
-    expect(labels).toContain('echo')
-  })
-
-  test('refresh button is disabled while loading', async ({ page }) => {
-    // Intercept WS to slow down — instead just observe the disabled state appears briefly
-    // We trigger refresh and immediately check; this is timing-sensitive so we just verify
-    // the attribute exists in the DOM (the button has :disabled binding)
-    const btn = page.locator('.refresh-btn')
-    await expect(btn).toBeEnabled()
-    await btn.click()
-    // The button becomes disabled during fetch — it re-enables after
-    await waitForTree(page)
-    await expect(btn).toBeEnabled()
+    await expect(page.locator('.detail-path')).toContainText('echo', { timeout: 5_000 })
   })
 })
 

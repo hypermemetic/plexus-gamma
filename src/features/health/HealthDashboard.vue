@@ -22,19 +22,19 @@
       <span class="scan-dot">◌</span>
     </span>
 
-    <button class="expand-btn" @click="open = true" title="Backend health details">
+    <button class="expand-btn" @click="panelOpen = true" title="Backend health details">
       <span class="expand-icon">⊕</span>
     </button>
   </div>
 
   <!-- ── Expanded dashboard overlay ────────────────────────────────────────── -->
   <Teleport to="body">
-    <div v-if="open" class="dashboard-backdrop" @click.self="open = false">
+    <div v-if="panelOpen" class="dashboard-backdrop" @click.self="closePanel">
       <div class="dashboard-panel">
         <!-- Header -->
         <div class="dashboard-header">
           <span class="dashboard-title">Backend Health</span>
-          <button class="close-btn" @click="open = false" title="Close">✕</button>
+          <button class="close-btn" @click="closePanel" title="Close">✕</button>
         </div>
 
         <!-- Backend cards -->
@@ -126,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, provide } from 'vue'
+import { ref, computed, provide, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useBackendHealth, computeLatencyStats } from './useBackendHealth'
 import type { BackendHealth } from './useBackendHealth'
@@ -137,13 +137,21 @@ const props = defineProps<{
   connections: { name: string; url: string }[]
   activeBackend?: string
   scanning?: boolean
+  open?: boolean
 }>()
 
-defineEmits<{ select: [name: string] }>()
+const emit = defineEmits<{ select: [name: string]; close: [] }>()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const open = ref(false)
+const panelOpen = ref(false)
+
+watch(() => props.open, (v) => { if (v) panelOpen.value = true })
+
+function closePanel() {
+  panelOpen.value = false
+  emit('close')
+}
 
 // Cast computed to Ref so useBackendHealth receives a reactive Ref<...[]>
 const connectionsRef = computed(() => props.connections) as unknown as Ref<{ name: string; url: string }[]>
