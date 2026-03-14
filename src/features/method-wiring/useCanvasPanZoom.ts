@@ -49,7 +49,7 @@ export function useCanvasPanZoom(): {
   }
 
   function onWheel(e: WheelEvent, rect: DOMRect): void {
-    const newZoom = clampZoom(zoom.value * (1 - e.deltaY * 0.006))
+    const newZoom = clampZoom(zoom.value * (1 - e.deltaY * 0.008))
     const cx = e.clientX - rect.left
     const cy = e.clientY - rect.top
     pan.value = {
