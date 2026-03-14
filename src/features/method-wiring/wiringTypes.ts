@@ -1,7 +1,9 @@
 import type { MethodEntry } from '../../components/CommandPalette.vue'
 
-export type NodeKind = 'rpc' | 'extract' | 'template' | 'merge' | 'script'
+export type NodeKind = 'rpc' | 'extract' | 'template' | 'merge' | 'script' | 'vars' | 'widget' | 'layout'
 export type RouteMode = 'auto' | 'each' | 'collect' | 'last' | 'first' | 'concat' | 'filter' | 'reduce'
+export type WidgetKind = 'text' | 'input' | 'button' | 'slider' | 'table'
+export type LayoutDir  = 'row' | 'col'
 
 export interface RouteConfig {
   separator: string
@@ -11,11 +13,35 @@ export interface RouteConfig {
   typeFilter: string[]
 }
 
+export interface NodeUi {
+  // vars
+  store: Record<string, unknown>
+  storeName: string
+  // widget
+  widgetKind: WidgetKind
+  label: string
+  // layout
+  dir: LayoutDir
+  gap: number
+  padding: number
+}
+
+export const DEFAULT_UI: NodeUi = {
+  store: {},
+  storeName: 'vars',
+  widgetKind: 'text',
+  label: '',
+  dir: 'row',
+  gap: 8,
+  padding: 12,
+}
+
 export interface WireNode {
   id: string
   kind: NodeKind
   method?: MethodEntry
   transform: { path: string; template: string; code: string; inputNames: string[] }
+  ui: NodeUi
   pos: { x: number; y: number }
   w: number
   params: Record<string, unknown>

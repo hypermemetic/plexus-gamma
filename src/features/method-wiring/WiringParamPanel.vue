@@ -108,6 +108,107 @@
         />
       </template>
 
+      <!-- Vars: key-value store editor -->
+      <template v-else-if="node.kind === 'vars'">
+        <div class="pf-row" style="margin-bottom:4px">
+          <label class="pf-label">name</label>
+          <input
+            class="pf-input"
+            placeholder="vars"
+            :value="node.ui.storeName"
+            @input="emit('update:ui', { storeName: ($event.target as HTMLInputElement).value })"
+          />
+        </div>
+        <div class="pf-section-title">store</div>
+        <div v-for="key in Object.keys(node.ui.store)" :key="key" class="pf-row">
+          <span class="pf-label pf-key-label">{{ key }}</span>
+          <input
+            class="pf-input"
+            :value="String(node.ui.store[key] ?? '')"
+            @input="updateStoreKey(key, ($event.target as HTMLInputElement).value)"
+          />
+          <button class="pf-del-btn" @click.stop="deleteStoreKey(key)" title="Remove">✕</button>
+        </div>
+        <div class="pf-row pf-add-key-row">
+          <input class="pf-input" v-model="newKeyName" placeholder="new key" @keydown.enter.prevent="addStoreKey" />
+          <button class="pf-add-btn pf-add-key-btn" @click.stop="addStoreKey">+ key</button>
+        </div>
+        <div v-if="Object.keys(node.ui.store).length" class="pf-hint" style="margin-top:4px">
+          ref: {{ Object.keys(node!.ui.store).map(k => '{' + node!.id + '.' + k + '}').join(' ') }}
+        </div>
+      </template>
+
+      <!-- Widget: kind picker + label -->
+      <template v-else-if="node.kind === 'widget'">
+        <div class="pf-section-title">widget type</div>
+        <div class="pf-widget-kinds">
+          <button
+            v-for="wk in WIDGET_KINDS" :key="wk"
+            class="pf-kind-btn"
+            :class="{ active: node.ui.widgetKind === wk }"
+            @click.stop="emit('update:ui', { widgetKind: wk as WidgetKind })"
+          >{{ wk }}</button>
+        </div>
+        <div class="pf-row" style="margin-top:6px">
+          <label class="pf-label">label</label>
+          <input
+            class="pf-input"
+            placeholder="optional label"
+            :value="node.ui.label"
+            @input="emit('update:ui', { label: ($event.target as HTMLInputElement).value })"
+          />
+        </div>
+        <!-- Slider-specific params -->
+        <template v-if="node.ui.widgetKind === 'slider'">
+          <div class="pf-row">
+            <label class="pf-label">min</label>
+            <input class="pf-input" type="number" :value="node.params.min ?? 0"
+              @input="emit('update:params', { ...node.params, min: Number(($event.target as HTMLInputElement).value) })" />
+          </div>
+          <div class="pf-row">
+            <label class="pf-label">max</label>
+            <input class="pf-input" type="number" :value="node.params.max ?? 100"
+              @input="emit('update:params', { ...node.params, max: Number(($event.target as HTMLInputElement).value) })" />
+          </div>
+          <div class="pf-row">
+            <label class="pf-label">step</label>
+            <input class="pf-input" type="number" :value="node.params.step ?? 1"
+              @input="emit('update:params', { ...node.params, step: Number(($event.target as HTMLInputElement).value) })" />
+          </div>
+        </template>
+      </template>
+
+      <!-- Layout: direction, gap, padding, slots -->
+      <template v-else-if="node.kind === 'layout'">
+        <div class="pf-section-title">direction</div>
+        <div class="pf-widget-kinds">
+          <button class="pf-kind-btn" :class="{ active: node.ui.dir === 'row' }" @click.stop="emit('update:ui', { dir: 'row' as LayoutDir })">row →</button>
+          <button class="pf-kind-btn" :class="{ active: node.ui.dir === 'col' }" @click.stop="emit('update:ui', { dir: 'col' as LayoutDir })">col ↓</button>
+        </div>
+        <div class="pf-row" style="margin-top:6px">
+          <label class="pf-label">gap</label>
+          <input class="pf-input" type="number" :value="node.ui.gap"
+            @input="emit('update:ui', { gap: Number(($event.target as HTMLInputElement).value) })" />
+        </div>
+        <div class="pf-row">
+          <label class="pf-label">padding</label>
+          <input class="pf-input" type="number" :value="node.ui.padding"
+            @input="emit('update:ui', { padding: Number(($event.target as HTMLInputElement).value) })" />
+        </div>
+        <div class="pf-section-title" style="margin-top:8px">slots</div>
+        <div v-for="(_, pi) in node.transform.inputNames" :key="pi" class="pf-row">
+          <input
+            class="pf-input pf-port-name"
+            placeholder="slot name"
+            :value="node.transform.inputNames[pi]"
+            @input="updatePortName(pi, ($event.target as HTMLInputElement).value)"
+            @keydown="focusNext"
+          />
+          <button class="pf-del-btn" @click.stop="emit('remove-port', pi)" title="Remove">✕</button>
+        </div>
+        <button class="pf-add-btn" @click.stop="emit('add-port')">+ slot</button>
+      </template>
+
       <!-- Output / error -->
       <template v-if="node.status === 'done' || node.status === 'error'">
         <div class="pf-output-header">
@@ -124,7 +225,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import type { WireNode } from './wiringTypes'
+import type { WireNode, NodeUi, WidgetKind, LayoutDir } from './wiringTypes'
 import SchemaField from '../../components/SchemaField.vue'
 import type { JsonSchema } from '../../components/SchemaField.vue'
 import FloatPanel from '../../components/FloatPanel.vue'
@@ -145,6 +246,7 @@ const emit = defineEmits<{
   close: []
   'update:params': [Record<string, unknown>]
   'update:transform': [{ path?: string; template?: string; code?: string; inputNames?: string[] }]
+  'update:ui': [Partial<NodeUi>]
   'add-port': []
   'remove-port': [number]
   'update:mode': [PanelMode]
@@ -160,6 +262,9 @@ const panelTitle = computed(() => {
     case 'template': return 'Template'
     case 'merge':    return 'Merge'
     case 'script':   return 'Script'
+    case 'vars':     return props.node.ui.storeName || 'vars'
+    case 'widget':   return `widget: ${props.node.ui.widgetKind}`
+    case 'layout':   return `layout: ${props.node.ui.dir}`
   }
 })
 
@@ -231,6 +336,27 @@ function updatePortName(pi: number, value: string) {
   const names = [...props.node.transform.inputNames]
   names[pi] = value
   emit('update:transform', { inputNames: names })
+}
+
+// ─── Vars store helpers ───────────────────────────────────────
+const WIDGET_KINDS = ['text', 'input', 'button', 'slider', 'table'] as const
+const newKeyName = ref('')
+
+function updateStoreKey(key: string, value: string) {
+  if (!props.node) return
+  emit('update:ui', { store: { ...props.node.ui.store, [key]: value } })
+}
+function deleteStoreKey(key: string) {
+  if (!props.node) return
+  const store = { ...props.node.ui.store }
+  delete store[key]
+  emit('update:ui', { store })
+}
+function addStoreKey() {
+  const key = newKeyName.value.trim()
+  if (!key || !props.node) return
+  emit('update:ui', { store: { ...props.node.ui.store, [key]: '' } })
+  newKeyName.value = ''
 }
 </script>
 
@@ -320,6 +446,23 @@ function updatePortName(pi: number, value: string) {
 }
 .pf-add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
 .pf-schema-field { margin-top: 2px; }
+.pf-key-label { font-family: 'Berkeley Mono', ui-monospace, monospace; color: #a371f7; min-width: 50px; }
+.pf-add-key-row { margin-top: 4px; }
+.pf-add-key-btn { padding: 2px 6px; margin-top: 0; }
+
+.pf-widget-kinds { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
+.pf-kind-btn {
+  background: none;
+  border: 1px solid #30363d;
+  color: #484f58;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.pf-kind-btn:hover { border-color: #8b949e; color: #8b949e; }
+.pf-kind-btn.active { border-color: #58a6ff; color: #58a6ff; background: #0d1a2a; }
 
 /* ── Returns schema ──────────────────────────────────────────── */
 .pf-returns {

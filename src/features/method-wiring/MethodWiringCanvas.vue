@@ -13,6 +13,7 @@
       <button class="tb-btn" @click="resetView" title="Reset pan/zoom">[Reset View]</button>
       <button class="tb-btn" @click="triggerImport" title="Import pipeline JSON">[Import]</button>
       <button class="tb-btn" @click="copySnapshot" title="Copy run snapshot to clipboard">[Snapshot]</button>
+      <button class="tb-btn" :class="{ 'tb-active': previewMode }" @click="previewMode = !previewMode" title="Toggle UI preview (P)">[Preview]</button>
       <input type="file" ref="importFileInput" accept=".json" style="display:none" @change="onImportFile" />
       <span v-if="runError" class="tb-error">{{ runError }}</span>
     </div>
@@ -134,6 +135,23 @@
               <button class="transform-btn" @click="addTransformNode('template')">Template</button>
               <button class="transform-btn" @click="addTransformNode('merge')">Merge</button>
               <button class="transform-btn" @click="addTransformNode('script')">Script</button>
+            </div>
+          </div>
+
+          <!-- UI nodes section -->
+          <div class="transforms-section">
+            <div class="transforms-header">UI</div>
+            <div class="transforms-row">
+              <button class="transform-btn ui-btn-vars" @click="addUiNode('vars')" title="Reactive key-value store">Vars</button>
+              <button class="transform-btn ui-btn-layout" @click="addUiNode('layout', undefined, 'row')" title="Horizontal flex container">Row</button>
+              <button class="transform-btn ui-btn-layout" @click="addUiNode('layout', undefined, 'col')" title="Vertical flex container">Col</button>
+            </div>
+            <div class="transforms-row">
+              <button class="transform-btn ui-btn-widget" @click="addUiNode('widget', 'text')" title="Display text or value">Text</button>
+              <button class="transform-btn ui-btn-widget" @click="addUiNode('widget', 'input')" title="Text input field">Input</button>
+              <button class="transform-btn ui-btn-widget" @click="addUiNode('widget', 'button')" title="Clickable button">Btn</button>
+              <button class="transform-btn ui-btn-widget" @click="addUiNode('widget', 'slider')" title="Range slider">Slider</button>
+              <button class="transform-btn ui-btn-widget" @click="addUiNode('widget', 'table')" title="Data table">Table</button>
             </div>
           </div>
         </template>
@@ -386,8 +404,19 @@
           @close="selectedNodeId = null"
           @update:params="onParamPanelUpdateParams"
           @update:transform="onParamPanelUpdateTransform"
+          @update:ui="onParamPanelUpdateUi"
           @add-port="onParamPanelAddPort"
           @remove-port="onParamPanelRemovePort"
+        />
+
+        <!-- UI Preview overlay -->
+        <WiringUIPreview
+          :open="previewMode"
+          :nodes="nodes"
+          :edges="edges"
+          @close="previewMode = false"
+          @param-update="onPreviewParamUpdate"
+          @trigger="onPreviewTrigger"
         />
 
         <!-- Mini-map (in canvas-wrap space, not transformed) -->
@@ -422,7 +451,9 @@ import { useCanvasPanZoom } from './useCanvasPanZoom'
 import type { PanelMode } from '../../components/FloatPanel.vue'
 import { useNodeLayout } from './useNodeLayout'
 import { useWiringPersist } from './useWiringPersist'
-import type { WireNode, WireEdge, NodeKind, RouteMode } from './wiringTypes'
+import type { WireNode, WireEdge, NodeKind, RouteMode, WidgetKind, LayoutDir, NodeUi } from './wiringTypes'
+import { DEFAULT_UI } from './wiringTypes'
+import WiringUIPreview from './WiringUIPreview.vue'
 
 const { focus } = useContainedFocus()
 
@@ -591,6 +622,7 @@ const edges = ref<WireEdge[]>([])
 const selectedNodeId = ref<string | null>(null)
 const panelMode = ref<PanelMode>('float')
 const running = ref(false)
+const previewMode = ref(false)
 // Bump to force edge SVG re-render after node resize (DOM positions change non-reactively)
 const layoutTick = ref(0)
 const runError = ref<string | null>(null)
@@ -682,6 +714,7 @@ function addNode(entry: MethodEntry, pos?: { x: number; y: number }) {
     kind: 'rpc',
     method: entry,
     transform: { path: '', template: '', code: '', inputNames: [] },
+    ui: { ...DEFAULT_UI },
     pos: { x: baseX, y: baseY },
     w: 220,
     params: {},
@@ -703,10 +736,40 @@ function addTransformNode(kind: Exclude<NodeKind, 'rpc'>) {
       path: '',
       template: '',
       code: '',
-      inputNames: kind === 'template' || kind === 'merge' ? ['input'] : [],
+      inputNames: kind === 'template' || kind === 'merge' || kind === 'layout' ? ['slot0'] : [],
     },
+    ui: { ...DEFAULT_UI },
     pos: { x: baseX, y: baseY },
     w: 220,
+    params: {},
+    status: 'idle',
+    result: undefined,
+  }
+  nodes.value.push(node)
+  selectedNodeId.value = node.id
+}
+
+function addUiNode(kind: 'vars' | 'widget' | 'layout', widgetKind?: WidgetKind, dir?: LayoutDir) {
+  const baseX = snap(60 + (nodes.value.length % 4) * 240)
+  const baseY = snap(60 + Math.floor(nodes.value.length / 4) * 180)
+  const ui: NodeUi = {
+    ...DEFAULT_UI,
+    ...(kind === 'widget' && widgetKind ? { widgetKind } : {}),
+    ...(kind === 'layout' && dir ? { dir } : {}),
+  }
+  const node: WireNode = {
+    id: makeNodeId(),
+    kind,
+    method: undefined,
+    transform: {
+      path: '',
+      template: '',
+      code: '',
+      inputNames: kind === 'layout' ? ['slot0'] : [],
+    },
+    ui,
+    pos: { x: baseX, y: baseY },
+    w: kind === 'vars' ? 180 : kind === 'widget' && widgetKind === 'table' ? 280 : 180,
     params: {},
     status: 'idle',
     result: undefined,
@@ -722,6 +785,9 @@ function nodeBackground(kind: NodeKind): string {
     case 'template': return '#1a2a10'
     case 'merge':    return '#0a2a2a'
     case 'script':   return '#2a0a3a'
+    case 'vars':     return '#1a0a2a'
+    case 'widget':   return '#0a1a2a'
+    case 'layout':   return '#0a1520'
     default:         return '#111114'
   }
 }
@@ -733,18 +799,29 @@ function nodeTitle(node: WireNode): string {
     case 'template': return 'Template'
     case 'merge':    return 'Merge'
     case 'script':   return 'Script'
+    case 'vars':     return node.ui.storeName || 'vars'
+    case 'widget':   return node.ui.widgetKind
+    case 'layout':   return `layout:${node.ui.dir}`
   }
 }
 
 function nodeSubtitle(node: WireNode): string {
   if (node.kind === 'rpc') {
-    // Show first non-empty configured param value
     const first = Object.values(node.params).find(v => v !== '' && v !== null && v !== undefined)
     return first !== undefined ? String(first) : ''
   }
   if (node.kind === 'extract') return node.transform.path || ''
   if (node.kind === 'template') return node.transform.template.slice(0, 40) || ''
   if (node.kind === 'script') return node.transform.code.slice(0, 40) || ''
+  if (node.kind === 'vars') {
+    const keys = Object.keys(node.ui.store)
+    return keys.length ? keys.join(', ') : 'empty'
+  }
+  if (node.kind === 'widget') return node.ui.label || ''
+  if (node.kind === 'layout') {
+    const slotCount = node.transform.inputNames.length
+    return slotCount ? `${slotCount} slot${slotCount !== 1 ? 's' : ''}` : 'no slots'
+  }
   return ''
 }
 
@@ -814,6 +891,11 @@ function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
     e.preventDefault()
     runPipeline()
+  }
+  // P to toggle preview (only when not typing in an input)
+  if (e.key === 'p' && e.target === e.currentTarget) {
+    e.preventDefault()
+    previewMode.value = !previewMode.value
   }
 }
 
@@ -1063,6 +1145,17 @@ function removeEdge(edgeId: string) {
 
 // ─── Params ───────────────────────────────────────────────────
 function getParamNames(node: WireNode): string[] {
+  if (node.kind === 'vars') return []
+  if (node.kind === 'layout') return [...node.transform.inputNames]
+  if (node.kind === 'widget') {
+    switch (node.ui.widgetKind) {
+      case 'text':   return ['value']
+      case 'input':  return ['value']
+      case 'button': return ['label']
+      case 'slider': return ['value', 'min', 'max']
+      case 'table':  return ['data']
+    }
+  }
   if (node.kind === 'extract' || node.kind === 'script') return ['input']
   if (node.kind === 'template' || node.kind === 'merge') return [...node.transform.inputNames]
   // rpc
@@ -1142,6 +1235,20 @@ const selectedNodeAnchorW = computed(() =>
 function onParamPanelUpdateParams(params: Record<string, unknown>) {
   const node = selectedNode.value
   if (node) node.params = params
+}
+
+function onParamPanelUpdateUi(patch: Partial<NodeUi>) {
+  const node = selectedNode.value
+  if (node) Object.assign(node.ui, patch)
+}
+
+function onPreviewParamUpdate({ nodeId, key, value }: { nodeId: string; key: string; value: unknown }) {
+  const node = nodes.value.find(n => n.id === nodeId)
+  if (node) node.params[key] = value
+}
+
+function onPreviewTrigger(nodeId: string) {
+  rerunNode(nodeId, true)
 }
 
 function onParamPanelUpdateTransform(patch: { path?: string; template?: string; code?: string; inputNames?: string[] }) {
@@ -1224,6 +1331,16 @@ function resolveTemplateRefs(value: string, results: Map<string, unknown>): unkn
 // ─── Transform node execution ─────────────────────────────────
 function executeTransform(node: WireNode, inputs: Map<string, unknown>): unknown {
   switch (node.kind) {
+    case 'vars':    return { ...node.ui.store }
+    case 'widget': {
+      switch (node.ui.widgetKind) {
+        case 'table':  return inputs.get('data')
+        case 'input':  return inputs.get('value') ?? node.params.value ?? ''
+        case 'slider': return inputs.get('value') ?? node.params.value ?? node.params.min ?? 0
+        case 'button': return { clicked: true, ts: Date.now() }
+        default:       return inputs.get('value')
+      }
+    }
     case 'extract':  return getPath(inputs.get('input'), node.transform.path)
     case 'template': return node.transform.template.replace(/\{\{(\w+)\}\}/g,
                        (_, k: string) => String(inputs.get(k) ?? ''))
@@ -1324,6 +1441,7 @@ async function executeNodeWithRouting(
   nodeEmissions: Map<string, unknown[]>,
   nodeResults: Map<string, unknown>,
 ): Promise<void> {
+  if (node.kind === 'layout') return  // layout is structural only
   const inEdges = edges.value.filter(e => e.toNodeId === node.id)
   const eachEdges = inEdges.filter(e => e.routing === 'each')
   const otherEdges = inEdges.filter(e => e.routing !== 'each')
@@ -1571,6 +1689,7 @@ function resultPreview(result: unknown): string {
 
 .tb-run { border-color: #1f3a5f; color: #58a6ff; background: #0d1a2a; }
 .tb-run:not(:disabled):hover { background: #1a2840; }
+.tb-active { border-color: #a371f7 !important; color: #a371f7 !important; background: #1a0a2a; }
 
 @keyframes tb-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .tb-spinner { display: inline-block; animation: tb-pulse 1s ease-in-out infinite; }
@@ -1776,6 +1895,13 @@ function resultPreview(result: unknown): string {
   cursor: pointer;
 }
 .transform-btn:hover { border-color: #58a6ff; color: #58a6ff; background: #0d1a2a; }
+
+.ui-btn-vars   { border-color: #3d1a5f44; color: #a371f7; }
+.ui-btn-vars:hover   { border-color: #a371f7; background: #1a0a2a; }
+.ui-btn-layout { border-color: #1a3a5f44; color: #58a6ff; }
+.ui-btn-layout:hover { border-color: #58a6ff; background: #0a1a2a; }
+.ui-btn-widget { border-color: #1a3a2a44; color: #3fb950; }
+.ui-btn-widget:hover { border-color: #3fb950; background: #0a1a0a; }
 
 /* ── Canvas ──────────────────────────────────────────────────── */
 .canvas-wrap {

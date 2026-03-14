@@ -1,6 +1,7 @@
 import { watch } from 'vue'
 import type { Ref } from 'vue'
-import type { WireNode, WireEdge, RouteConfig } from './wiringTypes'
+import type { WireNode, WireEdge, RouteConfig, NodeUi } from './wiringTypes'
+import { DEFAULT_UI } from './wiringTypes'
 import type { PanelMode } from '../../components/FloatPanel.vue'
 
 const STORAGE_KEY = 'plexus-wiring-v1'
@@ -47,7 +48,12 @@ function deserializeState(raw: SerializedState): {
   zoom: number
 } {
   return {
-    nodes: raw.nodes.map(n => ({ ...n, status: 'idle' as const, result: undefined })),
+    nodes: raw.nodes.map(n => ({
+      ...n,
+      status: 'idle' as const,
+      result: undefined,
+      ui: { ...DEFAULT_UI, ...(n.ui as Partial<NodeUi> | undefined) },
+    })),
     edges: raw.edges.map(e => ({
       ...e,
       routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [], ...(e.routeConfig as Partial<RouteConfig>) } as RouteConfig,
