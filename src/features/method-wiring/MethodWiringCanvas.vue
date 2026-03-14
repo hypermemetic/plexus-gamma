@@ -390,7 +390,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { MethodEntry } from '../../components/CommandPalette.vue'
 import { getSharedClient } from '../../lib/plexus/clientRegistry'
 import { getCachedTree } from '../../lib/plexus/schemaCache'
@@ -594,6 +594,9 @@ const svgW = ref(800)
 const svgH = ref(600)
 
 let resizeObserver: ResizeObserver | null = null
+
+// Re-load trees whenever new backends are discovered (port scan runs after mount)
+watch(() => props.connections, loadSidebarTrees, { deep: true })
 
 onMounted(() => {
   loadSidebarTrees()
