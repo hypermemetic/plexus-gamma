@@ -343,14 +343,15 @@ test.describe('schema form rendering', () => {
 
   test('$ref resolves — model field renders as enum select', async ({ page }) => {
     const modelRow = createCard.locator('.field-row', { hasText: 'model' })
-    await expect(modelRow.locator('.field-select')).toBeVisible()
+    await expect(modelRow.locator('.fuzzy-input')).toBeVisible()
   })
 
   test('resolved enum select has correct options (opus / sonnet / haiku)', async ({ page }) => {
-    const modelSelect = createCard
-      .locator('.field-row', { hasText: 'model' })
-      .locator('.field-select')
-    const opts = await modelSelect.locator('option').allTextContents()
+    const modelRow = createCard.locator('.field-row', { hasText: 'model' })
+    await modelRow.locator('.fuzzy-input').click()
+    const dropdown = modelRow.locator('.fuzzy-dropdown')
+    await expect(dropdown).toBeVisible()
+    const opts = await dropdown.locator('.fuzzy-option').allTextContents()
     expect(opts).toContain('opus')
     expect(opts).toContain('sonnet')
     expect(opts).toContain('haiku')

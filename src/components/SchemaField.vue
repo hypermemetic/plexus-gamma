@@ -1,10 +1,12 @@
 <template>
   <div class="schema-field">
-    <!-- enum → select -->
+    <!-- enum → fuzzy select -->
     <template v-if="schema.enum">
-      <select class="field-select" :value="modelValue" @change="emit('update:modelValue', ($event.target as HTMLSelectElement).value)">
-        <option v-for="opt in schema.enum" :key="String(opt)" :value="opt">{{ opt }}</option>
-      </select>
+      <FuzzySelect
+        :options="schema.enum.map(String)"
+        :model-value="modelValue !== undefined ? String(modelValue) : ''"
+        @update:model-value="emit('update:modelValue', $event)"
+      />
     </template>
 
     <!-- boolean → checkbox -->
@@ -80,17 +82,12 @@
     <!-- anyOf / oneOf → branch selector -->
     <template v-else-if="schema.anyOf?.length || schema.oneOf?.length">
       <div class="field-union">
-        <select
-          class="field-select field-union-select"
-          :value="selectedBranch"
-          @change="selectedBranch = Number(($event.target as HTMLSelectElement).value)"
-        >
-          <option
-            v-for="(s, i) in (schema.anyOf ?? schema.oneOf!)"
-            :key="i"
-            :value="i"
-          >{{ branchLabel(s, i) }}</option>
-        </select>
+        <FuzzySelect
+          class="field-union-select"
+          :options="(schema.anyOf ?? schema.oneOf!).map((s, i) => branchLabel(s, i))"
+          :model-value="branchLabel((schema.anyOf ?? schema.oneOf!)[selectedBranch]!, selectedBranch)"
+          @update:model-value="val => selectedBranch = (schema.anyOf ?? schema.oneOf!).findIndex((s,i) => branchLabel(s,i) === val)"
+        />
         <SchemaField
           :name="name"
           :schema="(schema.anyOf ?? schema.oneOf!)[selectedBranch]!"
@@ -116,6 +113,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import FuzzySelect from './FuzzySelect.vue'
 
 export interface JsonSchema {
   type?: string | string[]

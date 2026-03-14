@@ -44,6 +44,7 @@
               :disabled="connectedParams.includes(param)"
               :value="nodeParamValue(param)"
               @input="setParam(param, ($event.target as HTMLInputElement).value)"
+              @keydown="focusNext"
             />
           </div>
         </template>
@@ -57,6 +58,7 @@
           placeholder="e.g. result.text"
           :value="node.transform.path"
           @input="emit('update:transform', { path: ($event.target as HTMLInputElement).value })"
+          @keydown="focusNext"
         />
       </template>
 
@@ -77,6 +79,7 @@
             placeholder="port name"
             :value="node.transform.inputNames[pi]"
             @input="updatePortName(pi, ($event.target as HTMLInputElement).value)"
+            @keydown="focusNext"
           />
           <button class="pf-del-btn" @click.stop="emit('remove-port', pi)" title="Remove">✕</button>
         </div>
@@ -92,6 +95,7 @@
             placeholder="field name"
             :value="node.transform.inputNames[pi]"
             @input="updatePortName(pi, ($event.target as HTMLInputElement).value)"
+            @keydown="focusNext"
           />
           <button class="pf-del-btn" @click.stop="emit('remove-port', pi)" title="Remove">✕</button>
         </div>
@@ -126,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { WireNode } from './wiringTypes'
 import SchemaField from '../../components/SchemaField.vue'
 import type { JsonSchema } from '../../components/SchemaField.vue'
@@ -235,6 +239,32 @@ onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocPointerDown)
   document.removeEventListener('pointermove', onDragMove)
   document.removeEventListener('pointerup', onDragEnd)
+})
+
+// ─── Focus management ────────────────────────────────────────
+function focusFirstField() {
+  nextTick(() => {
+    const el = panelEl.value?.querySelector<HTMLElement>('input:not([disabled]), textarea:not([disabled])')
+    el?.focus()
+  })
+}
+
+function focusNext(e: KeyboardEvent) {
+  if (e.key !== 'Enter') return
+  const fields = Array.from(
+    panelEl.value?.querySelectorAll<HTMLElement>('input:not([disabled]), textarea:not([disabled])') ?? []
+  )
+  const idx = fields.indexOf(e.target as HTMLElement)
+  const next = fields[idx + 1]
+  if (next) {
+    e.preventDefault()
+    next.focus()
+  }
+}
+
+// Auto-focus first field when a new node is selected
+watch(() => props.node?.id, (id) => {
+  if (id) focusFirstField()
 })
 
 // ─── Output helpers ──────────────────────────────────────────

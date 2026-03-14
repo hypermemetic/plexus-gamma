@@ -233,8 +233,9 @@
             <!-- Status dot -->
             <span class="status-dot" :class="`status-dot-${node.status}`"></span>
 
-            <!-- Node title -->
+            <!-- Node title + subtitle -->
             <div class="node-title">{{ nodeTitle(node) }}</div>
+            <div v-if="nodeSubtitle(node)" class="node-subtitle">{{ nodeSubtitle(node) }}</div>
 
             <!-- Input ports (params) on the left -->
             <div class="node-ports-left" @mousedown.stop>
@@ -707,6 +708,18 @@ function nodeTitle(node: WireNode): string {
     case 'merge':    return 'Merge'
     case 'script':   return 'Script'
   }
+}
+
+function nodeSubtitle(node: WireNode): string {
+  if (node.kind === 'rpc') {
+    // Show first non-empty configured param value
+    const first = Object.values(node.params).find(v => v !== '' && v !== null && v !== undefined)
+    return first !== undefined ? String(first) : ''
+  }
+  if (node.kind === 'extract') return node.transform.path || ''
+  if (node.kind === 'template') return node.transform.template.slice(0, 40) || ''
+  if (node.kind === 'script') return node.transform.code.slice(0, 40) || ''
+  return ''
 }
 
 // ─── Dragging nodes ───────────────────────────────────────────
@@ -1408,6 +1421,8 @@ function copySnapshot() {
       id: n.id,
       kind: n.kind,
       label: n.method?.fullPath ?? n.kind,
+      params: Object.keys(n.params).length ? n.params : undefined,
+      transform: n.kind !== 'rpc' ? n.transform : undefined,
       status: n.status,
       result: n.result,
     })),
@@ -1768,6 +1783,17 @@ function resultPreview(result: unknown): string {
   word-break: break-all;
   vertical-align: middle;
   font-weight: 600;
+}
+.node-subtitle {
+  font-size: 10px;
+  color: #58a6ff;
+  opacity: 0.8;
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  margin-top: 1px;
 }
 
 /* ── Ports ───────────────────────────────────────────────────── */
