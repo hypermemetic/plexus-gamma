@@ -66,18 +66,18 @@ test.describe('method wiring canvas', () => {
     await page.locator('.view-tab').nth(WIRING_BTN_IDX).click()
     // Search to enter search mode and reveal method items
     await page.locator('.sidebar-search').fill('echo')
-    await expect(page.locator('.sidebar-item').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.sb-row-method').first()).toBeVisible({ timeout: 10_000 })
   })
 
   test('clicking a method in sidebar adds a node to the canvas', async ({ page }) => {
     await page.locator('.view-tab').nth(WIRING_BTN_IDX).click()
     // Use search mode to show methods
     await page.locator('.sidebar-search').fill('echo')
-    await expect(page.locator('.sidebar-item').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.sb-row-method').first()).toBeVisible({ timeout: 10_000 })
     // Canvas should be empty initially
     await expect(page.locator('.canvas-empty')).toBeVisible()
     // Click the first sidebar entry
-    await page.locator('.sidebar-item').first().click()
+    await page.locator('.sb-row-method').first().click()
     // A wire-node should now exist in the canvas
     await expect(page.locator('.wire-node').first()).toBeVisible({ timeout: 10_000 })
     // Empty state should be gone

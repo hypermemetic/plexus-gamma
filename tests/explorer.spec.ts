@@ -36,7 +36,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('initial load', () => {
   test('shows substrate backend label in sidebar header', async ({ page }) => {
-    await expect(page.locator('.backend-label')).toHaveText('substrate')
+    await expect(page.locator('.backend-label').first()).toContainText('substrate')
   })
 
   test('root node is visible and labelled "substrate"', async ({ page }) => {

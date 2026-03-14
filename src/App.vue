@@ -55,6 +55,7 @@
       <template v-if="view === 'multi-explorer'">
         <MultiBackendExplorer
           :connections="connections"
+          :navigate-to="navigateTo"
           @tree-ready="onTreeReady"
           @registry-backends="onRegistryBackends"
           @open-health="healthOpen = true"
@@ -187,7 +188,7 @@ useKeymap({
 })
 
 // ─── Navigate-to (palette → explorer) ───────────────────────
-const navigateTo   = ref<{ path: string[] } | null>(null)
+const navigateTo   = ref<{ backend: string; path: string[] } | null>(null)
 const pendingMethod = ref<string | null>(null)
 
 provide('pendingMethod', pendingMethod)
@@ -201,7 +202,7 @@ function onPaletteSelect(entry: MethodEntry) {
   view.value = 'multi-explorer'
   const conn = connections.value.find(c => c.name === entry.backend)
   if (conn) activeConn.value = conn
-  navigateTo.value   = { path: entry.path }
+  navigateTo.value   = { backend: entry.backend, path: entry.path }
   pendingMethod.value = entry.fullPath
   // Clear navigateTo after it has been consumed
   setTimeout(() => { navigateTo.value = null }, 3000)
@@ -212,7 +213,7 @@ function onCanvasSelect(backend: string, path: string[]) {
   view.value = 'multi-explorer'
   const conn = connections.value.find(c => c.name === backend)
   if (conn) activeConn.value = conn
-  navigateTo.value = { path }
+  navigateTo.value = { backend, path }
 }
 
 // ─── Add connection ──────────────────────────────────────────

@@ -67,6 +67,7 @@ interface RegistryBackend {
 
 const props = defineProps<{
   connections: { name: string; url: string }[]
+  navigateTo?: { backend: string; path: string[] } | null
 }>()
 
 const emit = defineEmits<{
@@ -148,6 +149,13 @@ function onSelect(backendName: string, node: PluginNode): void {
   selectedBackend.value = backendName
   selectedPath.value = node.path
 }
+
+// ─── External navigation (palette, canvas click) ─────────────
+watch(() => props.navigateTo, (nav) => {
+  if (!nav) return
+  selectedBackend.value = nav.backend
+  selectedPath.value = nav.path
+})
 
 // ─── Watch for new connections ────────────────────────────────
 watch(() => props.connections, (conns) => {
