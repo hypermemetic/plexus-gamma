@@ -195,6 +195,7 @@
 
 <script setup lang="ts">
 import { ref, computed, inject, nextTick } from 'vue'
+import { useContainedFocus } from '../../lib/useContainedFocus'
 import type { PlexusRpcClient } from '../../lib/plexus/transport'
 import type { MethodSchema } from '../../plexus-schema'
 import { useAssertionSuite } from './useAssertions'
@@ -208,6 +209,7 @@ const props = defineProps<{
   backendName: string
 }>()
 
+const { focus } = useContainedFocus()
 const rpc = inject<PlexusRpcClient>('rpc')!
 
 // ── Suite composable ──────────────────────────────────────────────────────
@@ -281,7 +283,7 @@ function startAddTest(): void {
   newTestName.value       = ''
   newTestParams.value     = '{}'
   newTestParseError.value = ''
-  nextTick(() => newTestNameInput.value?.focus())
+  nextTick(() => focus(newTestNameInput.value))
 }
 
 function cancelNewTest(): void {

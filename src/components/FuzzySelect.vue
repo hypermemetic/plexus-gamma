@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useContainedFocus } from '../lib/useContainedFocus'
 
 const props = defineProps<{
   options: string[]
@@ -36,6 +37,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'update:modelValue': [string] }>()
 
+const { focus: containedFocus } = useContainedFocus()
 const inputEl = ref<HTMLInputElement | null>(null)
 const open     = ref(false)
 const query    = ref('')
@@ -101,7 +103,7 @@ function onKeyDown(e: KeyboardEvent) {
   }
 }
 
-defineExpose({ focus: () => inputEl.value?.focus() })
+defineExpose({ focus: () => containedFocus(inputEl.value) })
 </script>
 
 <style scoped>

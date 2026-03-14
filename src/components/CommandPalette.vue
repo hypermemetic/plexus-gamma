@@ -32,6 +32,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { useContainedFocus } from '../lib/useContainedFocus'
 import type { MethodSchema } from '../plexus-schema'
 
 export interface MethodEntry {
@@ -51,6 +52,7 @@ const emit = defineEmits<{
   select: [entry: MethodEntry]
 }>()
 
+const { focus } = useContainedFocus()
 const query     = ref('')
 const activeIdx = ref(0)
 const inputRef  = ref<HTMLInputElement | null>(null)
@@ -82,7 +84,7 @@ watch(() => props.open, (v) => {
   if (v) {
     query.value = ''
     activeIdx.value = 0
-    nextTick(() => inputRef.value?.focus())
+    nextTick(() => focus(inputRef.value))
   }
 })
 

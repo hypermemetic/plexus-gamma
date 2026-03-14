@@ -139,6 +139,7 @@
 
 <script setup lang="ts">
 import { ref, computed, inject, watch, nextTick, type Ref } from 'vue'
+import { useContainedFocus } from '../lib/useContainedFocus'
 import type { PlexusRpcClient } from '../lib/plexus/transport'
 import type { MethodSchema } from '../plexus-schema'
 import SchemaField from './SchemaField.vue'
@@ -151,6 +152,7 @@ const props = defineProps<{
   backendName: string
 }>()
 
+const { focus } = useContainedFocus()
 const rpc           = inject<PlexusRpcClient>('rpc')!
 const pendingMethod = inject<Ref<string | null>>('pendingMethod', ref(null))
 
@@ -386,7 +388,7 @@ useFormEnterNav(formRef, invoke)
 
 // Auto-focus first input when params form is ready (on pending method open)
 watch(() => props.method.name, () => {
-  nextTick(() => formRef.value?.querySelector<HTMLElement>('input, select, textarea')?.focus())
+  nextTick(() => focus(formRef.value?.querySelector<HTMLElement>('input, select, textarea')))
 })
 
 // Auto-scroll results panel
@@ -409,7 +411,7 @@ watch(pendingMethod, (method) => {
     nextTick(() => {
       const input = formRef.value?.querySelector<HTMLElement>('input, select, textarea')
         ?? textareaRef.value
-      input?.focus()
+      focus(input)
       cardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     })
   }

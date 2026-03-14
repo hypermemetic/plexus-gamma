@@ -18,7 +18,7 @@ export function useFormEnterNav(
       e.preventDefault()
       const inputs = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE))
       const idx = inputs.indexOf(target)
-      if (idx >= 0 && idx < inputs.length - 1) inputs[idx + 1]?.focus()
+      if (idx >= 0 && idx < inputs.length - 1) inputs[idx + 1]?.focus({ preventScroll: true })
       return
     }
 
@@ -29,7 +29,7 @@ export function useFormEnterNav(
     const inputs = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE))
     const idx = inputs.indexOf(target)
     if (idx >= 0 && idx < inputs.length - 1) {
-      inputs[idx + 1]?.focus()
+      inputs[idx + 1]?.focus({ preventScroll: true })
     } else {
       onSubmit()
     }

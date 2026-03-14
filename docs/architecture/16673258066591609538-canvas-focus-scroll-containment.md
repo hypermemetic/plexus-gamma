@@ -101,3 +101,20 @@ For future reference, the following were investigated and ruled out before findi
 - **`returns-section` DOM change** — height change on selection (fixed separately)
 - **ResizeObserver reacting to panel** — SVG dimensions only update on canvas-wrap resize, not panel slide-in
 - **Z-index stacking** — panel at z-index 300 is above canvas-content as expected
+
+---
+
+## Resulting Abstractions
+
+Three abstractions encode this fix structurally:
+
+- **`src/lib/useContainedFocus.ts`** — composable wrapping `focus({ preventScroll: true })`.
+  All programmatic focus calls in the codebase go through this.
+
+- **`src/components/CanvasLayer.vue`** — canvas container primitive with `overflow: clip`,
+  a `#content` slot (pan/zoom transformed) and an `#overlay` slot (untransformed, for panels
+  and UI chrome). Future canvas surfaces start with the correct containment for free.
+
+- **`src/components/FloatPanel.vue`** — panel positioning/animation/drag/close primitive.
+  Positions against container bounds (not window). All panels that float, slide right, or
+  sheet up from the bottom use this; none re-implement the logic.

@@ -121,6 +121,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useContainedFocus } from '../lib/useContainedFocus'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
 import { getCachedTree } from '../lib/plexus/schemaCache'
@@ -137,6 +138,8 @@ const emit = defineEmits<{
   'tree-ready': [node: PluginNode, backendName: string]
   'registry-backends': [backends: { name: string; host: string; port: number; protocol: string }[]]
 }>()
+
+const { focus } = useContainedFocus()
 
 // ─── Active connection selection ──────────────────────────────
 const selectedConnName = ref(props.connections[0]?.name ?? '')
@@ -267,15 +270,15 @@ function onTreeKeydown(e: KeyboardEvent) {
   e.preventDefault()
 
   if (e.key === 'ArrowDown') {
-    rows[idx + 1]?.focus()
+    focus(rows[idx + 1])
   } else if (e.key === 'ArrowUp') {
-    rows[idx - 1]?.focus()
+    focus(rows[idx - 1])
   } else if (e.key === 'ArrowRight') {
     const nodeDiv    = row.parentElement
     const isExpanded = !!nodeDiv?.querySelector(':scope > .node-children')
     const isHub      = row.classList.contains('hub')
     if (isHub && !isExpanded) row.click()
-    else if (isHub && isExpanded) rows[idx + 1]?.focus()
+    else if (isHub && isExpanded) focus(rows[idx + 1])
   } else if (e.key === 'ArrowLeft') {
     const nodeDiv    = row.parentElement
     const isExpanded = !!nodeDiv?.querySelector(':scope > .node-children')
@@ -284,7 +287,7 @@ function onTreeKeydown(e: KeyboardEvent) {
     } else {
       const parentRow = nodeDiv?.parentElement?.closest('.node')
         ?.querySelector<HTMLElement>(':scope > .node-row')
-      parentRow?.focus()
+      focus(parentRow)
     }
   }
 }

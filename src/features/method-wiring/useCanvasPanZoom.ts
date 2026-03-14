@@ -1,8 +1,6 @@
 import { ref, computed } from 'vue'
 import type { Ref, ComputedRef } from 'vue'
 
-export type PanelMode = 'float' | 'right' | 'bottom'
-
 export function useCanvasPanZoom(): {
   pan: Ref<{ x: number; y: number }>
   zoom: Ref<number>

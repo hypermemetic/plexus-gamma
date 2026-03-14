@@ -140,10 +140,11 @@
       </aside>
 
       <!-- Right canvas -->
-      <div
+      <CanvasLayer
         class="canvas-wrap"
         :class="{ panning: isPanning }"
-        ref="canvasWrap"
+        ref="canvasLayerRef"
+        :transform="transformStyle"
         @click="onCanvasClick"
         @contextmenu.prevent="onCanvasClick"
         @mousedown="onCanvasMouseDown"
@@ -159,8 +160,7 @@
         @drop="onCanvasDrop"
         tabindex="0"
       >
-        <!-- Transformed content layer (pan + zoom applied here) -->
-        <div class="canvas-content" :style="{ transform: transformStyle }">
+        <template #content>
           <!-- SVG overlay for edges -->
           <svg
             class="edge-svg"
@@ -290,8 +290,9 @@
           <div v-if="nodes.length === 0" class="canvas-empty">
             Drag a method from the sidebar, or click one to add it
           </div>
-        </div>
+        </template>
 
+        <template #overlay>
         <!-- Context menu (in canvas-wrap space, not transformed) -->
         <div
           v-if="contextMenu"
@@ -386,7 +387,8 @@
           :viewport-h="svgH"
           @pan-to="onMiniMapPanTo"
         />
-      </div>
+        </template>
+      </CanvasLayer>
     </div>
   </div>
 </template>
@@ -394,18 +396,22 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { MethodEntry } from '../../components/CommandPalette.vue'
+import { useContainedFocus } from '../../lib/useContainedFocus'
 import { getSharedClient } from '../../lib/plexus/clientRegistry'
 import { getCachedTree } from '../../lib/plexus/schemaCache'
 import { flattenTree } from '../../schema-walker'
 import type { PluginNode, MethodSchema } from '../../plexus-schema'
 import type { JsonSchema } from '../../components/SchemaField.vue'
+import CanvasLayer from '../../components/CanvasLayer.vue'
 import WiringParamPanel from './WiringParamPanel.vue'
 import WiringMiniMap from './WiringMiniMap.vue'
 import { useCanvasPanZoom } from './useCanvasPanZoom'
-import type { PanelMode } from './useCanvasPanZoom'
+import type { PanelMode } from '../../components/FloatPanel.vue'
 import { useNodeLayout } from './useNodeLayout'
 import { useWiringPersist } from './useWiringPersist'
 import type { WireNode, WireEdge, NodeKind, RouteMode, RouteConfig } from './wiringTypes'
+
+const { focus } = useContainedFocus()
 
 // ─── Props ────────────────────────────────────────────────────
 const props = defineProps<{
@@ -540,7 +546,7 @@ const filteredSearchMethods = computed(() => {
 })
 
 function focusSidebar() {
-  nextTick(() => sidebarInput.value?.focus())
+  nextTick(() => focus(sidebarInput.value))
 }
 
 function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
@@ -591,7 +597,8 @@ const { load: loadPipeline, exportJson, importJson } = useWiringPersist(nodes, e
 })
 
 // ─── SVG dimensions (ResizeObserver) ─────────────────────────
-const canvasWrap = ref<HTMLDivElement | null>(null)
+const canvasLayerRef = ref<{ el: HTMLElement | null } | null>(null)
+const canvasWrap = computed(() => canvasLayerRef.value?.el ?? null)
 const svgW = ref(800)
 const svgH = ref(600)
 
@@ -1279,14 +1286,19 @@ async function executeNodeWithRouting(
   } else {
     const eachStreams = eachEdges.map(edge => ({
       param: edge.toParam,
+      fromNodeId: edge.fromNodeId,
       items: nodeEmissions.get(edge.fromNodeId) ?? [],
     }))
     const minLen = Math.min(...eachStreams.map(s => s.items.length))
     allEmissions = []
     for (let i = 0; i < minLen; i++) {
       const iterInputs = new Map(scalarInputs)
-      for (const s of eachStreams) iterInputs.set(s.param, s.items[i])
-      const emitted = await executeNodeOnce(node, iterInputs, nodeResults)
+      const iterResults = new Map(nodeResults)
+      for (const s of eachStreams) {
+        iterInputs.set(s.param, s.items[i])
+        iterResults.set(s.fromNodeId, s.items[i])
+      }
+      const emitted = await executeNodeOnce(node, iterInputs, iterResults)
       allEmissions.push(...emitted)
     }
   }
@@ -1432,6 +1444,14 @@ function copySnapshot() {
       transform: n.kind !== 'rpc' ? n.transform : undefined,
       status: n.status,
       result: n.result,
+    })),
+    edges: edges.value.map(e => ({
+      id: e.id,
+      fromNodeId: e.fromNodeId,
+      toNodeId: e.toNodeId,
+      toParam: e.toParam,
+      routing: e.routing,
+      routeConfig: e.routeConfig,
     })),
   }
   const text = JSON.stringify(snapshot, null, 2)
@@ -1707,24 +1727,14 @@ function resultPreview(result: unknown): string {
 .canvas-wrap {
   flex: 1;
   position: relative;
-  overflow: clip;  /* prevents programmatic scroll from focus events */
   background-color: #080a0e;
   background-image: radial-gradient(circle, #1e2530 1px, transparent 1px);
   background-size: 20px 20px;
   cursor: default;
   min-width: 0;
-  outline: none;
 }
 
 .canvas-wrap.panning { cursor: grabbing !important; }
-
-/* Transformed layer: pan + zoom applied here */
-.canvas-content {
-  position: absolute;
-  inset: 0;
-  transform-origin: 0 0;
-  will-change: transform;
-}
 
 .edge-svg {
   position: absolute;
@@ -1859,6 +1869,7 @@ function resultPreview(result: unknown): string {
 .ctx-menu {
   position: absolute;
   z-index: 100;
+  pointer-events: auto;
   background: #1a1d23;
   border: 1px solid #30363d;
   border-radius: 5px;
@@ -1960,6 +1971,7 @@ function resultPreview(result: unknown): string {
 .routing-picker {
   position: absolute;
   z-index: 200;
+  pointer-events: auto;
   background: #1a1d23;
   border: 1px solid #30363d;
   border-radius: 6px;

@@ -247,6 +247,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import type { MethodEntry } from '../../components/CommandPalette.vue'
+import { useContainedFocus } from '../../lib/useContainedFocus'
 import { getSharedClient } from '../../lib/plexus/clientRegistry'
 import SchemaField from '../../components/SchemaField.vue'
 import type { JsonSchema } from '../../components/SchemaField.vue'
@@ -332,6 +333,7 @@ let stopFlag = false
 const showStepDropdown = ref(false)
 const stepSearchQuery = ref('')
 const stepSearchIdx = ref(0)
+const { focus } = useContainedFocus()
 const stepSearchRef = ref<HTMLInputElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
 
@@ -455,7 +457,7 @@ function addStep() {
   showStepDropdown.value = true
   stepSearchQuery.value = ''
   stepSearchIdx.value = 0
-  nextTick(() => stepSearchRef.value?.focus())
+  nextTick(() => focus(stepSearchRef.value))
 }
 
 function onStepSearchKey(e: KeyboardEvent) {

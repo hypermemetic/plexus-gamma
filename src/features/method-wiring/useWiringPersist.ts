@@ -1,7 +1,7 @@
 import { watch } from 'vue'
 import type { Ref } from 'vue'
 import type { WireNode, WireEdge } from './wiringTypes'
-import type { PanelMode } from './useCanvasPanZoom'
+import type { PanelMode } from '../../components/FloatPanel.vue'
 
 const STORAGE_KEY = 'plexus-wiring-v1'
 
