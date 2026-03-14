@@ -1287,7 +1287,9 @@ async function executeNodeWithRouting(
     const eachStreams = eachEdges.map(edge => ({
       param: edge.toParam,
       fromNodeId: edge.fromNodeId,
-      items: nodeEmissions.get(edge.fromNodeId) ?? [],
+      items: (nodeEmissions.get(edge.fromNodeId) ?? []).filter(
+        item => !(typeof item === 'object' && item !== null && (item as Record<string, unknown>).type === 'exit')
+      ),
     }))
     const minLen = Math.min(...eachStreams.map(s => s.items.length))
     allEmissions = []
