@@ -1123,14 +1123,22 @@ function onImportFile(e: Event) {
 
 // ─── Template interpolation ───────────────────────────────────
 function getPath(obj: unknown, path: string): unknown {
-  return path.split('.').reduce((a, k) => (a as Record<string, unknown>)?.[k], obj)
+  // normalise bracket notation: [0] or ['key'] → .0 / .key
+  const keys = path.replace(/\[(\d+)\]/g, '.$1').replace(/\[['"]([^'"]+)['"]\]/g, '.$1').split('.').filter(Boolean)
+  return keys.reduce((a, k) => (a as Record<string, unknown>)?.[k], obj)
 }
 
 function resolveTemplateRefs(value: string, results: Map<string, unknown>): unknown {
-  const m = value.match(/^\{(\w+)(?:\.(.+))?\}$/)
-  if (m) return m[2] ? getPath(results.get(m[1] as string), m[2] as string) : results.get(m[1] as string)
-  return value.replace(/\{(\w+)(?:\.([^}]+))?\}/g, (_, id: string, path: string) =>
-    String(path ? getPath(results.get(id), path) : (results.get(id) ?? '')))
+  // Match {nodeId} or {nodeId.path} or {nodeId[0].field} etc.
+  const m = value.match(/^\{(\w+)([^}]*)\}$/)
+  if (m) {
+    const base = results.get(m[1]!)
+    return m[2] ? getPath(base, m[2].replace(/^\./, '')) : base
+  }
+  return value.replace(/\{(\w+)([^}]*)\}/g, (_, id: string, rest: string) => {
+    const base = results.get(id)
+    return String(rest ? getPath(base, rest.replace(/^\./, '')) : (base ?? ''))
+  })
 }
 
 // ─── Transform node execution ─────────────────────────────────
