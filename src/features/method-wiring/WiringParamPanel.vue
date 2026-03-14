@@ -1,20 +1,27 @@
 <template>
   <div
-    v-if="node"
     class="param-panel"
-    :class="isMobile ? 'param-panel-sheet' : 'param-panel-float'"
-    :style="isMobile ? {} : floatStyle"
+    :class="panelClass"
+    :style="effectiveMode === 'float' ? floatStyle : {}"
     ref="panelEl"
     @pointerdown.stop
     @click.stop
   >
-    <div class="panel-handle-row" @pointerdown.stop="onDragStart">
-      <span class="panel-drag-handle">⠿</span>
+    <!-- Header -->
+    <div class="panel-handle-row" @pointerdown.stop="effectiveMode === 'float' ? onDragStart($event) : undefined">
+      <span v-if="effectiveMode === 'float'" class="panel-drag-handle">⠿</span>
       <span class="panel-title">{{ panelTitle }}</span>
+      <!-- Mode picker -->
+      <div class="mode-toggle">
+        <button class="mode-btn" :class="{ active: effectiveMode === 'float'  }" title="Hover card"     @click.stop="emit('update:mode', 'float')">⊡</button>
+        <button class="mode-btn" :class="{ active: effectiveMode === 'right'  }" title="Right panel"    @click.stop="emit('update:mode', 'right')">▷</button>
+        <button class="mode-btn" :class="{ active: effectiveMode === 'bottom' }" title="Bottom sheet"   @click.stop="emit('update:mode', 'bottom')">▽</button>
+      </div>
       <button class="panel-close-btn" @click.stop="emit('close')" title="Close">✕</button>
     </div>
 
-    <div class="panel-body">
+    <!-- Body (only rendered when a node is selected) -->
+    <div class="panel-body" v-if="node">
       <!-- RPC params -->
       <template v-if="node.kind === 'rpc'">
         <div v-if="availableRefs.length" class="pf-hint">
@@ -105,9 +112,9 @@
     </div>
   </div>
 
-  <!-- Mobile backdrop -->
+  <!-- Backdrop for bottom mode -->
   <div
-    v-if="node && isMobile"
+    v-if="effectiveMode === 'bottom' && node"
     class="param-panel-backdrop"
     @pointerdown="emit('close')"
   />
@@ -119,6 +126,8 @@ import type { WireNode } from './wiringTypes'
 import SchemaField from '../../components/SchemaField.vue'
 import type { JsonSchema } from '../../components/SchemaField.vue'
 
+export type PanelMode = 'float' | 'right' | 'bottom'
+
 const props = defineProps<{
   node: WireNode | null
   anchorX: number
@@ -127,6 +136,7 @@ const props = defineProps<{
   connectedParams: string[]
   availableRefs: string[]
   resolvedSchema: JsonSchema | null
+  mode?: PanelMode
 }>()
 
 const emit = defineEmits<{
@@ -135,6 +145,7 @@ const emit = defineEmits<{
   'update:transform': [{ path?: string; template?: string; code?: string; inputNames?: string[] }]
   'add-port': []
   'remove-port': [number]
+  'update:mode': [PanelMode]
 }>()
 
 const panelEl = ref<HTMLElement | null>(null)
@@ -144,6 +155,13 @@ const dragOffset = ref<{ x: number; y: number } | null>(null)
 const manualPos = ref<{ left: number; top: number } | null>(null)
 
 const isMobile = computed(() => typeof window !== 'undefined' && window.innerWidth < 680)
+const effectiveMode = computed<PanelMode>(() => isMobile.value ? 'bottom' : (props.mode ?? 'float'))
+
+const panelClass = computed(() => ({
+  [`panel-${effectiveMode.value}`]: true,
+  'panel-open': effectiveMode.value !== 'float' && !!props.node,
+  'panel-hidden': effectiveMode.value === 'float' && !props.node,
+}))
 
 const panelTitle = computed(() => {
   if (!props.node) return ''
@@ -178,12 +196,10 @@ function onDragStart(e: PointerEvent) {
   document.addEventListener('pointermove', onDragMove)
   document.addEventListener('pointerup', onDragEnd)
 }
-
 function onDragMove(e: PointerEvent) {
   if (!dragOffset.value) return
   manualPos.value = { left: e.clientX - dragOffset.value.x, top: e.clientY - dragOffset.value.y }
 }
-
 function onDragEnd() {
   dragOffset.value = null
   document.removeEventListener('pointermove', onDragMove)
@@ -193,8 +209,8 @@ function onDragEnd() {
 function onKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') emit('close')
 }
-
 function onDocPointerDown(e: PointerEvent) {
+  if (effectiveMode.value !== 'float') return
   if (!panelEl.value) return
   if (!panelEl.value.contains(e.target as Node)) emit('close')
 }
@@ -209,7 +225,6 @@ onMounted(() => {
     }
   })
 })
-
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeyDown)
   document.removeEventListener('pointerdown', onDocPointerDown)
@@ -217,7 +232,7 @@ onUnmounted(() => {
   document.removeEventListener('pointerup', onDragEnd)
 })
 
-// ─── Param helpers ────────────────────────────────────────────
+// ─── Form helpers ─────────────────────────────────────────────
 function getParamNames(): string[] {
   const node = props.node
   if (!node) return []
@@ -229,17 +244,14 @@ function getParamNames(): string[] {
   if (p['type'] === 'object' && p['properties']) return Object.keys(p['properties'] as object)
   return []
 }
-
 function nodeParamValue(param: string): string {
   const v = props.node?.params[param]
   return v === undefined || v === null ? '' : String(v)
 }
-
 function setParam(param: string, value: unknown) {
   if (!props.node) return
   emit('update:params', { ...props.node.params, [param]: value })
 }
-
 function updatePortName(pi: number, value: string) {
   if (!props.node) return
   const names = [...props.node.transform.inputNames]
@@ -249,54 +261,82 @@ function updatePortName(pi: number, value: string) {
 </script>
 
 <style scoped>
+/* ── Base ────────────────────────────────────────────────────── */
 .param-panel {
   background: #13161c;
   border: 1px solid #30363d;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-  min-width: 260px;
-  max-width: 380px;
   z-index: 300;
   font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
   font-size: 12px;
   color: #c9d1d9;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-hidden { display: none; }
+
+/* ── Float ───────────────────────────────────────────────────── */
+.panel-float {
+  position: absolute;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  min-width: 260px;
+  max-width: 380px;
   overflow: hidden;
 }
 
-.param-panel-float {
+/* ── Right drawer ────────────────────────────────────────────── */
+.panel-right {
   position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 300px;
+  border-left: 1px solid #30363d;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.5);
+  transform: translateX(100%);
+  transition: transform 0.22s ease;
+  overflow: hidden;
 }
+.panel-right.panel-open { transform: translateX(0); }
 
-.param-panel-sheet {
-  position: fixed;
+/* ── Bottom sheet ────────────────────────────────────────────── */
+.panel-bottom {
+  position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  max-height: 70vh;
-  max-width: 100%;
-  border-radius: 12px 12px 0 0;
-  overflow-y: auto;
-  z-index: 300;
+  max-height: 55vh;
+  border-top: 1px solid #30363d;
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+  transform: translateY(100%);
+  transition: transform 0.22s ease;
+  overflow: hidden;
 }
+.panel-bottom.panel-open { transform: translateY(0); }
 
+/* ── Backdrop ────────────────────────────────────────────────── */
 .param-panel-backdrop {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 299;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0,0,0,0.2);
 }
 
+/* ── Header ──────────────────────────────────────────────────── */
 .panel-handle-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px 7px;
+  gap: 6px;
+  padding: 7px 10px 6px;
   background: #1a1d23;
   border-bottom: 1px solid #21262d;
-  cursor: grab;
   user-select: none;
+  flex-shrink: 0;
 }
-.panel-handle-row:active { cursor: grabbing; }
+.panel-float .panel-handle-row { cursor: grab; }
+.panel-float .panel-handle-row:active { cursor: grabbing; }
 
 .panel-drag-handle { font-size: 12px; color: #484f58; flex-shrink: 0; }
 
@@ -308,6 +348,22 @@ function updatePortName(pi: number, value: string) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── Mode toggle ─────────────────────────────────────────────── */
+.mode-toggle { display: flex; gap: 2px; flex-shrink: 0; }
+
+.mode-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: #484f58;
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.mode-btn:hover { color: #8b949e; border-color: #30363d; }
+.mode-btn.active { color: #58a6ff; border-color: #58a6ff33; background: #1a2840; }
 
 .panel-close-btn {
   background: none;
@@ -321,15 +377,17 @@ function updatePortName(pi: number, value: string) {
 }
 .panel-close-btn:hover { color: #f85149; }
 
+/* ── Body ────────────────────────────────────────────────────── */
 .panel-body {
   padding: 10px;
   overflow-y: auto;
-  max-height: calc(70vh - 40px);
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
+/* ── Form fields ─────────────────────────────────────────────── */
 .pf-hint { font-size: 9px; color: #3a5a3a; font-style: italic; margin-bottom: 2px; }
 .pf-hint-inline { font-size: 9px; color: #3a5a3a; font-style: italic; }
 
@@ -403,6 +461,5 @@ function updatePortName(pi: number, value: string) {
   align-self: flex-start;
 }
 .pf-add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-
 .pf-schema-field { margin-top: 2px; }
 </style>

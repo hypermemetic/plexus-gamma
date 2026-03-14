@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue'
 import type { Ref, ComputedRef } from 'vue'
 
+export type PanelMode = 'float' | 'right' | 'bottom'
+
 export function useCanvasPanZoom(): {
   pan: Ref<{ x: number; y: number }>
   zoom: Ref<number>
@@ -8,10 +10,14 @@ export function useCanvasPanZoom(): {
   transformStyle: ComputedRef<string>
   onWheel(e: WheelEvent, rect: DOMRect): void
   onPanStart(e: MouseEvent): boolean
+  beginPan(e: MouseEvent): void
   onPanMove(e: MouseEvent): void
   onPanEnd(): void
   onKeyDown(e: KeyboardEvent): void
   onKeyUp(e: KeyboardEvent): void
+  onTouchStart(e: TouchEvent, rect: DOMRect): void
+  onTouchMove(e: TouchEvent, rect: DOMRect): void
+  onTouchEnd(e: TouchEvent): void
   screenToCanvas(sx: number, sy: number, rect: DOMRect): { x: number; y: number }
   canvasToScreen(cx: number, cy: number, rect: DOMRect): { x: number; y: number }
   panTo(cx: number, cy: number, rect: DOMRect): void
@@ -22,8 +28,14 @@ export function useCanvasPanZoom(): {
   const isPanning = ref(false)
   const spaceHeld = ref(false)
 
-  interface PanStart { mouseX: number; mouseY: number; panX: number; panY: number }
-  let panStart: PanStart | null = null
+  interface PanState { mouseX: number; mouseY: number; panX: number; panY: number }
+  let panState: PanState | null = null
+
+  // Touch state
+  interface TouchPanState { x: number; y: number; panX: number; panY: number }
+  interface PinchState { dist: number; zoom: number; pan: { x: number; y: number }; midX: number; midY: number }
+  let touchPan: TouchPanState | null = null
+  let pinchStart: PinchState | null = null
 
   const transformStyle = computed(
     () => `translate(${pan.value.x}px,${pan.value.y}px) scale(${zoom.value})`
@@ -34,8 +46,7 @@ export function useCanvasPanZoom(): {
   }
 
   function onWheel(e: WheelEvent, rect: DOMRect): void {
-    const newZoom = clampZoom(zoom.value * (1 - e.deltaY * 0.003))
-    // Zoom toward cursor: keep the canvas point under cursor fixed
+    const newZoom = clampZoom(zoom.value * (1 - e.deltaY * 0.006))
     const cx = e.clientX - rect.left
     const cy = e.clientY - rect.top
     pan.value = {
@@ -45,26 +56,33 @@ export function useCanvasPanZoom(): {
     zoom.value = newZoom
   }
 
+  // Legacy: middle-click or space+drag
   function onPanStart(e: MouseEvent): boolean {
     const shouldPan = e.button === 1 || (e.button === 0 && spaceHeld.value)
     if (shouldPan) {
-      panStart = { mouseX: e.clientX, mouseY: e.clientY, panX: pan.value.x, panY: pan.value.y }
+      panState = { mouseX: e.clientX, mouseY: e.clientY, panX: pan.value.x, panY: pan.value.y }
       isPanning.value = true
       return true
     }
     return false
   }
 
+  // Force pan start unconditionally (any click on empty canvas)
+  function beginPan(e: MouseEvent): void {
+    panState = { mouseX: e.clientX, mouseY: e.clientY, panX: pan.value.x, panY: pan.value.y }
+    isPanning.value = true
+  }
+
   function onPanMove(e: MouseEvent): void {
-    if (!panStart) return
+    if (!panState) return
     pan.value = {
-      x: panStart.panX + (e.clientX - panStart.mouseX),
-      y: panStart.panY + (e.clientY - panStart.mouseY),
+      x: panState.panX + (e.clientX - panState.mouseX),
+      y: panState.panY + (e.clientY - panState.mouseY),
     }
   }
 
   function onPanEnd(): void {
-    panStart = null
+    panState = null
     isPanning.value = false
   }
 
@@ -74,6 +92,63 @@ export function useCanvasPanZoom(): {
 
   function onKeyUp(e: KeyboardEvent): void {
     if (e.code === 'Space') spaceHeld.value = false
+  }
+
+  // ─── Touch handlers ──────────────────────────────────────────
+  function onTouchStart(e: TouchEvent, rect: DOMRect): void {
+    const t0 = e.touches[0]
+    const t1 = e.touches[1]
+    if (e.touches.length === 1 && t0) {
+      touchPan = { x: t0.clientX, y: t0.clientY, panX: pan.value.x, panY: pan.value.y }
+      pinchStart = null
+      isPanning.value = true
+    } else if (e.touches.length === 2 && t0 && t1) {
+      touchPan = null
+      const dx = t0.clientX - t1.clientX
+      const dy = t0.clientY - t1.clientY
+      pinchStart = {
+        dist: Math.hypot(dx, dy),
+        zoom: zoom.value,
+        pan: { ...pan.value },
+        midX: (t0.clientX + t1.clientX) / 2 - rect.left,
+        midY: (t0.clientY + t1.clientY) / 2 - rect.top,
+      }
+    }
+  }
+
+  function onTouchMove(e: TouchEvent, _rect: DOMRect): void {
+    const t0 = e.touches[0]
+    const t1 = e.touches[1]
+    if (e.touches.length === 1 && touchPan && t0) {
+      pan.value = {
+        x: touchPan.panX + (t0.clientX - touchPan.x),
+        y: touchPan.panY + (t0.clientY - touchPan.y),
+      }
+    } else if (e.touches.length === 2 && pinchStart && t0 && t1) {
+      const dx = t0.clientX - t1.clientX
+      const dy = t0.clientY - t1.clientY
+      const dist = Math.hypot(dx, dy)
+      const newZoom = clampZoom(pinchStart.zoom * (dist / pinchStart.dist))
+      const { midX, midY } = pinchStart
+      pan.value = {
+        x: midX - (midX - pinchStart.pan.x) * newZoom / pinchStart.zoom,
+        y: midY - (midY - pinchStart.pan.y) * newZoom / pinchStart.zoom,
+      }
+      zoom.value = newZoom
+    }
+  }
+
+  function onTouchEnd(e: TouchEvent): void {
+    const t0 = e.touches[0]
+    if (e.touches.length === 0) {
+      touchPan = null
+      pinchStart = null
+      isPanning.value = false
+    } else if (e.touches.length === 1 && t0) {
+      // Transition from 2→1 finger: restart single-finger pan
+      pinchStart = null
+      touchPan = { x: t0.clientX, y: t0.clientY, panX: pan.value.x, panY: pan.value.y }
+    }
   }
 
   function screenToCanvas(sx: number, sy: number, rect: DOMRect): { x: number; y: number } {
@@ -104,8 +179,9 @@ export function useCanvasPanZoom(): {
 
   return {
     pan, zoom, isPanning, transformStyle,
-    onWheel, onPanStart, onPanMove, onPanEnd,
+    onWheel, onPanStart, beginPan, onPanMove, onPanEnd,
     onKeyDown, onKeyUp,
+    onTouchStart, onTouchMove, onTouchEnd,
     screenToCanvas, canvasToScreen, panTo, reset,
   }
 }

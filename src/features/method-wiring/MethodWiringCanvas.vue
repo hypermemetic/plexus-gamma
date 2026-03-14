@@ -151,6 +151,9 @@
         @wheel.prevent="onCanvasWheel"
         @keydown="onKeyDown"
         @keyup="onKeyUp"
+        @touchstart.prevent="onCanvasTouchStart"
+        @touchmove.prevent="onCanvasTouchMove"
+        @touchend="onCanvasTouchEnd"
         @dragover.prevent="onCanvasDragOver"
         @drop="onCanvasDrop"
         tabindex="0"
@@ -362,6 +365,8 @@
           :connected-params="selectedNodeConnectedParams"
           :available-refs="selectedNodeRefs"
           :resolved-schema="selectedNodeSchema"
+          :mode="panelMode"
+          @update:mode="panelMode = $event"
           @close="selectedNodeId = null"
           @update:params="onParamPanelUpdateParams"
           @update:transform="onParamPanelUpdateTransform"
@@ -395,6 +400,7 @@ import type { JsonSchema } from '../../components/SchemaField.vue'
 import WiringParamPanel from './WiringParamPanel.vue'
 import WiringMiniMap from './WiringMiniMap.vue'
 import { useCanvasPanZoom } from './useCanvasPanZoom'
+import type { PanelMode } from './useCanvasPanZoom'
 import { useNodeLayout } from './useNodeLayout'
 import { useWiringPersist } from './useWiringPersist'
 import type { WireNode, WireEdge, NodeKind, RouteMode, RouteConfig } from './wiringTypes'
@@ -562,6 +568,7 @@ const ROUTE_LABELS: Record<RouteMode, string> = {
 const nodes = ref<WireNode[]>([])
 const edges = ref<WireEdge[]>([])
 const selectedNodeId = ref<string | null>(null)
+const panelMode = ref<PanelMode>('float')
 const running = ref(false)
 // Bump to force edge SVG re-render after node resize (DOM positions change non-reactively)
 const layoutTick = ref(0)
@@ -570,8 +577,10 @@ const runError = ref<string | null>(null)
 // ─── Composables ──────────────────────────────────────────────
 const {
   pan, zoom, isPanning, transformStyle,
-  onWheel: panZoomWheel, onPanStart, onPanMove, onPanEnd,
-  onKeyDown, onKeyUp, screenToCanvas, panTo, reset: resetView,
+  onWheel: panZoomWheel, beginPan, onPanMove, onPanEnd,
+  onKeyDown, onKeyUp,
+  onTouchStart: panZoomTouchStart, onTouchMove: panZoomTouchMove, onTouchEnd: panZoomTouchEnd,
+  screenToCanvas, panTo, reset: resetView,
 } = useCanvasPanZoom()
 
 const { autoLayout } = useNodeLayout(nodes, edges, layoutTick)
@@ -727,9 +736,22 @@ function startDrag(e: MouseEvent, nodeId: string) {
 
 // ─── Canvas mouse handlers ────────────────────────────────────
 function onCanvasMouseDown(e: MouseEvent) {
-  if (onPanStart(e)) {
-    e.preventDefault()
-  }
+  beginPan(e)
+  e.preventDefault()
+}
+
+function onCanvasTouchStart(e: TouchEvent) {
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (rect) panZoomTouchStart(e, rect)
+}
+
+function onCanvasTouchMove(e: TouchEvent) {
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (rect) panZoomTouchMove(e, rect)
+}
+
+function onCanvasTouchEnd(e: TouchEvent) {
+  panZoomTouchEnd(e)
 }
 
 function onCanvasWheel(e: WheelEvent) {
