@@ -9,6 +9,10 @@
       </button>
       <button class="tb-btn" @click="clearCanvas" title="Clear canvas">[&#10005; Clear]</button>
       <button class="tb-btn" @click="exportJson" title="Export pipeline as JSON">[Export JSON]</button>
+      <button class="tb-btn" @click="autoLayout" title="Auto-arrange nodes">[Auto Layout]</button>
+      <button class="tb-btn" @click="resetView" title="Reset pan/zoom">[Reset View]</button>
+      <button class="tb-btn" @click="triggerImport" title="Import pipeline JSON">[Import]</button>
+      <input type="file" ref="importFileInput" accept=".json" style="display:none" @change="onImportFile" />
       <span v-if="runError" class="tb-error">{{ runError }}</span>
     </div>
 
@@ -137,223 +141,156 @@
       <!-- Right canvas -->
       <div
         class="canvas-wrap"
+        :class="{ panning: isPanning }"
         ref="canvasWrap"
         @click="onCanvasClick"
         @contextmenu.prevent="onCanvasClick"
+        @mousedown="onCanvasMouseDown"
         @mousemove="onMouseMove"
         @mouseup="onMouseUp"
+        @wheel.prevent="onCanvasWheel"
+        @keydown="onKeyDown"
+        @keyup="onKeyUp"
         @dragover.prevent="onCanvasDragOver"
         @drop="onCanvasDrop"
+        tabindex="0"
       >
-        <!-- SVG overlay for edges -->
-        <svg
-          class="edge-svg"
-          :viewBox="`0 0 ${svgW} ${svgH}`"
-          :width="svgW"
-          :height="svgH"
-          @click.stop
-        >
-          <!-- Completed edges -->
-          <g v-for="edge in edges" :key="edge.id">
-            <path
-              :d="edgePath(edge)"
-              class="edge-path"
-              :class="{ 'edge-hover': hoveredEdge === edge.id }"
-              fill="none"
-              @mouseenter="hoveredEdge = edge.id"
-              @mouseleave="hoveredEdge = null"
-              @click.stop="removeEdge(edge.id)"
-            />
-            <!-- Routing badge — click to open picker -->
-            <g
-              v-for="mid in edgeMidpoint(edge) ? [edgeMidpoint(edge)!] : []"
-              :key="'badge'"
-              class="edge-badge-g"
-              @click.stop="openRoutingPicker($event, edge.id)"
-              @mouseenter="hoveredEdge = edge.id"
-              @mouseleave="hoveredEdge = null"
-            >
-              <rect
-                :x="mid.x - 17" :y="mid.y - 9"
-                width="34" height="18" rx="3"
-                class="edge-badge-bg"
-                :class="`route-${edge.routing}`"
+        <!-- Transformed content layer (pan + zoom applied here) -->
+        <div class="canvas-content" :style="{ transform: transformStyle }">
+          <!-- SVG overlay for edges -->
+          <svg
+            class="edge-svg"
+            :viewBox="`0 0 ${svgW} ${svgH}`"
+            :width="svgW"
+            :height="svgH"
+            @click.stop
+          >
+            <!-- Completed edges -->
+            <g v-for="edge in edges" :key="edge.id">
+              <path
+                :d="edgePath(edge)"
+                class="edge-path"
+                :class="{ 'edge-hover': hoveredEdge === edge.id }"
+                fill="none"
+                @mouseenter="hoveredEdge = edge.id"
+                @mouseleave="hoveredEdge = null"
+                @click.stop="removeEdge(edge.id)"
               />
-              <text :x="mid.x" :y="mid.y + 4" class="edge-badge-text" text-anchor="middle">{{ ROUTE_LABELS[edge.routing] }}</text>
-            </g>
-          </g>
-          <!-- Pending edge (drawing in progress) -->
-          <path
-            v-if="pendingEdge"
-            :d="pendingEdgePath"
-            class="edge-path edge-pending"
-            fill="none"
-          />
-        </svg>
-
-        <!-- Nodes -->
-        <div
-          v-for="node in nodes"
-          :key="node.id"
-          class="wire-node"
-          :data-id="node.id"
-          :class="{
-            selected: selectedNodeId === node.id,
-            'status-running': node.status === 'running',
-            'status-done': node.status === 'done',
-            'status-error': node.status === 'error',
-          }"
-          :style="{
-            left: `${node.pos.x}px`,
-            top: `${node.pos.y}px`,
-            width: `${node.w}px`,
-            background: nodeBackground(node.kind),
-          }"
-          @mousedown.stop="startDrag($event, node.id)"
-          @click.stop
-          @contextmenu.prevent.stop="showContextMenu($event, node.id)"
-        >
-          <!-- Status dot -->
-          <span class="status-dot" :class="`status-dot-${node.status}`"></span>
-
-          <!-- Node title -->
-          <div class="node-title">{{ nodeTitle(node) }}</div>
-
-          <!-- Input ports (params) on the left — @mousedown.stop prevents node drag/select when clicking ports -->
-          <div class="node-ports-left" @mousedown.stop>
-            <div
-              v-for="param in getParamNames(node)"
-              :key="param"
-              class="port-row port-row-left"
-            >
-              <div
-                class="port port-in"
-                :class="{ 'port-connected': isParamConnected(node.id, param), 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === param }"
-                :title="`Input: ${param}`"
-                @mousedown.stop
-                @mouseenter="hoveredPort = { nodeId: node.id, param }"
-                @mouseleave="hoveredPort = null"
-                @click.stop="onInputPortClick(node.id, param)"
-              ></div>
-              <span class="port-label">{{ param }}</span>
-            </div>
-          </div>
-
-          <!-- Output port on the right — @mousedown.stop prevents node drag/select when clicking ports -->
-          <div class="node-ports-right" @mousedown.stop>
-            <div
-              class="port port-out"
-              :class="{ 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === '__out' }"
-              title="Output"
-              @mousedown.stop
-              @mouseenter="hoveredPort = { nodeId: node.id, param: '__out' }"
-              @mouseleave="hoveredPort = null"
-              @click.stop="onOutputPortClick(node.id)"
-            ></div>
-          </div>
-
-          <!-- Returns schema (RPC only, when selected) -->
-          <div v-if="selectedNodeId === node.id && node.kind === 'rpc' && node.method?.method.returns" class="returns-section" @mousedown.stop @click.stop>
-            <div class="returns-title">returns</div>
-            <pre class="returns-schema">{{ formatSchema(node.method.method.returns) }}</pre>
-          </div>
-
-          <!-- Inline param/config when selected -->
-          <template v-if="selectedNodeId === node.id">
-            <!-- RPC: SchemaField if schema available, else plain inputs -->
-            <template v-if="node.kind === 'rpc'">
-              <div v-if="getParamNames(node).length > 0" class="param-form" @mousedown.stop @click.stop>
-                <div class="param-form-title">
-                  Params
-                  <span v-if="availableRefIds(node.id).length" class="param-hint">
-                    ref: {{ availableRefIds(node.id).map(id => '{' + id + '}').join(' ') }}
-                  </span>
-                </div>
-                <SchemaField
-                  v-if="resolvedParamSchema(node)"
-                  name="params"
-                  :schema="resolvedParamSchema(node)!"
-                  :model-value="node.params"
-                  @update:model-value="node.params = $event as Record<string, unknown>"
-                  class="param-schema-field"
-                  @mousedown.stop
-                  @click.stop
+              <!-- Routing badge — click to open picker -->
+              <g
+                v-for="mid in edgeMidpoint(edge) ? [edgeMidpoint(edge)!] : []"
+                :key="'badge'"
+                class="edge-badge-g"
+                @click.stop="openRoutingPicker($event, edge.id)"
+                @mouseenter="hoveredEdge = edge.id"
+                @mouseleave="hoveredEdge = null"
+              >
+                <rect
+                  :x="mid.x - 17" :y="mid.y - 9"
+                  width="34" height="18" rx="3"
+                  class="edge-badge-bg"
+                  :class="`route-${edge.routing}`"
                 />
-                <template v-else>
-                  <div v-for="param in getParamNames(node)" :key="param" class="param-row">
-                    <label class="param-label">{{ param }}</label>
-                    <input
-                      class="param-input"
-                      :placeholder="isParamConnected(node.id, param) ? '(wired)' : 'value'"
-                      :disabled="isParamConnected(node.id, param)"
-                      :value="nodeParamValue(node, param)"
-                      @input="setParam(node.id, param, ($event.target as HTMLInputElement).value)"
-                    />
-                  </div>
-                </template>
+                <text :x="mid.x" :y="mid.y + 4" class="edge-badge-text" text-anchor="middle">{{ ROUTE_LABELS[edge.routing] }}</text>
+              </g>
+            </g>
+            <!-- Pending edge (drawing in progress) -->
+            <path
+              v-if="pendingEdge"
+              :d="pendingEdgePath"
+              class="edge-path edge-pending"
+              fill="none"
+            />
+          </svg>
+
+          <!-- Nodes -->
+          <div
+            v-for="node in nodes"
+            :key="node.id"
+            class="wire-node"
+            :data-id="node.id"
+            :class="{
+              selected: selectedNodeId === node.id,
+              'status-running': node.status === 'running',
+              'status-done': node.status === 'done',
+              'status-error': node.status === 'error',
+            }"
+            :style="{
+              left: `${node.pos.x}px`,
+              top: `${node.pos.y}px`,
+              width: `${node.w}px`,
+              background: nodeBackground(node.kind),
+            }"
+            @mousedown.stop="startDrag($event, node.id)"
+            @click.stop
+            @contextmenu.prevent.stop="showContextMenu($event, node.id)"
+          >
+            <!-- Status dot -->
+            <span class="status-dot" :class="`status-dot-${node.status}`"></span>
+
+            <!-- Node title -->
+            <div class="node-title">{{ nodeTitle(node) }}</div>
+
+            <!-- Input ports (params) on the left -->
+            <div class="node-ports-left" @mousedown.stop>
+              <div
+                v-for="param in getParamNames(node)"
+                :key="param"
+                class="port-row port-row-left"
+              >
+                <div
+                  class="port port-in"
+                  :class="{ 'port-connected': isParamConnected(node.id, param), 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === param }"
+                  :title="`Input: ${param}`"
+                  @mousedown.stop
+                  @mouseenter="hoveredPort = { nodeId: node.id, param }"
+                  @mouseleave="hoveredPort = null"
+                  @click.stop="onInputPortClick(node.id, param)"
+                ></div>
+                <span class="port-label">{{ param }}</span>
               </div>
-            </template>
+            </div>
 
-            <!-- Transform config -->
-            <template v-else>
-              <div class="param-form" @mousedown.stop @click.stop>
-                <!-- Extract -->
-                <template v-if="node.kind === 'extract'">
-                  <div class="param-form-title">dot-path</div>
-                  <input v-model="node.transform.path" class="param-input" placeholder="e.g. result.text" />
-                </template>
+            <!-- Output port on the right -->
+            <div class="node-ports-right" @mousedown.stop>
+              <div
+                class="port port-out"
+                :class="{ 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === '__out' }"
+                title="Output"
+                @mousedown.stop
+                @mouseenter="hoveredPort = { nodeId: node.id, param: '__out' }"
+                @mouseleave="hoveredPort = null"
+                @click.stop="onOutputPortClick(node.id)"
+              ></div>
+            </div>
 
-                <!-- Template -->
-                <template v-else-if="node.kind === 'template'">
-                  <div class="param-form-title">template <span class="param-hint">use &#123;&#123;name&#125;&#125;</span></div>
-                  <textarea v-model="node.transform.template" class="transform-textarea" placeholder="Hello {{input}}" rows="2" />
-                  <div class="param-form-title" style="margin-top:6px">ports</div>
-                  <div v-for="(_, pi) in node.transform.inputNames" :key="pi" class="param-row">
-                    <input v-model="node.transform.inputNames[pi]" class="param-input param-port-name" placeholder="port name" />
-                    <button class="port-del-btn" @click.stop="node.transform.inputNames.splice(pi, 1)" title="Remove">✕</button>
-                  </div>
-                  <button class="add-port-btn" @click.stop="node.transform.inputNames.push('port' + node.transform.inputNames.length)">+ port</button>
-                </template>
+            <!-- Returns schema (RPC only, when selected) -->
+            <div v-if="selectedNodeId === node.id && node.kind === 'rpc' && node.method?.method.returns" class="returns-section" @mousedown.stop @click.stop>
+              <div class="returns-title">returns</div>
+              <pre class="returns-schema">{{ formatSchema(node.method.method.returns) }}</pre>
+            </div>
 
-                <!-- Merge -->
-                <template v-else-if="node.kind === 'merge'">
-                  <div class="param-form-title">ports</div>
-                  <div v-for="(_, pi) in node.transform.inputNames" :key="pi" class="param-row">
-                    <input v-model="node.transform.inputNames[pi]" class="param-input param-port-name" placeholder="field name" />
-                    <button class="port-del-btn" @click.stop="node.transform.inputNames.splice(pi, 1)" title="Remove">✕</button>
-                  </div>
-                  <button class="add-port-btn" @click.stop="node.transform.inputNames.push('field' + node.transform.inputNames.length)">+ port</button>
-                </template>
+            <!-- Result preview when done -->
+            <div v-if="node.status === 'done' && node.result !== undefined" class="node-result" @mousedown.stop @click.stop>
+              <span class="result-label">result:</span>
+              <span class="result-value">{{ resultPreview(node.result) }}</span>
+            </div>
+            <div v-if="node.status === 'error' && node.result !== undefined" class="node-result node-result-error" @mousedown.stop @click.stop>
+              <span class="result-label">error:</span>
+              <span class="result-value">{{ String(node.result) }}</span>
+            </div>
 
-                <!-- Script -->
-                <template v-else-if="node.kind === 'script'">
-                  <div class="param-form-title">code <span class="param-hint">fn(input)</span></div>
-                  <textarea v-model="node.transform.code" class="transform-textarea" placeholder="x => x.result" rows="3" />
-                </template>
-              </div>
-            </template>
-          </template>
-
-          <!-- Result preview when done -->
-          <div v-if="node.status === 'done' && node.result !== undefined" class="node-result" @mousedown.stop @click.stop>
-            <span class="result-label">result:</span>
-            <span class="result-value">{{ resultPreview(node.result) }}</span>
-          </div>
-          <div v-if="node.status === 'error' && node.result !== undefined" class="node-result node-result-error" @mousedown.stop @click.stop>
-            <span class="result-label">error:</span>
-            <span class="result-value">{{ String(node.result) }}</span>
+            <!-- Resize handle (bottom-right corner) -->
+            <div class="resize-handle" @mousedown.stop="startResize($event, node.id)" title="Drag to resize"></div>
           </div>
 
-          <!-- Resize handle (bottom-right corner) -->
-          <div class="resize-handle" @mousedown.stop="startResize($event, node.id)" title="Drag to resize"></div>
+          <!-- Empty state -->
+          <div v-if="nodes.length === 0" class="canvas-empty">
+            Drag a method from the sidebar, or click one to add it
+          </div>
         </div>
 
-        <!-- Empty state -->
-        <div v-if="nodes.length === 0" class="canvas-empty">
-          Drag a method from the sidebar, or click one to add it
-        </div>
-
-        <!-- Context menu -->
+        <!-- Context menu (in canvas-wrap space, not transformed) -->
         <div
           v-if="contextMenu"
           class="ctx-menu"
@@ -366,7 +303,7 @@
           <button class="ctx-item" @click="contextMenu = null">Cancel</button>
         </div>
 
-        <!-- Routing picker -->
+        <!-- Routing picker (in canvas-wrap space, not transformed) -->
         <div
           v-if="routingPicker"
           class="routing-picker"
@@ -415,6 +352,33 @@
           </template>
           <button class="routing-del-btn" @click="removeEdge(routingPicker.edgeId)">delete edge</button>
         </div>
+
+        <!-- Floating param panel (in canvas-wrap space, not transformed) -->
+        <WiringParamPanel
+          :node="selectedNode"
+          :anchor-x="selectedNodeAnchorX"
+          :anchor-y="selectedNodeAnchorY"
+          :anchor-w="selectedNodeAnchorW"
+          :connected-params="selectedNodeConnectedParams"
+          :available-refs="selectedNodeRefs"
+          :resolved-schema="selectedNodeSchema"
+          @close="selectedNodeId = null"
+          @update:params="onParamPanelUpdateParams"
+          @update:transform="onParamPanelUpdateTransform"
+          @add-port="onParamPanelAddPort"
+          @remove-port="onParamPanelRemovePort"
+        />
+
+        <!-- Mini-map (in canvas-wrap space, not transformed) -->
+        <WiringMiniMap
+          :nodes="nodes"
+          :edges="edges"
+          :pan="pan"
+          :zoom="zoom"
+          :viewport-w="svgW"
+          :viewport-h="svgH"
+          @pan-to="onMiniMapPanTo"
+        />
       </div>
     </div>
   </div>
@@ -427,8 +391,13 @@ import { getSharedClient } from '../../lib/plexus/clientRegistry'
 import { getCachedTree } from '../../lib/plexus/schemaCache'
 import { flattenTree } from '../../schema-walker'
 import type { PluginNode, MethodSchema } from '../../plexus-schema'
-import SchemaField from '../../components/SchemaField.vue'
 import type { JsonSchema } from '../../components/SchemaField.vue'
+import WiringParamPanel from './WiringParamPanel.vue'
+import WiringMiniMap from './WiringMiniMap.vue'
+import { useCanvasPanZoom } from './useCanvasPanZoom'
+import { useNodeLayout } from './useNodeLayout'
+import { useWiringPersist } from './useWiringPersist'
+import type { WireNode, WireEdge, NodeKind, RouteMode, RouteConfig } from './wiringTypes'
 
 // ─── Props ────────────────────────────────────────────────────
 const props = defineProps<{
@@ -481,7 +450,6 @@ async function drillIntoBackend(name: string): Promise<void> {
     drillStack.value = [{ backend: name, node: sidebarTrees[name] }]
     return
   }
-  // Load on demand if not yet fetched
   sidebarLoading[name] = true
   const conn = props.connections.find(c => c.name === name)
   if (!conn) return
@@ -579,43 +547,6 @@ function getClient(backend: string) {
 }
 
 // ─── Data model ───────────────────────────────────────────────
-type NodeKind = 'rpc' | 'extract' | 'template' | 'merge' | 'script'
-
-interface WireNode {
-  id: string
-  kind: NodeKind
-  method?: MethodEntry  // 'rpc' only
-  transform: {
-    path: string
-    template: string
-    code: string
-    inputNames: string[]
-  }
-  pos: { x: number; y: number }
-  w: number                        // node width in px (min 160, default 220)
-  params: Record<string, unknown>
-  status: 'idle' | 'running' | 'done' | 'error'
-  result: unknown
-}
-
-type RouteMode = 'auto' | 'each' | 'collect' | 'last' | 'first' | 'concat' | 'filter' | 'reduce'
-
-interface RouteConfig {
-  separator: string
-  predicate: string
-  reducer: string
-  initial: string
-}
-
-interface WireEdge {
-  id: string
-  fromNodeId: string
-  toNodeId: string
-  toParam: string
-  routing: RouteMode
-  routeConfig: RouteConfig
-}
-
 const ROUTE_MODES: RouteMode[] = ['auto', 'each', 'collect', 'last', 'first', 'concat', 'filter', 'reduce']
 const ROUTE_LABELS: Record<RouteMode, string> = {
   auto:    '·',
@@ -635,6 +566,16 @@ const running = ref(false)
 // Bump to force edge SVG re-render after node resize (DOM positions change non-reactively)
 const layoutTick = ref(0)
 const runError = ref<string | null>(null)
+
+// ─── Composables ──────────────────────────────────────────────
+const {
+  pan, zoom, isPanning, transformStyle,
+  onWheel: panZoomWheel, onPanStart, onPanMove, onPanEnd,
+  onKeyDown, onKeyUp, screenToCanvas, panTo, reset: resetView,
+} = useCanvasPanZoom()
+
+const { autoLayout } = useNodeLayout(nodes, edges, layoutTick)
+const { load: loadPipeline, exportJson, importJson } = useWiringPersist(nodes, edges)
 
 // ─── SVG dimensions (ResizeObserver) ─────────────────────────
 const canvasWrap = ref<HTMLDivElement | null>(null)
@@ -656,6 +597,16 @@ onMounted(() => {
     resizeObserver.observe(canvasWrap.value)
     svgW.value = canvasWrap.value.clientWidth
     svgH.value = canvasWrap.value.clientHeight
+  }
+  loadPipeline()
+  // Advance counters past any restored IDs to avoid collisions
+  for (const n of nodes.value) {
+    const num = parseInt(n.id.replace(/^n/, ''))
+    if (!isNaN(num) && num >= nodeCounter) nodeCounter = num + 1
+  }
+  for (const e of edges.value) {
+    const num = parseInt(e.id.replace(/^e/, ''))
+    if (!isNaN(num) && num >= edgeCounter) edgeCounter = num + 1
   }
 })
 
@@ -769,18 +720,33 @@ function startDrag(e: MouseEvent, nodeId: string) {
     startNodeY: node.pos.y,
   }
   routingPicker.value = null
-  // Don't select (and expand) the node when a connection is in progress
   if (!pendingEdge.value) {
     selectedNodeId.value = nodeId
   }
 }
 
+// ─── Canvas mouse handlers ────────────────────────────────────
+function onCanvasMouseDown(e: MouseEvent) {
+  if (onPanStart(e)) {
+    e.preventDefault()
+  }
+}
+
+function onCanvasWheel(e: WheelEvent) {
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (rect) panZoomWheel(e, rect)
+}
+
 function onMouseMove(e: MouseEvent) {
+  if (isPanning.value) {
+    onPanMove(e)
+    return
+  }
   if (resizeState) {
     const node = nodes.value.find(n => n.id === resizeState!.nodeId)
     if (node) {
       const dx = e.clientX - resizeState.startMouseX
-      node.w = Math.max(160, snap(resizeState.startW + dx))
+      node.w = Math.max(160, snap(resizeState.startW + dx / zoom.value))
       layoutTick.value++
     }
     return
@@ -788,8 +754,8 @@ function onMouseMove(e: MouseEvent) {
   if (dragState) {
     const node = nodes.value.find(n => n.id === dragState!.nodeId)
     if (node) {
-      const dx = e.clientX - dragState.startMouseX
-      const dy = e.clientY - dragState.startMouseY
+      const dx = (e.clientX - dragState.startMouseX) / zoom.value
+      const dy = (e.clientY - dragState.startMouseY) / zoom.value
       node.pos.x = snap(dragState.startNodeX + dx)
       node.pos.y = snap(dragState.startNodeY + dy)
       layoutTick.value++
@@ -798,13 +764,15 @@ function onMouseMove(e: MouseEvent) {
   if (pendingEdge.value) {
     const rect = canvasWrap.value?.getBoundingClientRect()
     if (rect) {
-      pendingEdge.value.toX = e.clientX - rect.left
-      pendingEdge.value.toY = e.clientY - rect.top
+      const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+      pendingEdge.value.toX = x
+      pendingEdge.value.toY = y
     }
   }
 }
 
 function onMouseUp() {
+  onPanEnd()
   dragState = null
   resizeState = null
 }
@@ -820,9 +788,8 @@ function onCanvasDrop(e: DragEvent) {
   try {
     const data = JSON.parse(raw) as MethodEntry
     const rect = canvasWrap.value!.getBoundingClientRect()
-    const x = snap(e.clientX - rect.left)
-    const y = snap(e.clientY - rect.top)
-    addNode(data, { x, y })
+    const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+    addNode(data, { x: snap(x), y: snap(y) })
   } catch { /* ignore */ }
 }
 
@@ -837,19 +804,24 @@ const hoveredEdge = ref<string | null>(null)
 interface RoutingPicker { edgeId: string; x: number; y: number }
 const routingPicker = ref<RoutingPicker | null>(null)
 
+// Returns canvas-space position of a node's output port
 function outputPortPos(nodeId: string): { x: number; y: number } | null {
-  void layoutTick.value  // reactive dependency — re-evaluates on node move/resize
+  void layoutTick.value  // reactive dependency
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return null
   const portEl = canvasWrap.value?.querySelector<HTMLElement>(`.wire-node[data-id="${nodeId}"] .port-out`)
   if (portEl) {
     const rect = portEl.getBoundingClientRect()
     const wrap = canvasWrap.value!.getBoundingClientRect()
-    return { x: rect.left + rect.width / 2 - wrap.left, y: rect.top + rect.height / 2 - wrap.top }
+    return {
+      x: (rect.left + rect.width / 2 - wrap.left - pan.value.x) / zoom.value,
+      y: (rect.top + rect.height / 2 - wrap.top - pan.value.y) / zoom.value,
+    }
   }
   return { x: node.pos.x + node.w + 6, y: node.pos.y + 40 }
 }
 
+// Returns canvas-space position of a node's input port
 function inputPortPos(nodeId: string, param: string): { x: number; y: number } | null {
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return null
@@ -860,7 +832,10 @@ function inputPortPos(nodeId: string, param: string): { x: number; y: number } |
   if (portEls && portEls[idx]) {
     const rect = portEls[idx].getBoundingClientRect()
     const wrap = canvasWrap.value!.getBoundingClientRect()
-    return { x: rect.left + rect.width / 2 - wrap.left, y: rect.top + rect.height / 2 - wrap.top }
+    return {
+      x: (rect.left + rect.width / 2 - wrap.left - pan.value.x) / zoom.value,
+      y: (rect.top + rect.height / 2 - wrap.top - pan.value.y) / zoom.value,
+    }
   }
   return { x: node.pos.x, y: node.pos.y + 40 + idx * 22 + 8 }
 }
@@ -950,7 +925,7 @@ function edgeMidpoint(edge: WireEdge): { x: number; y: number } | null {
   return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
 }
 
-// ─── Edge paths (bezier) ──────────────────────────────────────
+// ─── Edge paths (bezier, in canvas space) ────────────────────
 function edgePath(edge: WireEdge): string {
   const from = outputPortPos(edge.fromNodeId)
   const to = inputPortPos(edge.toNodeId, edge.toParam)
@@ -992,22 +967,6 @@ function isParamConnected(nodeId: string, param: string): boolean {
   return edges.value.some(e => e.toNodeId === nodeId && e.toParam === param)
 }
 
-function nodeParamValue(node: WireNode, param: string): string {
-  const v = node.params[param]
-  if (v === undefined || v === null) return ''
-  return String(v)
-}
-
-function setParam(nodeId: string, param: string, value: string) {
-  const node = nodes.value.find(n => n.id === nodeId)
-  if (!node) return
-  node.params[param] = value
-}
-
-function availableRefIds(nodeId: string): string[] {
-  return nodes.value.filter(n => n.id !== nodeId).map(n => n.id)
-}
-
 // ─── SchemaField + resolveRefs for RPC nodes ─────────────────
 function toCamelCase(s: string): string {
   return s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
@@ -1040,6 +999,84 @@ function resolvedParamSchema(node: WireNode): JsonSchema | null {
   const resolved = resolveRefs(raw, defs)
   if (resolved.type !== 'object' || !resolved.properties) return null
   return resolved
+}
+
+// ─── Param panel state ────────────────────────────────────────
+const selectedNode = computed(() => nodes.value.find(n => n.id === selectedNodeId.value) ?? null)
+
+const selectedNodeConnectedParams = computed(() =>
+  edges.value.filter(e => e.toNodeId === selectedNodeId.value).map(e => e.toParam)
+)
+
+const selectedNodeRefs = computed(() =>
+  nodes.value.filter(n => n.id !== selectedNodeId.value).map(n => n.id)
+)
+
+const selectedNodeSchema = computed(() =>
+  selectedNode.value ? resolvedParamSchema(selectedNode.value) : null
+)
+
+// Canvas-space → screen-relative-to-wrap (for panel anchor positioning)
+const selectedNodeAnchorX = computed(() =>
+  selectedNode.value ? selectedNode.value.pos.x * zoom.value + pan.value.x : 0
+)
+const selectedNodeAnchorY = computed(() =>
+  selectedNode.value ? selectedNode.value.pos.y * zoom.value + pan.value.y : 0
+)
+const selectedNodeAnchorW = computed(() =>
+  selectedNode.value ? selectedNode.value.w * zoom.value : 0
+)
+
+function onParamPanelUpdateParams(params: Record<string, unknown>) {
+  const node = selectedNode.value
+  if (node) node.params = params
+}
+
+function onParamPanelUpdateTransform(patch: { path?: string; template?: string; code?: string; inputNames?: string[] }) {
+  const node = selectedNode.value
+  if (!node) return
+  if (patch.path !== undefined) node.transform.path = patch.path
+  if (patch.template !== undefined) node.transform.template = patch.template
+  if (patch.code !== undefined) node.transform.code = patch.code
+  if (patch.inputNames !== undefined) node.transform.inputNames = patch.inputNames
+}
+
+function onParamPanelAddPort() {
+  const node = selectedNode.value
+  if (!node) return
+  const prefix = node.kind === 'merge' ? 'field' : 'port'
+  node.transform.inputNames.push(prefix + node.transform.inputNames.length)
+}
+
+function onParamPanelRemovePort(index: number) {
+  const node = selectedNode.value
+  if (!node) return
+  node.transform.inputNames.splice(index, 1)
+}
+
+// ─── MiniMap ──────────────────────────────────────────────────
+function onMiniMapPanTo(coords: { x: number; y: number }) {
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (rect) panTo(coords.x, coords.y, rect)
+}
+
+// ─── Import / Export ──────────────────────────────────────────
+const importFileInput = ref<HTMLInputElement | null>(null)
+
+function triggerImport() {
+  importFileInput.value?.click()
+}
+
+function onImportFile(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (ev) => {
+    const s = ev.target?.result as string
+    if (!importJson(s)) alert('Invalid pipeline JSON')
+    ;(e.target as HTMLInputElement).value = ''
+  }
+  reader.readAsText(file)
 }
 
 // ─── Template interpolation ───────────────────────────────────
@@ -1083,7 +1120,7 @@ function extractStringValue(item: unknown): string {
 
 function applyRouting(items: unknown[], edge: WireEdge): unknown {
   switch (edge.routing) {
-    case 'each':    return items  // caller handles fan-out
+    case 'each':    return items
     case 'collect': return items
     case 'last':    return items[items.length - 1]
     case 'first':   return items[0]
@@ -1167,7 +1204,6 @@ async function executeNodeWithRouting(
   if (eachEdges.length === 0) {
     allEmissions = await executeNodeOnce(node, scalarInputs, nodeResults)
   } else {
-    // Zip each-routed streams; run node once per "row"
     const eachStreams = eachEdges.map(edge => ({
       param: edge.toParam,
       items: nodeEmissions.get(edge.fromNodeId) ?? [],
@@ -1228,8 +1264,8 @@ async function runPipeline() {
   }
 
   const sorted = topoSort(nodes.value, edges.value)
-  const nodeEmissions = new Map<string, unknown[]>()  // all stream items per node
-  const nodeResults = new Map<string, unknown>()       // collapsed, for template refs
+  const nodeEmissions = new Map<string, unknown[]>()
+  const nodeResults = new Map<string, unknown>()
 
   try {
     for (const node of sorted) {
@@ -1254,18 +1290,6 @@ function clearCanvas() {
   selectedNodeId.value = null
   pendingEdge.value = null
   runError.value = null
-}
-
-function exportJson() {
-  const pipeline = {
-    nodes: nodes.value.map(n => ({
-      id: n.id, kind: n.kind, method: n.method?.fullPath, backend: n.method?.backend,
-      pos: n.pos, params: n.params, transform: n.transform,
-    })),
-    edges: edges.value.map(e => ({ id: e.id, from: e.fromNodeId, to: e.toNodeId, toParam: e.toParam })),
-  }
-  const json = JSON.stringify(pipeline, null, 2)
-  navigator.clipboard.writeText(json).catch(() => { alert(json) })
 }
 
 // ─── Misc helpers ─────────────────────────────────────────────
@@ -1539,6 +1563,17 @@ function resultPreview(result: unknown): string {
   background-size: 20px 20px;
   cursor: default;
   min-width: 0;
+  outline: none;
+}
+
+.canvas-wrap.panning { cursor: grabbing !important; }
+
+/* Transformed layer: pan + zoom applied here */
+.canvas-content {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 .edge-svg {
@@ -1634,86 +1669,6 @@ function resultPreview(result: unknown): string {
 .port.port-connected { background: #1f3a5f; border-color: #58a6ff; }
 
 .port-label { font-size: 10px; color: #8b949e; }
-
-/* ── Param form ──────────────────────────────────────────────── */
-.param-form {
-  margin-top: 8px;
-  border-top: 1px solid #21262d;
-  padding-top: 6px;
-  cursor: default;
-}
-
-.param-form-title {
-  font-size: 10px;
-  color: #484f58;
-  margin-bottom: 4px;
-  letter-spacing: 0.05em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.param-hint { font-size: 9px; color: #3a5a3a; font-style: italic; }
-
-.param-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.param-label { font-size: 10px; color: #8b949e; min-width: 50px; flex-shrink: 0; }
-.param-input {
-  flex: 1;
-  background: #0a0c10;
-  border: 1px solid #30363d;
-  border-radius: 3px;
-  color: #c9d1d9;
-  font-family: inherit;
-  font-size: 10px;
-  padding: 2px 5px;
-  outline: none;
-  min-width: 0;
-}
-.param-input:focus { border-color: #58a6ff; }
-.param-input:disabled { color: #484f58; background: #0a0c10; }
-.param-port-name { min-width: 80px; max-width: 120px; flex: 1; }
-
-.port-del-btn {
-  background: none;
-  border: none;
-  color: #484f58;
-  cursor: pointer;
-  font-size: 10px;
-  padding: 1px 3px;
-  flex-shrink: 0;
-}
-.port-del-btn:hover { color: #f85149; }
-
-.add-port-btn {
-  background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
-  font-family: inherit;
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 3px;
-  cursor: pointer;
-  margin-top: 3px;
-}
-.add-port-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-
-.transform-textarea {
-  width: 100%;
-  background: #0a0c10;
-  border: 1px solid #30363d;
-  border-radius: 3px;
-  color: #c9d1d9;
-  font-family: inherit;
-  font-size: 10px;
-  padding: 3px 5px;
-  resize: vertical;
-  box-sizing: border-box;
-  outline: none;
-  line-height: 1.4;
-}
-.transform-textarea:focus { border-color: #58a6ff; }
-
-.param-schema-field { margin-top: 2px; }
 
 /* ── Returns section ─────────────────────────────────────────── */
 .returns-section {
@@ -1813,7 +1768,6 @@ function resultPreview(result: unknown): string {
   cursor: ew-resize;
   opacity: 0;
   transition: opacity 0.15s;
-  /* diagonal grip lines */
   background-image:
     linear-gradient(135deg, transparent 40%, #484f58 40%, #484f58 50%, transparent 50%),
     linear-gradient(135deg, transparent 60%, #484f58 60%, #484f58 70%, transparent 70%);
