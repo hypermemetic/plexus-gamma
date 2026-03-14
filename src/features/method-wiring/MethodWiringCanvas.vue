@@ -13,8 +13,9 @@
     </div>
 
     <div class="body-split">
-      <!-- Left sidebar: tree browser + transforms -->
+      <!-- Left sidebar: drill-down browser + transforms -->
       <aside class="sidebar">
+        <!-- Search -->
         <input
           ref="sidebarInput"
           v-model="sidebarQuery"
@@ -25,69 +26,102 @@
 
         <!-- Search mode: flat filtered list -->
         <template v-if="sidebarQuery">
-          <div class="sidebar-list">
+          <div class="sb-panel sb-list">
             <div
               v-for="item in filteredSearchMethods"
               :key="item.backendName + ':' + item.fullPath"
-              class="sidebar-item"
+              class="sb-row sb-row-method"
+              draggable="true"
               :title="item.method.description || item.fullPath"
+              @dragstart="onSearchDragStart($event, item)"
               @click="addMethodEntry(item)"
             >
-              <span class="sidebar-backend">[{{ item.backendName }}]</span>
-              <span class="sidebar-path">{{ item.fullPath }}</span>
+              <span class="sb-row-icon sb-method-icon">ƒ</span>
+              <div class="sb-row-body">
+                <span class="sb-row-name">{{ item.fullPath }}</span>
+                <span class="sb-row-desc sb-row-backend">[{{ item.backendName }}]</span>
+              </div>
+              <div class="sb-row-tags">
+                <span v-if="item.method.streaming" class="method-tag stream">stream</span>
+              </div>
             </div>
-            <div v-if="filteredSearchMethods.length === 0" class="sidebar-empty">No methods</div>
+            <div v-if="filteredSearchMethods.length === 0" class="sb-empty">No methods</div>
           </div>
         </template>
 
-        <!-- Browse mode: tree + method detail -->
+        <!-- Browse mode: drill-down -->
         <template v-else>
-          <div class="sidebar-tree">
-            <div v-for="conn in connections" :key="conn.name" class="be-group">
-              <div class="be-header" @click="toggleBeCollapse(conn.name)">
-                <span class="be-toggle">{{ beCollapsed[conn.name] ? '▸' : '▾' }}</span>
-                <span class="be-label">{{ conn.name }}</span>
-                <span v-if="sidebarLoading[conn.name]" class="be-spinner">◌</span>
-              </div>
-              <div v-if="!beCollapsed[conn.name]">
-                <div v-if="sidebarLoading[conn.name] && !sidebarTrees[conn.name]" class="be-loading">
-                  <span class="spinner">◌</span>
-                </div>
-                <PluginTreeNode
-                  v-if="sidebarTrees[conn.name]"
-                  :node="sidebarTrees[conn.name]!"
-                  :selected-path="selectedTreeNode?.backendName === conn.name ? selectedTreeNode.node.path.join('.') : '__none__'"
-                  :backend-name="conn.name"
-                  @select="onTreeSelect(conn.name, $event)"
-                />
-              </div>
-            </div>
-            <div v-if="connections.length === 0" class="sidebar-empty">No backends</div>
+          <!-- Breadcrumbs -->
+          <div class="sb-crumbs">
+            <button class="sb-crumb sb-crumb-home" @click="drillHome" title="All backends">⌂</button>
+            <template v-for="(level, i) in drillStack" :key="i">
+              <span class="sb-crumb-sep">›</span>
+              <button class="sb-crumb" @click="drillTo(i)">
+                {{ level.node.path.length === 0 ? level.backend : level.node.path[level.node.path.length - 1] }}
+              </button>
+            </template>
           </div>
 
-          <!-- Methods of selected tree node -->
-          <template v-if="selectedTreeNode">
-            <div class="method-divider">
-              <span class="method-divider-label">{{ selectedTreeNodeLabel }}</span>
-              <button class="method-divider-close" @click="selectedTreeNode = null" title="Close">✕</button>
+          <!-- Home: backends list -->
+          <div v-if="drillStack.length === 0" class="sb-panel">
+            <div
+              v-for="conn in connections"
+              :key="conn.name"
+              class="sb-row sb-row-backend"
+              @click="drillIntoBackend(conn.name)"
+            >
+              <span v-if="sidebarLoading[conn.name]" class="sb-row-spinner">◌</span>
+              <span v-else class="sb-row-icon">◈</span>
+              <span class="sb-row-name">{{ conn.name }}</span>
+              <span class="sb-row-chevron">›</span>
             </div>
-            <div class="sidebar-list">
-              <div
-                v-for="method in selectedNodeMethods"
-                :key="method.name"
-                class="sidebar-item"
-                :title="method.description || method.name"
-                @click="addFromTreeNode(method)"
-              >
-                <span class="sidebar-method">{{ method.name }}</span>
+            <div v-if="connections.length === 0" class="sb-empty">No backends connected</div>
+          </div>
+
+          <!-- Drill: current level children + methods -->
+          <div v-else class="sb-panel">
+            <!-- Hub children -->
+            <div
+              v-for="child in drillChildren"
+              :key="child.path.join('.')"
+              class="sb-row sb-row-hub"
+              @click="drillInto(child)"
+            >
+              <span class="sb-row-icon">◈</span>
+              <div class="sb-row-body">
+                <span class="sb-row-name">{{ child.path[child.path.length - 1] }}</span>
+                <span v-if="child.children.length" class="sb-row-meta">{{ child.children.length }} namespaces</span>
+              </div>
+              <span class="sb-row-chevron">›</span>
+            </div>
+
+            <!-- Methods -->
+            <div
+              v-for="method in drillMethods"
+              :key="method.name"
+              class="sb-row sb-row-method"
+              draggable="true"
+              :title="method.description || method.name"
+              @dragstart="onMethodDragStart($event, method)"
+              @click="addFromCurrentNode(method)"
+            >
+              <span class="sb-row-icon sb-method-icon">ƒ</span>
+              <div class="sb-row-body">
+                <span class="sb-row-name">{{ method.name }}</span>
+                <span v-if="method.description" class="sb-row-desc">{{ method.description }}</span>
+              </div>
+              <div class="sb-row-tags">
                 <span v-if="method.streaming" class="method-tag stream">stream</span>
                 <span v-if="method.bidirectional" class="method-tag bidir">bidir</span>
               </div>
-              <div v-if="selectedNodeMethods.length === 0" class="sidebar-empty">No methods</div>
             </div>
-          </template>
 
-          <!-- Transform nodes section -->
+            <div v-if="drillChildren.length === 0 && drillMethods.length === 0" class="sb-empty">
+              No items here
+            </div>
+          </div>
+
+          <!-- Transforms section -->
           <div class="transforms-section">
             <div class="transforms-header">Transforms</div>
             <div class="transforms-row">
@@ -101,7 +135,16 @@
       </aside>
 
       <!-- Right canvas -->
-      <div class="canvas-wrap" ref="canvasWrap" @click="onCanvasClick" @contextmenu.prevent="onCanvasClick" @mousemove="onMouseMove" @mouseup="onMouseUp">
+      <div
+        class="canvas-wrap"
+        ref="canvasWrap"
+        @click="onCanvasClick"
+        @contextmenu.prevent="onCanvasClick"
+        @mousemove="onMouseMove"
+        @mouseup="onMouseUp"
+        @dragover.prevent="onCanvasDragOver"
+        @drop="onCanvasDrop"
+      >
         <!-- SVG overlay for edges -->
         <svg
           class="edge-svg"
@@ -121,6 +164,23 @@
               @mouseleave="hoveredEdge = null"
               @click.stop="removeEdge(edge.id)"
             />
+            <!-- Routing badge — click to open picker -->
+            <g
+              v-for="mid in edgeMidpoint(edge) ? [edgeMidpoint(edge)!] : []"
+              :key="'badge'"
+              class="edge-badge-g"
+              @click.stop="openRoutingPicker($event, edge.id)"
+              @mouseenter="hoveredEdge = edge.id"
+              @mouseleave="hoveredEdge = null"
+            >
+              <rect
+                :x="mid.x - 17" :y="mid.y - 9"
+                width="34" height="18" rx="3"
+                class="edge-badge-bg"
+                :class="`route-${edge.routing}`"
+              />
+              <text :x="mid.x" :y="mid.y + 4" class="edge-badge-text" text-anchor="middle">{{ ROUTE_LABELS[edge.routing] }}</text>
+            </g>
           </g>
           <!-- Pending edge (drawing in progress) -->
           <path
@@ -158,8 +218,8 @@
           <!-- Node title -->
           <div class="node-title">{{ nodeTitle(node) }}</div>
 
-          <!-- Input ports (params) on the left -->
-          <div class="node-ports-left">
+          <!-- Input ports (params) on the left — @mousedown.stop prevents node drag/select when clicking ports -->
+          <div class="node-ports-left" @mousedown.stop>
             <div
               v-for="param in getParamNames(node)"
               :key="param"
@@ -177,8 +237,8 @@
             </div>
           </div>
 
-          <!-- Output port on the right -->
-          <div class="node-ports-right">
+          <!-- Output port on the right — @mousedown.stop prevents node drag/select when clicking ports -->
+          <div class="node-ports-right" @mousedown.stop>
             <div
               class="port port-out"
               :class="{ 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === '__out' }"
@@ -284,7 +344,7 @@
 
         <!-- Empty state -->
         <div v-if="nodes.length === 0" class="canvas-empty">
-          Click a method in the sidebar to add it to the canvas
+          Drag a method from the sidebar, or click one to add it
         </div>
 
         <!-- Context menu -->
@@ -297,6 +357,57 @@
         >
           <button class="ctx-item ctx-item-danger" @click="deleteNode(contextMenu!.nodeId)">Delete node</button>
           <button class="ctx-item" @click="disconnectNode(contextMenu!.nodeId)">Disconnect edges</button>
+          <button class="ctx-item" @click="contextMenu = null">Cancel</button>
+        </div>
+
+        <!-- Routing picker -->
+        <div
+          v-if="routingPicker"
+          class="routing-picker"
+          :style="{ left: `${routingPicker.x}px`, top: `${routingPicker.y + 16}px` }"
+          @mousedown.stop
+          @click.stop
+        >
+          <div class="routing-picker-modes">
+            <button
+              v-for="mode in ROUTE_MODES" :key="mode"
+              class="route-mode-btn"
+              :class="{ active: getEdge(routingPicker.edgeId)?.routing === mode }"
+              :title="mode"
+              @click="setEdgeRouting(routingPicker.edgeId, mode)"
+            >{{ ROUTE_LABELS[mode] }}</button>
+          </div>
+          <template v-if="getEdge(routingPicker.edgeId)?.routing === 'concat'">
+            <input
+              class="routing-config-input"
+              placeholder="separator (default: newline)"
+              :value="getEdge(routingPicker.edgeId)!.routeConfig.separator"
+              @input="setEdgeRouteConfig(routingPicker.edgeId, 'separator', ($event.target as HTMLInputElement).value)"
+            />
+          </template>
+          <template v-if="getEdge(routingPicker.edgeId)?.routing === 'filter'">
+            <input
+              class="routing-config-input"
+              placeholder="predicate: x => true"
+              :value="getEdge(routingPicker.edgeId)!.routeConfig.predicate"
+              @input="setEdgeRouteConfig(routingPicker.edgeId, 'predicate', ($event.target as HTMLInputElement).value)"
+            />
+          </template>
+          <template v-if="getEdge(routingPicker.edgeId)?.routing === 'reduce'">
+            <input
+              class="routing-config-input"
+              placeholder="reducer: (acc, x) => acc + x"
+              :value="getEdge(routingPicker.edgeId)!.routeConfig.reducer"
+              @input="setEdgeRouteConfig(routingPicker.edgeId, 'reducer', ($event.target as HTMLInputElement).value)"
+            />
+            <input
+              class="routing-config-input"
+              placeholder='initial (JSON, e.g. "")'
+              :value="getEdge(routingPicker.edgeId)!.routeConfig.initial"
+              @input="setEdgeRouteConfig(routingPicker.edgeId, 'initial', ($event.target as HTMLInputElement).value)"
+            />
+          </template>
+          <button class="routing-del-btn" @click="removeEdge(routingPicker.edgeId)">delete edge</button>
         </div>
       </div>
     </div>
@@ -310,7 +421,6 @@ import { getSharedClient } from '../../lib/plexus/clientRegistry'
 import { getCachedTree } from '../../lib/plexus/schemaCache'
 import { flattenTree } from '../../schema-walker'
 import type { PluginNode, MethodSchema } from '../../plexus-schema'
-import PluginTreeNode from '../../components/PluginTreeNode.vue'
 import SchemaField from '../../components/SchemaField.vue'
 import type { JsonSchema } from '../../components/SchemaField.vue'
 
@@ -320,23 +430,24 @@ const props = defineProps<{
   methodIndex: MethodEntry[]
 }>()
 
-// ─── Sidebar tree state ───────────────────────────────────────
+// ─── Sidebar: drill-down state ────────────────────────────────
 const sidebarTrees   = reactive<Record<string, PluginNode>>({})
 const sidebarLoading = reactive<Record<string, boolean>>({})
-const beCollapsed    = reactive<Record<string, boolean>>({})
 
-interface SelectedTreeNode { backendName: string; node: PluginNode }
-const selectedTreeNode = ref<SelectedTreeNode | null>(null)
+interface DrillLevel { backend: string; node: PluginNode }
+const drillStack = ref<DrillLevel[]>([])
 
-const selectedTreeNodeLabel = computed(() => {
-  if (!selectedTreeNode.value) return ''
-  const { backendName, node } = selectedTreeNode.value
-  return node.path.length === 0 ? backendName : node.path.join('.')
-})
+const drillCurrent = computed((): DrillLevel | null =>
+  drillStack.value[drillStack.value.length - 1] ?? null
+)
 
-const selectedNodeMethods = computed((): MethodSchema[] => {
-  return selectedTreeNode.value?.node.schema.methods ?? []
-})
+const drillChildren = computed((): PluginNode[] =>
+  drillCurrent.value?.node.children ?? []
+)
+
+const drillMethods = computed((): MethodSchema[] =>
+  drillCurrent.value?.node.schema.methods ?? []
+)
 
 async function loadSidebarTrees(): Promise<void> {
   for (const conn of props.connections) {
@@ -351,33 +462,69 @@ async function loadSidebarTrees(): Promise<void> {
   }
 }
 
-function toggleBeCollapse(name: string): void {
-  beCollapsed[name] = !beCollapsed[name]
+function drillHome(): void {
+  drillStack.value = []
 }
 
-function onTreeSelect(backendName: string, node: PluginNode): void {
-  selectedTreeNode.value = { backendName, node }
+function drillTo(index: number): void {
+  drillStack.value = drillStack.value.slice(0, index + 1)
 }
 
-function addFromTreeNode(method: MethodSchema): void {
-  if (!selectedTreeNode.value) return
-  const { backendName, node } = selectedTreeNode.value
-  const ns = node.path.length === 0 ? backendName : node.path.join('.')
+async function drillIntoBackend(name: string): Promise<void> {
+  if (sidebarTrees[name]) {
+    drillStack.value = [{ backend: name, node: sidebarTrees[name] }]
+    return
+  }
+  // Load on demand if not yet fetched
+  sidebarLoading[name] = true
+  const conn = props.connections.find(c => c.name === name)
+  if (!conn) return
+  try {
+    const rpc = getSharedClient(conn.name, conn.url)
+    const tree = await getCachedTree(rpc, name)
+    sidebarTrees[name] = tree
+    drillStack.value = [{ backend: name, node: tree }]
+  } catch {
+    // ignore
+  } finally {
+    sidebarLoading[name] = false
+  }
+}
+
+function drillInto(child: PluginNode): void {
+  const current = drillCurrent.value
+  if (!current) return
+  drillStack.value = [...drillStack.value, { backend: current.backend, node: child }]
+}
+
+function addFromCurrentNode(method: MethodSchema): void {
+  const current = drillCurrent.value
+  if (!current) return
+  const { backend, node } = current
+  const ns = node.path.length === 0 ? backend : node.path.join('.')
   addNode({
-    backend: backendName,
+    backend,
     fullPath: `${ns}.${method.name}`,
     path: node.path,
     method,
   })
 }
 
-function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
-  addNode({
-    backend: item.backendName,
-    fullPath: item.fullPath,
-    path: item.path,
-    method: item.method,
-  })
+// ─── Drag from sidebar ────────────────────────────────────────
+function onMethodDragStart(e: DragEvent, method: MethodSchema): void {
+  const current = drillCurrent.value
+  if (!current) return
+  const { backend, node } = current
+  const ns = node.path.length === 0 ? backend : node.path.join('.')
+  const data: MethodEntry = { backend, fullPath: `${ns}.${method.name}`, path: node.path, method }
+  e.dataTransfer?.setData('application/x-plexus-method', JSON.stringify(data))
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
+}
+
+function onSearchDragStart(e: DragEvent, item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
+  const data: MethodEntry = { backend: item.backendName, fullPath: item.fullPath, path: item.path, method: item.method }
+  e.dataTransfer?.setData('application/x-plexus-method', JSON.stringify(data))
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
 }
 
 // ─── Search (across all loaded trees) ────────────────────────
@@ -414,6 +561,10 @@ function focusSidebar() {
   nextTick(() => sidebarInput.value?.focus())
 }
 
+function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
+  addNode({ backend: item.backendName, fullPath: item.fullPath, path: item.path, method: item.method })
+}
+
 // ─── RPC clients (shared registry) ───────────────────────────
 function getClient(backend: string) {
   const conn = props.connections.find(c => c.name === backend)
@@ -429,10 +580,10 @@ interface WireNode {
   kind: NodeKind
   method?: MethodEntry  // 'rpc' only
   transform: {
-    path: string        // 'extract': dot-path
-    template: string    // 'template': "Hello {{name}}"
-    code: string        // 'script': "x => x.result"
-    inputNames: string[] // 'template'/'merge': named input ports
+    path: string
+    template: string
+    code: string
+    inputNames: string[]
   }
   pos: { x: number; y: number }
   params: Record<string, unknown>
@@ -440,11 +591,34 @@ interface WireNode {
   result: unknown
 }
 
+type RouteMode = 'auto' | 'each' | 'collect' | 'last' | 'first' | 'concat' | 'filter' | 'reduce'
+
+interface RouteConfig {
+  separator: string
+  predicate: string
+  reducer: string
+  initial: string
+}
+
 interface WireEdge {
   id: string
   fromNodeId: string
   toNodeId: string
   toParam: string
+  routing: RouteMode
+  routeConfig: RouteConfig
+}
+
+const ROUTE_MODES: RouteMode[] = ['auto', 'each', 'collect', 'last', 'first', 'concat', 'filter', 'reduce']
+const ROUTE_LABELS: Record<RouteMode, string> = {
+  auto:    '·',
+  each:    '×N',
+  collect: '[…]',
+  last:    'last',
+  first:   '1st',
+  concat:  'str',
+  filter:  'flt',
+  reduce:  'fold',
 }
 
 const nodes = ref<WireNode[]>([])
@@ -492,9 +666,9 @@ const GRID = 20
 
 function snap(v: number): number { return Math.round(v / GRID) * GRID }
 
-function addNode(entry: MethodEntry) {
-  const baseX = snap(60 + (nodes.value.length % 4) * 240)
-  const baseY = snap(60 + Math.floor(nodes.value.length / 4) * 180)
+function addNode(entry: MethodEntry, pos?: { x: number; y: number }) {
+  const baseX = pos?.x ?? snap(60 + (nodes.value.length % 4) * 240)
+  const baseY = pos?.y ?? snap(60 + Math.floor(nodes.value.length / 4) * 180)
   const node: WireNode = {
     id: makeNodeId(),
     kind: 'rpc',
@@ -552,7 +726,7 @@ function nodeTitle(node: WireNode): string {
   }
 }
 
-// ─── Dragging ─────────────────────────────────────────────────
+// ─── Dragging nodes ───────────────────────────────────────────
 interface DragState {
   nodeId: string
   startMouseX: number
@@ -573,7 +747,11 @@ function startDrag(e: MouseEvent, nodeId: string) {
     startNodeX: node.pos.x,
     startNodeY: node.pos.y,
   }
-  selectedNodeId.value = nodeId
+  routingPicker.value = null
+  // Don't select (and expand) the node when a connection is in progress
+  if (!pendingEdge.value) {
+    selectedNodeId.value = nodeId
+  }
 }
 
 function onMouseMove(e: MouseEvent) {
@@ -599,6 +777,23 @@ function onMouseUp() {
   dragState = null
 }
 
+// ─── Drop from sidebar ────────────────────────────────────────
+function onCanvasDragOver(e: DragEvent) {
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+}
+
+function onCanvasDrop(e: DragEvent) {
+  const raw = e.dataTransfer?.getData('application/x-plexus-method')
+  if (!raw) return
+  try {
+    const data = JSON.parse(raw) as MethodEntry
+    const rect = canvasWrap.value!.getBoundingClientRect()
+    const x = snap(e.clientX - rect.left)
+    const y = snap(e.clientY - rect.top)
+    addNode(data, { x, y })
+  } catch { /* ignore */ }
+}
+
 // ─── Port interaction ─────────────────────────────────────────
 interface HoveredPort { nodeId: string; param: string }
 interface PendingEdge { fromNodeId: string; fromX: number; fromY: number; toX: number; toY: number }
@@ -606,6 +801,9 @@ interface PendingEdge { fromNodeId: string; fromX: number; fromY: number; toX: n
 const hoveredPort = ref<HoveredPort | null>(null)
 const pendingEdge = ref<PendingEdge | null>(null)
 const hoveredEdge = ref<string | null>(null)
+
+interface RoutingPicker { edgeId: string; x: number; y: number }
+const routingPicker = ref<RoutingPicker | null>(null)
 
 function outputPortPos(nodeId: string): { x: number; y: number } | null {
   const node = nodes.value.find(n => n.id === nodeId)
@@ -652,10 +850,9 @@ function onInputPortClick(toNodeId: string, toParam: string) {
   if (fromNodeId === toNodeId) { pendingEdge.value = null; return }
   edges.value = edges.value.filter(e => !(e.toNodeId === toNodeId && e.toParam === toParam))
   edges.value.push({
-    id: makeEdgeId(),
-    fromNodeId,
-    toNodeId,
-    toParam,
+    id: makeEdgeId(), fromNodeId, toNodeId, toParam,
+    routing: 'auto',
+    routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '' },
   })
   pendingEdge.value = null
 }
@@ -664,6 +861,7 @@ function onCanvasClick() {
   pendingEdge.value = null
   selectedNodeId.value = null
   contextMenu.value = null
+  routingPicker.value = null
 }
 
 // ─── Context menu ─────────────────────────────────────────────
@@ -690,6 +888,34 @@ function disconnectNode(nodeId: string) {
   contextMenu.value = null
 }
 
+// ─── Edge routing helpers ─────────────────────────────────────
+function getEdge(edgeId: string): WireEdge | undefined {
+  return edges.value.find(e => e.id === edgeId)
+}
+
+function openRoutingPicker(e: MouseEvent, edgeId: string): void {
+  if (routingPicker.value?.edgeId === edgeId) { routingPicker.value = null; return }
+  const wrap = canvasWrap.value?.getBoundingClientRect()
+  if (!wrap) return
+  routingPicker.value = { edgeId, x: e.clientX - wrap.left, y: e.clientY - wrap.top }
+}
+
+function setEdgeRouting(edgeId: string, mode: RouteMode): void {
+  const edge = getEdge(edgeId)
+  if (edge) edge.routing = mode
+}
+
+function setEdgeRouteConfig(edgeId: string, key: keyof RouteConfig, value: string): void {
+  const edge = getEdge(edgeId)
+  if (edge) edge.routeConfig[key] = value
+}
+
+function edgeMidpoint(edge: WireEdge): { x: number; y: number } | null {
+  const from = outputPortPos(edge.fromNodeId)
+  const to = inputPortPos(edge.toNodeId, edge.toParam)
+  if (!from || !to) return null
+  return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+}
 
 // ─── Edge paths (bezier) ──────────────────────────────────────
 function edgePath(edge: WireEdge): string {
@@ -712,6 +938,7 @@ function bezierPath(x1: number, y1: number, x2: number, y2: number): string {
 
 function removeEdge(edgeId: string) {
   edges.value = edges.value.filter(e => e.id !== edgeId)
+  if (routingPicker.value?.edgeId === edgeId) routingPicker.value = null
 }
 
 // ─── Params ───────────────────────────────────────────────────
@@ -809,6 +1036,128 @@ function executeTransform(node: WireNode, inputs: Map<string, unknown>): unknown
   }
 }
 
+// ─── Stream routing ───────────────────────────────────────────
+function extractStringValue(item: unknown): string {
+  if (typeof item === 'string') return item
+  if (typeof item === 'object' && item !== null) {
+    const obj = item as Record<string, unknown>
+    const strField = ['line', 'value', 'text', 'result', 'output'].find(f => typeof obj[f] === 'string')
+    if (strField) return obj[strField] as string
+    return JSON.stringify(item)
+  }
+  return String(item ?? '')
+}
+
+function applyRouting(items: unknown[], edge: WireEdge): unknown {
+  switch (edge.routing) {
+    case 'each':    return items  // caller handles fan-out
+    case 'collect': return items
+    case 'last':    return items[items.length - 1]
+    case 'first':   return items[0]
+    case 'concat': {
+      const sep = edge.routeConfig.separator !== '' ? edge.routeConfig.separator : '\n'
+      return items.map(extractStringValue).join(sep)
+    }
+    case 'filter': {
+      try {
+        const pred = new Function('item', `"use strict"; return (${edge.routeConfig.predicate || 'x => true'})(item)`) as (x: unknown) => boolean
+        return items.filter(pred)
+      } catch { return items }
+    }
+    case 'reduce': {
+      try {
+        const fn = new Function('acc', 'item', `"use strict"; return (${edge.routeConfig.reducer || '(a,x) => x'})(acc, item)`) as (acc: unknown, item: unknown) => unknown
+        const init = edge.routeConfig.initial ? JSON.parse(edge.routeConfig.initial) : undefined
+        return init !== undefined ? items.reduce(fn, init) : items.reduce(fn)
+      } catch { return undefined }
+    }
+    case 'auto': default:
+      return items.length === 1 ? items[0] : items.length > 1 ? items : undefined
+  }
+}
+
+async function executeNodeOnce(
+  node: WireNode,
+  inputs: Map<string, unknown>,
+  nodeResults: Map<string, unknown>,
+): Promise<unknown[]> {
+  if (node.kind !== 'rpc') {
+    return [executeTransform(node, inputs)]
+  }
+  const client = getClient(node.method!.backend)
+  const paramSchema = resolvedParamSchema(node)
+  const resolvedParams: Record<string, unknown> = { ...node.params }
+  for (const [k, v] of inputs) {
+    const expectedType = (paramSchema?.properties as Record<string, { type?: string }>)?.[k]?.type
+    if (typeof v === 'object' && v !== null && expectedType === 'string') {
+      const obj = v as Record<string, unknown>
+      const strField = ['line', 'value', 'text', 'result', 'output'].find(f => typeof obj[f] === 'string')
+      resolvedParams[k] = strField ? obj[strField] : JSON.stringify(v)
+    } else {
+      resolvedParams[k] = v
+    }
+  }
+  for (const [k, v] of Object.entries(resolvedParams)) {
+    if (typeof v === 'string') resolvedParams[k] = resolveTemplateRefs(v, nodeResults)
+  }
+  const finalParams: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(resolvedParams)) {
+    if (typeof v === 'string') {
+      try { finalParams[k] = JSON.parse(v) } catch { finalParams[k] = v }
+    } else {
+      finalParams[k] = v
+    }
+  }
+  const items: unknown[] = []
+  for await (const item of client.call(node.method!.fullPath, finalParams)) {
+    if (item.type === 'data') items.push(item.content)
+    else if (item.type === 'error') throw new Error(item.message)
+  }
+  return items
+}
+
+async function executeNodeWithRouting(
+  node: WireNode,
+  nodeEmissions: Map<string, unknown[]>,
+  nodeResults: Map<string, unknown>,
+): Promise<void> {
+  const inEdges = edges.value.filter(e => e.toNodeId === node.id)
+  const eachEdges = inEdges.filter(e => e.routing === 'each')
+  const otherEdges = inEdges.filter(e => e.routing !== 'each')
+
+  const scalarInputs = new Map<string, unknown>()
+  for (const edge of otherEdges) {
+    scalarInputs.set(edge.toParam, applyRouting(nodeEmissions.get(edge.fromNodeId) ?? [], edge))
+  }
+
+  let allEmissions: unknown[]
+  if (eachEdges.length === 0) {
+    allEmissions = await executeNodeOnce(node, scalarInputs, nodeResults)
+  } else {
+    // Zip each-routed streams; run node once per "row"
+    const eachStreams = eachEdges.map(edge => ({
+      param: edge.toParam,
+      items: nodeEmissions.get(edge.fromNodeId) ?? [],
+    }))
+    const minLen = Math.min(...eachStreams.map(s => s.items.length))
+    allEmissions = []
+    for (let i = 0; i < minLen; i++) {
+      const iterInputs = new Map(scalarInputs)
+      for (const s of eachStreams) iterInputs.set(s.param, s.items[i])
+      const emitted = await executeNodeOnce(node, iterInputs, nodeResults)
+      allEmissions.push(...emitted)
+    }
+  }
+
+  nodeEmissions.set(node.id, allEmissions)
+  const collapsed = allEmissions.length === 1 ? allEmissions[0]
+                  : allEmissions.length > 1  ? allEmissions
+                  : undefined
+  nodeResults.set(node.id, collapsed)
+  node.result = collapsed
+  node.status = 'done'
+}
+
 // ─── Topological sort ─────────────────────────────────────────
 function topoSort(nodeList: WireNode[], edgeList: WireEdge[]): WireNode[] {
   const inDegree = new Map<string, number>()
@@ -846,60 +1195,18 @@ async function runPipeline() {
   }
 
   const sorted = topoSort(nodes.value, edges.value)
-  const nodeResults = new Map<string, unknown>()
+  const nodeEmissions = new Map<string, unknown[]>()  // all stream items per node
+  const nodeResults = new Map<string, unknown>()       // collapsed, for template refs
 
   try {
     for (const node of sorted) {
       node.status = 'running'
       try {
-        // Build inputs map from wired edges
-        const inputs = new Map<string, unknown>()
-        for (const edge of edges.value.filter(e => e.toNodeId === node.id)) {
-          inputs.set(edge.toParam, nodeResults.get(edge.fromNodeId))
-        }
-
-        let firstDataResult: unknown = undefined
-
-        if (node.kind !== 'rpc') {
-          firstDataResult = executeTransform(node, inputs)
-        } else {
-          const client = getClient(node.method!.backend)
-          const resolvedParams: Record<string, unknown> = { ...node.params }
-          // Apply wired edges (overwrite params)
-          for (const [k, v] of inputs) {
-            resolvedParams[k] = v
-          }
-          // Template ref resolution in string params
-          for (const [k, v] of Object.entries(resolvedParams)) {
-            if (typeof v === 'string') {
-              resolvedParams[k] = resolveTemplateRefs(v, nodeResults)
-            }
-          }
-          // JSON parse strings
-          const finalParams: Record<string, unknown> = {}
-          for (const [k, v] of Object.entries(resolvedParams)) {
-            if (typeof v === 'string') {
-              try { finalParams[k] = JSON.parse(v) } catch { finalParams[k] = v }
-            } else {
-              finalParams[k] = v
-            }
-          }
-
-          for await (const item of client.call(node.method!.fullPath, finalParams)) {
-            if (item.type === 'data') {
-              if (firstDataResult === undefined) firstDataResult = item.content
-            } else if (item.type === 'error') {
-              throw new Error(item.message)
-            }
-          }
-        }
-
-        nodeResults.set(node.id, firstDataResult)
-        node.result = firstDataResult
-        node.status = 'done'
+        await executeNodeWithRouting(node, nodeEmissions, nodeResults)
       } catch (err) {
         node.status = 'error'
         node.result = err instanceof Error ? err.message : String(err)
+        nodeEmissions.set(node.id, [])
       }
     }
   } finally {
@@ -919,25 +1226,13 @@ function clearCanvas() {
 function exportJson() {
   const pipeline = {
     nodes: nodes.value.map(n => ({
-      id: n.id,
-      kind: n.kind,
-      method: n.method?.fullPath,
-      backend: n.method?.backend,
-      pos: n.pos,
-      params: n.params,
-      transform: n.transform,
+      id: n.id, kind: n.kind, method: n.method?.fullPath, backend: n.method?.backend,
+      pos: n.pos, params: n.params, transform: n.transform,
     })),
-    edges: edges.value.map(e => ({
-      id: e.id,
-      from: e.fromNodeId,
-      to: e.toNodeId,
-      toParam: e.toParam,
-    })),
+    edges: edges.value.map(e => ({ id: e.id, from: e.fromNodeId, to: e.toNodeId, toParam: e.toParam })),
   }
   const json = JSON.stringify(pipeline, null, 2)
-  navigator.clipboard.writeText(json).catch(() => {
-    alert(json)
-  })
+  navigator.clipboard.writeText(json).catch(() => { alert(json) })
 }
 
 // ─── Misc helpers ─────────────────────────────────────────────
@@ -993,16 +1288,11 @@ function resultPreview(result: unknown): string {
 .tb-btn:hover { border-color: #58a6ff; color: #58a6ff; }
 .tb-btn:disabled { opacity: 0.4; cursor: default; }
 
-.tb-run {
-  border-color: #1f3a5f;
-  color: #58a6ff;
-  background: #0d1a2a;
-}
+.tb-run { border-color: #1f3a5f; color: #58a6ff; background: #0d1a2a; }
 .tb-run:not(:disabled):hover { background: #1a2840; }
 
 @keyframes tb-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .tb-spinner { display: inline-block; animation: tb-pulse 1s ease-in-out infinite; }
-
 .tb-error { color: #f85149; font-size: 11px; margin-left: 8px; }
 
 /* ── Body split ──────────────────────────────────────────────── */
@@ -1038,102 +1328,130 @@ function resultPreview(result: unknown): string {
 .sidebar-search::placeholder { color: #484f58; }
 .sidebar-search:focus { border-bottom-color: #58a6ff; }
 
-/* Tree browser */
-.sidebar-tree {
+/* ── Breadcrumbs ─────────────────────────────────────────────── */
+.sb-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 4px 8px;
+  border-bottom: 1px solid #21262d;
+  background: #0d0f14;
+  flex-shrink: 0;
+  min-height: 26px;
+}
+
+.sb-crumb {
+  background: none;
+  border: none;
+  color: #58a6ff;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sb-crumb:hover { background: #1a2840; }
+.sb-crumb-home { color: #8b949e; font-size: 12px; padding: 0 4px; }
+.sb-crumb-home:hover { color: #58a6ff; }
+
+.sb-crumb-sep { color: #30363d; font-size: 11px; padding: 0 1px; }
+
+/* ── Drill panel ─────────────────────────────────────────────── */
+.sb-panel {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
-.be-group { border-bottom: 1px solid #14171b; }
+.sb-list { flex: 1; overflow-y: auto; }
 
-.be-header {
+.sb-empty { padding: 12px 10px; color: #484f58; font-size: 11px; }
+
+/* ── Sidebar rows ────────────────────────────────────────────── */
+.sb-row {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 10px;
+  gap: 7px;
+  padding: 7px 10px;
+  border-bottom: 1px solid #14171b;
   cursor: pointer;
   user-select: none;
-  background: #0a0c10;
 }
-.be-header:hover { background: #0f1318; }
+.sb-row:hover { background: #0f1318; }
 
-.be-toggle { font-size: 10px; color: #484f58; width: 10px; flex-shrink: 0; }
+.sb-row-backend { padding: 9px 10px; }
+.sb-row-backend:hover { background: #111419; }
 
-.be-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: #58a6ff;
-  flex: 1;
-}
+.sb-row-hub { }
+.sb-row-method { cursor: grab; }
+.sb-row-method:active { cursor: grabbing; }
 
-.be-spinner { font-size: 10px; color: #484f58; }
-
-.be-loading {
-  padding: 6px 10px;
-  color: #484f58;
-  font-size: 10px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-@keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-.spinner { animation: pulse 1.2s ease-in-out infinite; }
-
-/* Method divider */
-.method-divider {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 10px;
-  background: #111419;
-  border-top: 1px solid #21262d;
-  border-bottom: 1px solid #21262d;
-  flex-shrink: 0;
-}
-
-.method-divider-label {
-  font-size: 10px;
-  color: #58a6ff;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.method-divider-close {
-  background: none;
-  border: none;
-  color: #484f58;
+.sb-row-icon {
   font-size: 11px;
-  cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
+  color: #484f58;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+.sb-method-icon { color: #79c0ff; }
+
+.sb-row-spinner {
+  font-size: 11px;
+  color: #484f58;
+  width: 14px;
+  text-align: center;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.sb-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sb-row-name {
+  font-size: 11px;
+  color: #c9d1d9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-row-backend .sb-row-name { font-size: 12px; font-weight: 600; color: #58a6ff; }
+
+.sb-row-desc {
+  font-size: 10px;
+  color: #484f58;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-row-backend-label { font-size: 9px; color: #30363d; }
+
+.sb-row-meta {
+  font-size: 10px;
+  color: #30363d;
+}
+
+.sb-row-chevron {
+  font-size: 12px;
+  color: #30363d;
   flex-shrink: 0;
 }
-.method-divider-close:hover { color: #8b949e; }
+.sb-row:hover .sb-row-chevron { color: #58a6ff; }
 
-/* Method + search results list */
-.sidebar-list { overflow-y: auto; }
-
-.sidebar-item {
-  padding: 5px 10px;
-  cursor: pointer;
-  border-bottom: 1px solid #14171b;
+.sb-row-tags {
   display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
+  gap: 3px;
+  flex-shrink: 0;
 }
-.sidebar-item:hover { background: #161b22; }
 
-.sidebar-backend { font-size: 10px; color: #484f58; }
-.sidebar-path    { font-size: 11px; color: #c9d1d9; word-break: break-all; flex: 1; }
-.sidebar-method  { font-size: 11px; color: #79c0ff; flex: 1; }
+.sb-row-backend-label { font-size: 9px; color: #30363d; }
 
+/* ── Method tags ─────────────────────────────────────────────── */
 .method-tag {
   font-size: 9px;
   padding: 1px 4px;
@@ -1144,8 +1462,6 @@ function resultPreview(result: unknown): string {
 }
 .method-tag.stream { background: #0d3350; color: #388bfd; }
 .method-tag.bidir  { background: #2d1f4e; color: #a371f7; }
-
-.sidebar-empty { padding: 12px 10px; color: #484f58; font-size: 11px; }
 
 /* ── Transforms section ──────────────────────────────────────── */
 .transforms-section {
@@ -1365,9 +1681,7 @@ function resultPreview(result: unknown): string {
 }
 .transform-textarea:focus { border-color: #58a6ff; }
 
-.param-schema-field {
-  margin-top: 2px;
-}
+.param-schema-field { margin-top: 2px; }
 
 /* ── Returns section ─────────────────────────────────────────── */
 .returns-section {
@@ -1456,4 +1770,99 @@ function resultPreview(result: unknown): string {
   pointer-events: none;
   letter-spacing: 0.03em;
 }
+
+@keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+/* ── Edge routing badge ──────────────────────────────────────── */
+.edge-badge-g { cursor: pointer; pointer-events: all; }
+
+.edge-badge-bg {
+  fill: #0d1014;
+  stroke: #30363d;
+  stroke-width: 1;
+  transition: fill 0.1s, stroke 0.1s;
+}
+.edge-badge-g:hover .edge-badge-bg { fill: #21262d; stroke: #58a6ff; }
+
+.edge-badge-bg.route-each    { fill: #0d1f0a; stroke: #2a5a20; }
+.edge-badge-bg.route-collect { fill: #0a1520; stroke: #1a3a5a; }
+.edge-badge-bg.route-last    { fill: #16101f; stroke: #4a3070; }
+.edge-badge-bg.route-first   { fill: #16101f; stroke: #4a3070; }
+.edge-badge-bg.route-concat  { fill: #1f1508; stroke: #6a4a10; }
+.edge-badge-bg.route-filter  { fill: #08181f; stroke: #105a5a; }
+.edge-badge-bg.route-reduce  { fill: #1f0a0a; stroke: #6a1515; }
+
+.edge-badge-text {
+  fill: #6e7681;
+  font-size: 9px;
+  font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
+  pointer-events: none;
+  user-select: none;
+}
+.edge-badge-g:hover .edge-badge-text { fill: #c9d1d9; }
+
+/* ── Routing picker ──────────────────────────────────────────── */
+.routing-picker {
+  position: absolute;
+  z-index: 200;
+  background: #1a1d23;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 7px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  min-width: 210px;
+}
+
+.routing-picker-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.route-mode-btn {
+  background: #111114;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.route-mode-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.route-mode-btn.active { border-color: #3fb950; color: #3fb950; background: #0a1f0a; }
+
+.routing-config-input {
+  display: block;
+  width: 100%;
+  background: #0a0c10;
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  color: #c9d1d9;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 6px;
+  box-sizing: border-box;
+  outline: none;
+  margin-bottom: 4px;
+}
+.routing-config-input:focus { border-color: #58a6ff; }
+.routing-config-input::placeholder { color: #484f58; }
+
+.routing-del-btn {
+  display: block;
+  width: 100%;
+  background: none;
+  border: 1px solid #3a1515;
+  color: #f85149;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-top: 2px;
+  text-align: center;
+}
+.routing-del-btn:hover { background: #2a1010; }
 </style>
