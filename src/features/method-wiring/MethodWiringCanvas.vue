@@ -606,6 +606,9 @@ let resizeObserver: ResizeObserver | null = null
 // Re-load trees whenever new backends are discovered (port scan runs after mount)
 watch(() => props.connections, loadSidebarTrees, { deep: true })
 
+// After each pan/zoom DOM update, re-render edges so getBoundingClientRect reads fresh positions
+watch(transformStyle, () => { layoutTick.value++ }, { flush: 'post' })
+
 onMounted(() => {
   loadSidebarTrees()
   if (canvasWrap.value) {
@@ -621,6 +624,8 @@ onMounted(() => {
     svgH.value = canvasWrap.value.clientHeight
   }
   loadPipeline()
+  // Re-render edges after DOM is ready (nodes may not exist in DOM on first render)
+  nextTick(() => { layoutTick.value++ })
   // Advance counters past any restored IDs to avoid collisions
   for (const n of nodes.value) {
     const num = parseInt(n.id.replace(/^n/, ''))

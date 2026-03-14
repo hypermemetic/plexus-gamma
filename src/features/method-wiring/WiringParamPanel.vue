@@ -5,6 +5,8 @@
     :style="effectiveMode === 'float' ? floatStyle : {}"
     ref="panelEl"
     @pointerdown.stop
+    @mousedown.stop
+    @wheel.stop
     @click.stop
   >
     <!-- Header -->
@@ -220,6 +222,7 @@ function onKeyDown(e: KeyboardEvent) {
 }
 function onDocPointerDown(e: PointerEvent) {
   if (effectiveMode.value !== 'float') return
+  if (dragOffset.value) return  // don't close while dragging
   if (!panelEl.value) return
   if (!panelEl.value.contains(e.target as Node)) emit('close')
 }
@@ -340,7 +343,9 @@ function updatePortName(pi: number, value: string) {
   top: 0;
   bottom: 0;
   width: 300px;
+  border: none;
   border-left: 1px solid #30363d;
+  border-radius: 0;
   box-shadow: -4px 0 24px rgba(0,0,0,0.5);
   transform: translateX(100%);
   transition: transform 0.22s ease;
@@ -355,8 +360,9 @@ function updatePortName(pi: number, value: string) {
   left: 0;
   right: 0;
   max-height: 55vh;
+  border: none;
   border-top: 1px solid #30363d;
-  border-radius: 10px 10px 0 0;
+  border-radius: 0;
   box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
   transform: translateY(100%);
   transition: transform 0.22s ease;
