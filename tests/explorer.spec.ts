@@ -27,6 +27,9 @@ async function visibleLabels(page: Page): Promise<string[]> {
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await waitForTree(page)
+  // Switch to single-backend explorer view (default is now "all")
+  await page.locator('.view-tab').nth(1).click()
+  await waitForTree(page)
 })
 
 // ──────────────────────────────────────────────────────────────────────────────

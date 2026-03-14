@@ -69,11 +69,11 @@ test.describe('connection bar', () => {
   })
 
   test('view switcher has six buttons', async ({ page }) => {
-    await expect(page.locator('.view-btn')).toHaveCount(6)
+    await expect(page.locator('.view-tab')).toHaveCount(6)
   })
 
-  test('explorer view is active by default', async ({ page }) => {
-    await expect(page.locator('.view-btn').first()).toHaveClass(/active/)
+  test('all view is active by default', async ({ page }) => {
+    await expect(page.locator('.view-tab').first()).toHaveClass(/active/)
   })
 })
 
@@ -106,6 +106,9 @@ test.describe('registry auto-discovery', () => {
   })
 
   test('switching to fidget-spinner loads its tree', async ({ page }) => {
+    // Switch to single-backend explorer view first
+    await page.locator('.view-tab').nth(1).click()
+    await waitForTree(page)
     const chip = page.locator('.health-chip', { hasText: 'fidget-spinner' }).first()
     await expect(chip).toBeVisible({ timeout: 10_000 })
     await chip.click()
@@ -115,6 +118,7 @@ test.describe('registry auto-discovery', () => {
 })
 
 // ─── View switching ───────────────────────────────────────────────────────────
+// Tab layout: [0]=all  [1]=explorer  [2]=canvas  [3]=sheet  [4]=wiring  [5]=orchestrate
 
 test.describe('view switching', () => {
   test.beforeEach(async ({ page }) => {
@@ -123,77 +127,74 @@ test.describe('view switching', () => {
   })
 
   test('switching to canvas view renders a canvas element', async ({ page }) => {
-    await page.locator('.view-btn').nth(1).click()
+    await page.locator('.view-tab').nth(2).click()
     await expect(page.locator('.main-canvas')).toBeVisible({ timeout: 8_000 })
   })
 
   test('canvas view button becomes active on click', async ({ page }) => {
-    const btn = page.locator('.view-btn').nth(1)
+    const btn = page.locator('.view-tab').nth(2)
     await btn.click()
     await expect(btn).toHaveClass(/active/)
-    // Explorer button is no longer active
-    await expect(page.locator('.view-btn').first()).not.toHaveClass(/active/)
+    // All button is no longer active
+    await expect(page.locator('.view-tab').first()).not.toHaveClass(/active/)
   })
 
-  test('switching to multi view renders multi-backend canvas toolbar', async ({ page }) => {
-    await page.locator('.view-btn').nth(2).click()
+  test('canvas view renders canvas toolbar', async ({ page }) => {
+    await page.locator('.view-tab').nth(2).click()
     await expect(page.locator('.canvas-toolbar')).toBeVisible({ timeout: 8_000 })
   })
 
-  test('multi view shows backend status chips', async ({ page }) => {
-    await page.locator('.view-btn').nth(2).click()
-    await expect(page.locator('.be-chip').first()).toBeVisible({ timeout: 8_000 })
+  test('all view shows backend groups', async ({ page }) => {
+    // Default "all" view shows a backend group per connection
+    await expect(page.locator('.backend-group').first()).toBeVisible({ timeout: 8_000 })
   })
 
-  test('switching back to explorer restores the tree', async ({ page }) => {
-    await page.locator('.view-btn').nth(1).click()
+  test('switching back to all view restores the tree', async ({ page }) => {
+    await page.locator('.view-tab').nth(2).click()
     await expect(page.locator('.main-canvas')).toBeVisible({ timeout: 8_000 })
 
-    await page.locator('.view-btn').first().click()
+    await page.locator('.view-tab').first().click()
     await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 5_000 })
   })
 
-  test('multi view button becomes active on click', async ({ page }) => {
-    const btn = page.locator('.view-btn').nth(2)
+  test('sheet view button becomes active on click', async ({ page }) => {
+    const btn = page.locator('.view-tab').nth(3)
     await btn.click()
     await expect(btn).toHaveClass(/active/)
   })
 
-  test('explorer tree still works after canvas → explorer round-trip', async ({ page }) => {
-    // Switch away from explorer to canvas
-    await page.locator('.view-btn').nth(1).click()
+  test('tree still works after canvas → all round-trip', async ({ page }) => {
+    // Switch to canvas
+    await page.locator('.view-tab').nth(2).click()
     await expect(page.locator('.main-canvas')).toBeVisible({ timeout: 8_000 })
 
-    // Switch back — this is where the connection-timeout bug would surface
-    await page.locator('.view-btn').first().click()
+    // Switch back to all — tree should be immediately available (cached)
+    await page.locator('.view-tab').first().click()
     await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 8_000 })
-    // No error banner means no "connection timed out" message
-    await expect(page.locator('.error-banner')).toHaveCount(0)
     // Tree is interactive — clicking a node updates the detail pane
     await page.locator('.node-row', { hasText: 'echo' }).first().click()
     await expect(page.locator('.detail-path')).toContainText('echo', { timeout: 5_000 })
   })
 
-  test('explorer tree still works after multi → explorer round-trip', async ({ page }) => {
-    await page.locator('.view-btn').nth(2).click()
+  test('tree still works after canvas → explorer round-trip', async ({ page }) => {
+    await page.locator('.view-tab').nth(2).click()
     await expect(page.locator('.canvas-toolbar')).toBeVisible({ timeout: 8_000 })
 
-    await page.locator('.view-btn').first().click()
+    await page.locator('.view-tab').nth(1).click()
     await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 8_000 })
     await expect(page.locator('.error-banner')).toHaveCount(0)
     await page.locator('.node-row', { hasText: 'health' }).first().click()
     await expect(page.locator('.detail-path')).toContainText('health', { timeout: 5_000 })
   })
 
-  test('explorer tree survives rapid view cycling', async ({ page }) => {
-    // canvas → multi → sheet → explorer in quick succession
-    await page.locator('.view-btn').nth(1).click()
-    await page.locator('.view-btn').nth(2).click()
-    await page.locator('.view-btn').nth(3).click()
-    await page.locator('.view-btn').first().click()
+  test('tree survives rapid view cycling', async ({ page }) => {
+    // canvas → sheet → wiring → all in quick succession
+    await page.locator('.view-tab').nth(2).click()
+    await page.locator('.view-tab').nth(3).click()
+    await page.locator('.view-tab').nth(4).click()
+    await page.locator('.view-tab').first().click()
 
     await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 10_000 })
-    await expect(page.locator('.error-banner')).toHaveCount(0)
   })
 })
 

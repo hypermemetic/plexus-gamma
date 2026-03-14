@@ -13,7 +13,7 @@
     </div>
 
     <div class="body-split">
-      <!-- Left sidebar: method browser -->
+      <!-- Left sidebar: tree browser -->
       <aside class="sidebar">
         <input
           ref="sidebarInput"
@@ -22,19 +22,71 @@
           placeholder="Search methods…"
           spellcheck="false"
         />
-        <div class="sidebar-list">
-          <div
-            v-for="entry in filteredMethods"
-            :key="entry.fullPath"
-            class="sidebar-item"
-            :title="entry.method.description || entry.fullPath"
-            @click="addNode(entry)"
-          >
-            <span class="sidebar-backend">[{{ entry.backend }}]</span>
-            <span class="sidebar-path">{{ entry.fullPath }}</span>
+
+        <!-- Search mode: flat filtered list -->
+        <template v-if="sidebarQuery">
+          <div class="sidebar-list">
+            <div
+              v-for="item in filteredSearchMethods"
+              :key="item.backendName + ':' + item.fullPath"
+              class="sidebar-item"
+              :title="item.method.description || item.fullPath"
+              @click="addMethodEntry(item)"
+            >
+              <span class="sidebar-backend">[{{ item.backendName }}]</span>
+              <span class="sidebar-path">{{ item.fullPath }}</span>
+            </div>
+            <div v-if="filteredSearchMethods.length === 0" class="sidebar-empty">No methods</div>
           </div>
-          <div v-if="filteredMethods.length === 0" class="sidebar-empty">No methods</div>
-        </div>
+        </template>
+
+        <!-- Browse mode: tree + method detail -->
+        <template v-else>
+          <div class="sidebar-tree">
+            <div v-for="conn in connections" :key="conn.name" class="be-group">
+              <div class="be-header" @click="toggleBeCollapse(conn.name)">
+                <span class="be-toggle">{{ beCollapsed[conn.name] ? '▸' : '▾' }}</span>
+                <span class="be-label">{{ conn.name }}</span>
+                <span v-if="sidebarLoading[conn.name]" class="be-spinner">◌</span>
+              </div>
+              <div v-if="!beCollapsed[conn.name]">
+                <div v-if="sidebarLoading[conn.name] && !sidebarTrees[conn.name]" class="be-loading">
+                  <span class="spinner">◌</span>
+                </div>
+                <PluginTreeNode
+                  v-if="sidebarTrees[conn.name]"
+                  :node="sidebarTrees[conn.name]!"
+                  :selected-path="selectedTreeNode?.backendName === conn.name ? selectedTreeNode.node.path.join('.') : '__none__'"
+                  :backend-name="conn.name"
+                  @select="onTreeSelect(conn.name, $event)"
+                />
+              </div>
+            </div>
+            <div v-if="connections.length === 0" class="sidebar-empty">No backends</div>
+          </div>
+
+          <!-- Methods of selected tree node -->
+          <template v-if="selectedTreeNode">
+            <div class="method-divider">
+              <span class="method-divider-label">{{ selectedTreeNodeLabel }}</span>
+              <button class="method-divider-close" @click="selectedTreeNode = null" title="Close">✕</button>
+            </div>
+            <div class="sidebar-list">
+              <div
+                v-for="method in selectedNodeMethods"
+                :key="method.name"
+                class="sidebar-item"
+                :title="method.description || method.name"
+                @click="addFromTreeNode(method)"
+              >
+                <span class="sidebar-method">{{ method.name }}</span>
+                <span v-if="method.streaming" class="method-tag stream">stream</span>
+                <span v-if="method.bidirectional" class="method-tag bidir">bidir</span>
+              </div>
+              <div v-if="selectedNodeMethods.length === 0" class="sidebar-empty">No methods</div>
+            </div>
+          </template>
+        </template>
       </aside>
 
       <!-- Right canvas -->
@@ -160,10 +212,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import type { MethodEntry } from '../../components/CommandPalette.vue'
-import { createClient } from '../../lib/plexus/transport'
-import type { PlexusRpcClient } from '../../lib/plexus/transport'
+import { getSharedClient } from '../../lib/plexus/clientRegistry'
+import { getCachedTree } from '../../lib/plexus/schemaCache'
+import { flattenTree } from '../../schema-walker'
+import type { PluginNode, MethodSchema } from '../../plexus-schema'
+import PluginTreeNode from '../../components/PluginTreeNode.vue'
 
 // ─── Props ────────────────────────────────────────────────────
 const props = defineProps<{
@@ -171,21 +226,106 @@ const props = defineProps<{
   methodIndex: MethodEntry[]
 }>()
 
-// ─── RPC clients per backend ─────────────────────────────────
-const clients = new Map<string, PlexusRpcClient>()
+// ─── Sidebar tree state ───────────────────────────────────────
+const sidebarTrees   = reactive<Record<string, PluginNode>>({})
+const sidebarLoading = reactive<Record<string, boolean>>({})
+const beCollapsed    = reactive<Record<string, boolean>>({})
 
-function getClient(backend: string): PlexusRpcClient {
-  if (!clients.has(backend)) {
-    const conn = props.connections.find(c => c.name === backend)
-    if (!conn) throw new Error(`No connection for backend "${backend}"`)
-    clients.set(backend, createClient({ backend, url: conn.url }))
+interface SelectedTreeNode { backendName: string; node: PluginNode }
+const selectedTreeNode = ref<SelectedTreeNode | null>(null)
+
+const selectedTreeNodeLabel = computed(() => {
+  if (!selectedTreeNode.value) return ''
+  const { backendName, node } = selectedTreeNode.value
+  return node.path.length === 0 ? backendName : node.path.join('.')
+})
+
+const selectedNodeMethods = computed((): MethodSchema[] => {
+  return selectedTreeNode.value?.node.schema.methods ?? []
+})
+
+async function loadSidebarTrees(): Promise<void> {
+  for (const conn of props.connections) {
+    if (!(conn.name in sidebarLoading)) {
+      sidebarLoading[conn.name] = true
+      const rpc = getSharedClient(conn.name, conn.url)
+      getCachedTree(rpc, conn.name)
+        .then(tree => { sidebarTrees[conn.name] = tree })
+        .catch(() => { /* ignore */ })
+        .finally(() => { sidebarLoading[conn.name] = false })
+    }
   }
-  return clients.get(backend)!
 }
 
-onUnmounted(() => {
-  for (const client of clients.values()) client.disconnect()
+function toggleBeCollapse(name: string): void {
+  beCollapsed[name] = !beCollapsed[name]
+}
+
+function onTreeSelect(backendName: string, node: PluginNode): void {
+  selectedTreeNode.value = { backendName, node }
+}
+
+function addFromTreeNode(method: MethodSchema): void {
+  if (!selectedTreeNode.value) return
+  const { backendName, node } = selectedTreeNode.value
+  const ns = node.path.length === 0 ? backendName : node.path.join('.')
+  addNode({
+    backend: backendName,
+    fullPath: `${ns}.${method.name}`,
+    path: node.path,
+    method,
+  })
+}
+
+function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
+  addNode({
+    backend: item.backendName,
+    fullPath: item.fullPath,
+    path: item.path,
+    method: item.method,
+  })
+}
+
+// ─── Search (across all loaded trees) ────────────────────────
+const sidebarQuery = ref('')
+const sidebarInput = ref<HTMLInputElement | null>(null)
+
+const allTreeMethods = computed(() => {
+  const result: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }[] = []
+  for (const [name, tree] of Object.entries(sidebarTrees)) {
+    for (const node of flattenTree(tree)) {
+      const ns = node.path.length === 0 ? name : node.path.join('.')
+      for (const method of node.schema.methods) {
+        result.push({
+          backendName: name,
+          fullPath: `${ns}.${method.name}`,
+          path: node.path,
+          method,
+        })
+      }
+    }
+  }
+  return result
 })
+
+const filteredSearchMethods = computed(() => {
+  const q = sidebarQuery.value.toLowerCase()
+  if (!q) return []
+  return allTreeMethods.value
+    .filter(m => m.fullPath.toLowerCase().includes(q) || m.backendName.toLowerCase().includes(q))
+    .slice(0, 80)
+})
+
+function focusSidebar() {
+  nextTick(() => sidebarInput.value?.focus())
+}
+
+// ─── RPC clients (shared registry) ───────────────────────────
+function getClient(backend: string) {
+  const conn = props.connections.find(c => c.name === backend)
+  if (!conn) throw new Error(`No connection for backend "${backend}"`)
+  return getSharedClient(backend, conn.url)
+}
 
 // ─── Data model ───────────────────────────────────────────────
 interface WireNode {
@@ -210,22 +350,6 @@ const selectedNodeId = ref<string | null>(null)
 const running = ref(false)
 const runError = ref<string | null>(null)
 
-// ─── Sidebar ─────────────────────────────────────────────────
-const sidebarQuery = ref('')
-const sidebarInput = ref<HTMLInputElement | null>(null)
-
-const filteredMethods = computed(() => {
-  const q = sidebarQuery.value.toLowerCase()
-  if (!q) return props.methodIndex.slice(0, 80)
-  return props.methodIndex
-    .filter(e => e.fullPath.toLowerCase().includes(q))
-    .slice(0, 80)
-})
-
-function focusSidebar() {
-  nextTick(() => sidebarInput.value?.focus())
-}
-
 // ─── SVG dimensions (ResizeObserver) ─────────────────────────
 const canvasWrap = ref<HTMLDivElement | null>(null)
 const svgW = ref(800)
@@ -234,6 +358,7 @@ const svgH = ref(600)
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
+  loadSidebarTrees()
   if (canvasWrap.value) {
     resizeObserver = new ResizeObserver(entries => {
       const entry = entries[0]
@@ -334,7 +459,6 @@ const hoveredPort = ref<HoveredPort | null>(null)
 const pendingEdge = ref<PendingEdge | null>(null)
 const hoveredEdge = ref<string | null>(null)
 
-/** Compute absolute position of a node's output port */
 function outputPortPos(nodeId: string): { x: number; y: number } | null {
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return null
@@ -344,11 +468,9 @@ function outputPortPos(nodeId: string): { x: number; y: number } | null {
     const wrap = canvasWrap.value!.getBoundingClientRect()
     return { x: rect.right - wrap.left, y: rect.top + rect.height / 2 - wrap.top }
   }
-  // Fallback: use pos + estimated size
   return { x: node.pos.x + 200, y: node.pos.y + 40 }
 }
 
-/** Compute absolute position of a node's input port for param */
 function inputPortPos(nodeId: string, param: string): { x: number; y: number } | null {
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return null
@@ -360,7 +482,6 @@ function inputPortPos(nodeId: string, param: string): { x: number; y: number } |
 
 function onOutputPortClick(fromNodeId: string) {
   if (pendingEdge.value) {
-    // Cancel if clicking same output
     if (pendingEdge.value.fromNodeId === fromNodeId) {
       pendingEdge.value = null
       return
@@ -375,7 +496,6 @@ function onInputPortClick(toNodeId: string, toParam: string) {
   if (!pendingEdge.value) return
   const { fromNodeId } = pendingEdge.value
   if (fromNodeId === toNodeId) { pendingEdge.value = null; return }
-  // Remove any existing edge into this input param
   edges.value = edges.value.filter(e => !(e.toNodeId === toNodeId && e.toParam === toParam))
   edges.value.push({
     id: makeEdgeId(),
@@ -476,7 +596,6 @@ async function runPipeline() {
   running.value = true
   runError.value = null
 
-  // Reset all node statuses
   for (const node of nodes.value) {
     node.status = 'idle'
     node.result = undefined
@@ -490,7 +609,6 @@ async function runPipeline() {
       node.status = 'running'
       try {
         const client = getClient(node.method.backend)
-        // Build params: start with manually set params, then wire in results from upstream
         const resolvedParams: Record<string, unknown> = { ...node.params }
         for (const edge of edges.value.filter(e => e.toNodeId === node.id)) {
           const upstreamResult = nodeResults.get(edge.fromNodeId)
@@ -499,7 +617,6 @@ async function runPipeline() {
           }
         }
 
-        // Parse param values that are JSON strings
         const finalParams: Record<string, unknown> = {}
         for (const [k, v] of Object.entries(resolvedParams)) {
           if (typeof v === 'string') {
@@ -514,7 +631,7 @@ async function runPipeline() {
           if (item.type === 'data') {
             if (firstDataResult === undefined) firstDataResult = item.content
           } else if (item.type === 'error') {
-            throw new Error(typeof item.content === 'string' ? item.content : JSON.stringify(item.content))
+            throw new Error(item.message)
           }
         }
         nodeResults.set(node.id, firstDataResult)
@@ -557,7 +674,6 @@ function exportJson() {
   }
   const json = JSON.stringify(pipeline, null, 2)
   navigator.clipboard.writeText(json).catch(() => {
-    // Fallback: open in alert
     alert(json)
   })
 }
@@ -575,7 +691,8 @@ function resultPreview(result: unknown): string {
 .wiring-root {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-width: 0;
   background: #080a0e;
   color: #c9d1d9;
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
@@ -626,16 +743,18 @@ function resultPreview(result: unknown): string {
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
 .sidebar {
-  width: 220px;
+  width: 240px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid #21262d;
   background: #0a0c10;
+  overflow: hidden;
 }
 
 .sidebar-search {
@@ -647,37 +766,130 @@ function resultPreview(result: unknown): string {
   font-size: 11px;
   padding: 7px 10px;
   outline: none;
+  flex-shrink: 0;
 }
 .sidebar-search::placeholder { color: #484f58; }
 .sidebar-search:focus { border-bottom-color: #58a6ff; }
 
-.sidebar-list { flex: 1; overflow-y: auto; }
+/* Tree browser */
+.sidebar-tree {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.be-group { border-bottom: 1px solid #14171b; }
+
+.be-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  cursor: pointer;
+  user-select: none;
+  background: #0a0c10;
+}
+.be-header:hover { background: #0f1318; }
+
+.be-toggle { font-size: 10px; color: #484f58; width: 10px; flex-shrink: 0; }
+
+.be-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #58a6ff;
+  flex: 1;
+}
+
+.be-spinner { font-size: 10px; color: #484f58; }
+
+.be-loading {
+  padding: 6px 10px;
+  color: #484f58;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+@keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+.spinner { animation: pulse 1.2s ease-in-out infinite; }
+
+/* Method divider */
+.method-divider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  background: #111419;
+  border-top: 1px solid #21262d;
+  border-bottom: 1px solid #21262d;
+  flex-shrink: 0;
+}
+
+.method-divider-label {
+  font-size: 10px;
+  color: #58a6ff;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.method-divider-close {
+  background: none;
+  border: none;
+  color: #484f58;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.method-divider-close:hover { color: #8b949e; }
+
+/* Method + search results list */
+.sidebar-list { overflow-y: auto; }
 
 .sidebar-item {
   padding: 5px 10px;
   cursor: pointer;
   border-bottom: 1px solid #14171b;
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 .sidebar-item:hover { background: #161b22; }
 
 .sidebar-backend { font-size: 10px; color: #484f58; }
-.sidebar-path { font-size: 11px; color: #c9d1d9; word-break: break-all; }
+.sidebar-path    { font-size: 11px; color: #c9d1d9; word-break: break-all; flex: 1; }
+.sidebar-method  { font-size: 11px; color: #79c0ff; flex: 1; }
 
-.sidebar-empty { padding: 14px 10px; color: #484f58; font-size: 11px; }
+.method-tag {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.method-tag.stream { background: #0d3350; color: #388bfd; }
+.method-tag.bidir  { background: #2d1f4e; color: #a371f7; }
+
+.sidebar-empty { padding: 12px 10px; color: #484f58; font-size: 11px; }
 
 /* ── Canvas ──────────────────────────────────────────────────── */
 .canvas-wrap {
   flex: 1;
   position: relative;
   overflow: hidden;
-  /* Dot grid */
   background-color: #080a0e;
   background-image: radial-gradient(circle, #1e2530 1px, transparent 1px);
   background-size: 20px 20px;
   cursor: default;
+  min-width: 0;
 }
 
 .edge-svg {
@@ -714,7 +926,6 @@ function resultPreview(result: unknown): string {
 .wire-node:active { cursor: grabbing; }
 .wire-node.selected { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff33; }
 
-/* Status border pulse on running */
 @keyframes node-pulse { 0%, 100% { box-shadow: 0 0 0 1px #58a6ff22; } 50% { box-shadow: 0 0 0 3px #58a6ff44; } }
 .wire-node.status-running { border-color: #58a6ff; animation: node-pulse 1s ease-in-out infinite; }
 .wire-node.status-done    { border-color: #3fb950; }
@@ -813,7 +1024,6 @@ function resultPreview(result: unknown): string {
   gap: 5px;
   align-items: flex-start;
 }
-.node-result-error { }
 
 .result-label { font-size: 10px; color: #484f58; flex-shrink: 0; }
 .result-value {

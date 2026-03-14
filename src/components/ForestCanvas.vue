@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
-import { buildTree } from '../schema-walker'
+import { getCachedTree } from '../lib/plexus/schemaCache'
 import type { PluginNode, MethodSchema } from '../plexus-schema'
 
 const props = defineProps<{ connection: { name: string; url: string } }>()
@@ -387,7 +387,7 @@ async function refresh(): Promise<void> {
   connectError.value = ''
   try {
     await rpc.connect()
-    const pluginTree = await buildTree(rpc, props.connection.name)
+    const pluginTree = await getCachedTree(rpc, props.connection.name)
     rootNode = buildCNode(pluginTree)
     allNodes = []; allEdges = []
     layoutNode(rootNode, 0, { v: 0 })

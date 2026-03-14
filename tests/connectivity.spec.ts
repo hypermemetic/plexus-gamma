@@ -37,7 +37,7 @@ test.describe('app startup', () => {
   })
 
   test('substrate backend label is visible in sidebar', async ({ page }) => {
-    await expect(page.locator('.backend-label')).toContainText('substrate')
+    await expect(page.locator('.backend-label').first()).toContainText('substrate')
   })
 
   test('echo and claudecode plugins are present in the tree', async ({ page }) => {

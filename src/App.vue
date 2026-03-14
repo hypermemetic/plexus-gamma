@@ -37,21 +37,30 @@
         <button v-else class="add-btn" @click="showAdd = true" title="Add backend">+</button>
 
         <!-- View switcher -->
-        <div class="view-btns">
-          <button class="view-btn" :class="{ active: view === 'explorer' }" @click="view = 'explorer'" title="Explorer">⊞</button>
-          <button class="view-btn" :class="{ active: view === 'canvas' }"   @click="view = 'canvas'"   title="Forest canvas">⊠</button>
-          <button class="view-btn" :class="{ active: view === 'multi' }"    @click="view = 'multi'"    title="Multi-backend canvas">⊟</button>
-          <button class="view-btn" :class="{ active: view === 'sheet' }"         @click="view = 'sheet'"         title="Tree + sheet">⊕</button>
-          <button class="view-btn" :class="{ active: view === 'wiring' }"        @click="view = 'wiring'"        title="Method wiring">⊡</button>
-          <button class="view-btn" :class="{ active: view === 'orchestration' }" @click="view = 'orchestration'" title="Orchestration">⊛</button>
+        <div class="view-tabs">
+          <button class="view-tab" :class="{ active: view === 'multi-explorer' }" @click="view = 'multi-explorer'">all</button>
+          <button class="view-tab" :class="{ active: view === 'explorer' }"       @click="view = 'explorer'">explorer</button>
+          <button class="view-tab" :class="{ active: view === 'canvas' }"         @click="view = 'canvas'">canvas</button>
+          <button class="view-tab" :class="{ active: view === 'sheet' }"          @click="view = 'sheet'">sheet</button>
+          <button class="view-tab" :class="{ active: view === 'wiring' }"         @click="view = 'wiring'">wiring</button>
+          <button class="view-tab" :class="{ active: view === 'orchestration' }"  @click="view = 'orchestration'">orchestrate</button>
         </div>
       </div>
     </header>
 
     <!-- Main area -->
     <main class="main">
+      <!-- All backends view (default) -->
+      <template v-if="view === 'multi-explorer'">
+        <MultiBackendExplorer
+          :connections="connections"
+          @tree-ready="onTreeReady"
+          @registry-backends="onRegistryBackends"
+        />
+      </template>
+
       <!-- Explorer view -->
-      <template v-if="view === 'explorer'">
+      <template v-else-if="view === 'explorer'">
         <BackendExplorer
           v-if="activeConn"
           :key="activeConn.name + activeConn.url"
@@ -78,7 +87,7 @@
         </div>
       </template>
 
-      <!-- Multi-backend canvas view -->
+      <!-- Multi-backend canvas view (kept, not in tabs) -->
       <template v-else-if="view === 'multi'">
         <MultiBackendCanvas
           :connections="connections"
@@ -99,6 +108,7 @@
           <p>No backend selected. Add one with <strong>+</strong>.</p>
         </div>
       </template>
+
       <!-- Method wiring view (feature: method-wiring) -->
       <template v-else-if="view === 'wiring'">
         <MethodWiringCanvas :connections="connections" :method-index="methodIndex" />
@@ -120,6 +130,7 @@ import { ref, provide, onMounted } from 'vue'
 import BackendExplorer from './components/BackendExplorer.vue'
 import ForestCanvas from './components/ForestCanvas.vue'
 import MultiBackendCanvas from './components/MultiBackendCanvas.vue'
+import MultiBackendExplorer from './components/MultiBackendExplorer.vue'
 import TreeSheetView from './components/TreeSheetView.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import type { MethodEntry } from './components/CommandPalette.vue'
@@ -144,7 +155,7 @@ const connections = ref<BackendConnection[]>([
 ])
 
 const activeConn = ref<BackendConnection | null>(connections.value[0] ?? null)
-const view       = ref<'explorer' | 'canvas' | 'multi' | 'sheet' | 'wiring' | 'orchestration'>('explorer')
+const view       = ref<'multi-explorer' | 'explorer' | 'canvas' | 'multi' | 'sheet' | 'wiring' | 'orchestration'>('multi-explorer')
 const showAdd    = ref(false)
 const newName    = ref('')
 const newUrl     = ref('ws://127.0.0.1:')
@@ -326,13 +337,22 @@ onMounted(runScan)
   background: none; border: none; color: #484f58; cursor: pointer; font-size: 12px; padding: 2px 4px;
 }
 
-.view-btns { display: flex; border: 1px solid #30363d; border-radius: 4px; overflow: hidden; }
-.view-btn {
-  background: none; border: none; color: #484f58;
-  font-size: 13px; padding: 2px 6px; cursor: pointer; line-height: 1;
+/* ── View tabs ──────────────────────────────────────────────── */
+.view-tabs { display: flex; gap: 3px; }
+
+.view-tab {
+  background: none;
+  border: 1px solid #30363d;
+  color: #484f58;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.03em;
 }
-.view-btn:hover { color: #8b949e; background: #161b22; }
-.view-btn.active { color: #58a6ff; background: #1a2840; }
+.view-tab:hover { border-color: #8b949e; color: #8b949e; }
+.view-tab.active { border-color: #58a6ff; color: #58a6ff; background: #1a2840; }
 
 /* ── Main area ──────────────────────────────────────────────── */
 .main { flex: 1; overflow: hidden; display: flex; }
