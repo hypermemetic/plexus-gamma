@@ -4,7 +4,7 @@
  * if the substrate backend is unreachable.
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 const WS_URL = 'ws://127.0.0.1:4444'
 
@@ -23,30 +23,25 @@ test('substrate is reachable on ws://127.0.0.1:4444', async ({ page }) => {
   expect(connected, `Could not open WebSocket to ${WS_URL} — is substrate running?`).toBe(true)
 })
 
-// ─── App loads and tree renders ───────────────────────────────────────────────
+// ─── App loads and known plugins are visible ─────────────────────────────────
+// All four checks share a single page.goto('/') via beforeEach.
 
-test('app loads and shows plugin tree', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.locator('.loading-state')).toHaveCount(0, { timeout: 15_000 })
-  await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 15_000 })
-})
+test.describe('app startup', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('.node-row').first()).toBeVisible({ timeout: 15_000 })
+  })
 
-test('substrate backend label is visible in sidebar', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.locator('.backend-label')).toBeVisible({ timeout: 15_000 })
-  await expect(page.locator('.backend-label')).toContainText('substrate')
-})
+  test('tree renders and loading spinner is gone', async ({ page }) => {
+    await expect(page.locator('.loading-state')).toHaveCount(0)
+  })
 
-// ─── Known plugins exist ──────────────────────────────────────────────────────
+  test('substrate backend label is visible in sidebar', async ({ page }) => {
+    await expect(page.locator('.backend-label')).toContainText('substrate')
+  })
 
-test('echo plugin is present in the tree', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.locator('.node-row', { hasText: 'echo' }).first())
-    .toBeVisible({ timeout: 15_000 })
-})
-
-test('claudecode plugin is present in the tree', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.locator('.node-row', { hasText: 'claudecode' }).first())
-    .toBeVisible({ timeout: 15_000 })
+  test('echo and claudecode plugins are present in the tree', async ({ page }) => {
+    await expect(page.locator('.node-row', { hasText: 'echo' }).first()).toBeVisible()
+    await expect(page.locator('.node-row', { hasText: 'claudecode' }).first()).toBeVisible()
+  })
 })
