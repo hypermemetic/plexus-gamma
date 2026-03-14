@@ -28,8 +28,11 @@ export function useCanvasPanZoom(): {
   const isPanning = ref(false)
   const spaceHeld = ref(false)
 
+  const PAN_THRESHOLD = 5 // px — minimum drag distance before pan activates
+
   interface PanState { mouseX: number; mouseY: number; panX: number; panY: number }
   let panState: PanState | null = null
+  let pendingPan: PanState | null = null // waiting for threshold (beginPan only)
 
   // Touch state
   interface TouchPanState { x: number; y: number; panX: number; panY: number }
@@ -67,13 +70,21 @@ export function useCanvasPanZoom(): {
     return false
   }
 
-  // Force pan start unconditionally (any click on empty canvas)
+  // Any left-click on empty canvas — activates only after moving PAN_THRESHOLD px
   function beginPan(e: MouseEvent): void {
-    panState = { mouseX: e.clientX, mouseY: e.clientY, panX: pan.value.x, panY: pan.value.y }
-    isPanning.value = true
+    pendingPan = { mouseX: e.clientX, mouseY: e.clientY, panX: pan.value.x, panY: pan.value.y }
   }
 
   function onPanMove(e: MouseEvent): void {
+    if (pendingPan && !panState) {
+      const dx = e.clientX - pendingPan.mouseX
+      const dy = e.clientY - pendingPan.mouseY
+      if (Math.hypot(dx, dy) >= PAN_THRESHOLD) {
+        panState = pendingPan
+        pendingPan = null
+        isPanning.value = true
+      }
+    }
     if (!panState) return
     pan.value = {
       x: panState.panX + (e.clientX - panState.mouseX),
@@ -83,6 +94,7 @@ export function useCanvasPanZoom(): {
 
   function onPanEnd(): void {
     panState = null
+    pendingPan = null
     isPanning.value = false
   }
 
