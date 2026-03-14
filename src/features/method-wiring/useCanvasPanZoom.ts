@@ -34,7 +34,7 @@ export function useCanvasPanZoom(): {
   }
 
   function onWheel(e: WheelEvent, rect: DOMRect): void {
-    const newZoom = clampZoom(zoom.value * (1 - e.deltaY * 0.001))
+    const newZoom = clampZoom(zoom.value * (1 - e.deltaY * 0.003))
     // Zoom toward cursor: keep the canvas point under cursor fixed
     const cx = e.clientX - rect.left
     const cy = e.clientY - rect.top
