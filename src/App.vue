@@ -10,28 +10,15 @@
 
     <!-- Connection bar -->
     <header class="conn-bar">
-      <div class="conn-tabs">
-        <button
-          v-for="conn in connections"
-          :key="conn.name"
-          class="conn-tab"
-          :class="{ active: activeConn?.name === conn.name }"
-          @click="activeConn = conn"
-        >
-          {{ conn.name }}
-          <span class="conn-url">{{ conn.url.replace('ws://', '') }}</span>
-        </button>
-      </div>
+      <!-- Backend selector (health chips) -->
+      <HealthDashboard
+        :connections="connections"
+        :active-backend="activeConn?.name"
+        :scanning="scanning"
+        @select="onHealthSelect"
+      />
 
       <div class="conn-bar-right">
-        <!-- Health strip (feature: health) -->
-        <HealthDashboard :connections="connections" />
-
-        <!-- Scan badge -->
-        <span v-if="scanning" class="scan-badge">
-          <span class="pulse-dot">◌</span> scanning…
-        </span>
-
         <!-- Ctrl+K hint -->
         <button class="palette-trigger" @click="paletteOpen = true" title="Search methods (Ctrl+K)">
           ⌘K
@@ -266,6 +253,12 @@ function addConnection() {
   newUrl.value = 'ws://127.0.0.1:'
 }
 
+// ─── Backend select (from health chips) ──────────────────────
+function onHealthSelect(name: string) {
+  const conn = connections.value.find(c => c.name === name)
+  if (conn) activeConn.value = conn
+}
+
 // ─── Lifecycle ───────────────────────────────────────────────
 onMounted(runScan)
 </script>
@@ -295,40 +288,7 @@ onMounted(runScan)
   gap: 8px;
 }
 
-.conn-tabs { display: flex; align-items: center; gap: 2px; overflow-x: auto; }
-
-.conn-tab {
-  background: none;
-  border: none;
-  color: #8b949e;
-  font-family: inherit;
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-.conn-tab:hover { background: #161b22; color: #c9d1d9; }
-.conn-tab.active { background: #1a2840; color: #58a6ff; }
-
-.conn-url { color: #484f58; font-size: 10px; }
-.conn-tab.active .conn-url { color: #1f5a8a; }
-
 .conn-bar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
-
-.scan-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #484f58;
-}
-
-@keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
-.pulse-dot { animation: pulse 1.2s ease-in-out infinite; }
 
 .palette-trigger {
   background: none;

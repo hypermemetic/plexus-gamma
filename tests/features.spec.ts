@@ -33,18 +33,13 @@ test.describe('connection bar', () => {
     await waitForTree(page)
   })
 
-  test('substrate tab is visible', async ({ page }) => {
-    await expect(page.locator('.conn-tab', { hasText: 'substrate' })).toBeVisible()
+  test('substrate chip is visible', async ({ page }) => {
+    await expect(page.locator('.health-chip', { hasText: 'substrate' })).toBeVisible()
   })
 
-  test('substrate tab is active by default', async ({ page }) => {
-    const tab = page.locator('.conn-tab', { hasText: 'substrate' }).first()
-    await expect(tab).toHaveClass(/active/)
-  })
-
-  test('tab shows the ws url', async ({ page }) => {
-    const tab = page.locator('.conn-tab', { hasText: 'substrate' }).first()
-    await expect(tab.locator('.conn-url')).toContainText('127.0.0.1:4444')
+  test('substrate chip is active by default', async ({ page }) => {
+    const chip = page.locator('.health-chip', { hasText: 'substrate' }).first()
+    await expect(chip).toHaveClass(/active/)
   })
 
   test('+ button opens add connection form', async ({ page }) => {
@@ -90,36 +85,30 @@ test.describe('registry auto-discovery', () => {
     await waitForTree(page)
   })
 
-  test('substrate tab appears exactly once (registry dedup)', async ({ page }) => {
+  test('substrate chip appears exactly once (registry dedup)', async ({ page }) => {
     // Wait long enough for registry fetch to complete, then verify no duplicate
     await page.waitForTimeout(2_000)
-    const substrateTabs = page.locator('.conn-tab', { hasText: 'substrate' })
-    await expect(substrateTabs).toHaveCount(1)
+    const substrateChips = page.locator('.health-chip', { hasText: 'substrate' })
+    await expect(substrateChips).toHaveCount(1)
   })
 
-  test('fidget-spinner backend appears as a tab after registry fetch', async ({ page }) => {
+  test('fidget-spinner backend appears as a chip after registry fetch', async ({ page }) => {
     // Registry fetch happens after tree build — give it up to 10s
-    await expect(page.locator('.conn-tab', { hasText: 'fidget-spinner' }))
+    await expect(page.locator('.health-chip', { hasText: 'fidget-spinner' }))
       .toBeVisible({ timeout: 10_000 })
   })
 
-  test('fidget-spinner tab shows correct url', async ({ page }) => {
-    const tab = page.locator('.conn-tab', { hasText: 'fidget-spinner' }).first()
-    await expect(tab).toBeVisible({ timeout: 10_000 })
-    await expect(tab.locator('.conn-url')).toContainText('127.0.0.1:5555')
-  })
-
-  test('clicking fidget-spinner tab makes it active', async ({ page }) => {
-    const tab = page.locator('.conn-tab', { hasText: 'fidget-spinner' }).first()
-    await expect(tab).toBeVisible({ timeout: 10_000 })
-    await tab.click()
-    await expect(tab).toHaveClass(/active/)
+  test('clicking fidget-spinner chip makes it active', async ({ page }) => {
+    const chip = page.locator('.health-chip', { hasText: 'fidget-spinner' }).first()
+    await expect(chip).toBeVisible({ timeout: 10_000 })
+    await chip.click()
+    await expect(chip).toHaveClass(/active/)
   })
 
   test('switching to fidget-spinner loads its tree', async ({ page }) => {
-    const tab = page.locator('.conn-tab', { hasText: 'fidget-spinner' }).first()
-    await expect(tab).toBeVisible({ timeout: 10_000 })
-    await tab.click()
+    const chip = page.locator('.health-chip', { hasText: 'fidget-spinner' }).first()
+    await expect(chip).toBeVisible({ timeout: 10_000 })
+    await chip.click()
     await waitForTree(page)
     await expect(page.locator('.backend-label')).toHaveText('fidget-spinner')
   })

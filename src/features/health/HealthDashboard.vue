@@ -5,9 +5,9 @@
       v-for="h in health"
       :key="h.name"
       class="health-chip"
-      :class="[`status-${h.status}`, { 'hash-pulsed': isHashRecent(h) }]"
-      :title="`${h.name} — ${h.status.toUpperCase()}${h.lastSeenAt ? ` • last seen ${formatAgo(h.lastSeenAt)}` : ''}`"
-      @click="open = true"
+      :class="[`status-${h.status}`, { 'hash-pulsed': isHashRecent(h), active: h.name === activeBackend }]"
+      :title="`${h.url} — ${h.status.toUpperCase()}${h.lastSeenAt ? ` • last seen ${formatAgo(h.lastSeenAt)}` : ''}`"
+      @click="$emit('select', h.name)"
     >
       <span class="status-dot" :class="`dot-${h.status}`">●</span>
       <span class="chip-name">{{ h.name }}</span>
@@ -18,7 +18,11 @@
       <span v-if="isHashRecent(h)" class="chip-pulse" title="Schema hash changed">⚡</span>
     </button>
 
-    <button class="expand-btn" @click="open = true" title="Open health dashboard">
+    <span v-if="scanning" class="chip-scanning" title="Scanning ports…">
+      <span class="scan-dot">◌</span>
+    </span>
+
+    <button class="expand-btn" @click="open = true" title="Backend health details">
       <span class="expand-icon">⊕</span>
     </button>
   </div>
@@ -131,7 +135,11 @@ import type { BackendHealth } from './useBackendHealth'
 
 const props = defineProps<{
   connections: { name: string; url: string }[]
+  activeBackend?: string
+  scanning?: boolean
 }>()
+
+defineEmits<{ select: [name: string] }>()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -244,9 +252,29 @@ function sparklineWidth(h: BackendHealth): number {
   border-color: #484f58;
 }
 
+.health-chip.active {
+  background: #1a2840;
+  border-color: #1f5a8a;
+}
+
+.health-chip.active .chip-name {
+  color: #58a6ff;
+}
+
 .health-chip.hash-pulsed {
   border-color: #e3b341;
 }
+
+.chip-scanning {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: #484f58;
+}
+
+@keyframes scanPulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+.scan-dot { animation: scanPulse 1.2s ease-in-out infinite; }
 
 .status-dot {
   font-size: 8px;

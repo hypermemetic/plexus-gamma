@@ -41,22 +41,29 @@ test.describe('health dashboard', () => {
     await expect(dot).toHaveClass(/dot-ok/, { timeout: 10_000 })
   })
 
-  test('clicking a health chip opens the dashboard', async ({ page }) => {
-    const chip = page.locator('.health-chip').first()
-    await expect(chip).toBeVisible({ timeout: 10_000 })
-    await chip.click()
+  test('clicking expand button opens the dashboard', async ({ page }) => {
+    await expect(page.locator('.expand-btn')).toBeVisible({ timeout: 10_000 })
+    await page.locator('.expand-btn').click()
     await expect(page.locator('.dashboard-backdrop')).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('.dashboard-panel')).toBeVisible({ timeout: 10_000 })
   })
 
+  test('clicking a health chip selects that backend', async ({ page }) => {
+    // Clicking the substrate chip should make it active (not open the overlay)
+    const chip = page.locator('.health-chip', { hasText: 'substrate' }).first()
+    await chip.click()
+    await expect(chip).toHaveClass(/active/)
+    await expect(page.locator('.dashboard-backdrop')).toHaveCount(0)
+  })
+
   test('expanded dashboard shows backend name', async ({ page }) => {
-    await page.locator('.health-chip').first().click()
+    await page.locator('.expand-btn').click()
     await expect(page.locator('.dashboard-panel')).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('.card-name', { hasText: 'substrate' })).toBeVisible()
   })
 
   test('expanded dashboard shows hash', async ({ page }) => {
-    await page.locator('.health-chip').first().click()
+    await page.locator('.expand-btn').click()
     await expect(page.locator('.dashboard-panel')).toBeVisible({ timeout: 10_000 })
     // hash-badge shows first 8 chars of the current hash; it may not exist if no hash
     // has been received yet — wait a moment and check
@@ -70,7 +77,7 @@ test.describe('health dashboard', () => {
 
   test('expanded dashboard shows latency stats', async ({ page }) => {
     // Wait for at least one health tick so latency data is present
-    await page.locator('.health-chip').first().click()
+    await page.locator('.expand-btn').click()
     await expect(page.locator('.dashboard-panel')).toBeVisible({ timeout: 10_000 })
     // The latency row renders .lat-stat spans with text "avg …ms", "p50 …ms", "p95 …ms"
     const latStats = page.locator('.lat-stat')
@@ -82,14 +89,14 @@ test.describe('health dashboard', () => {
   })
 
   test('expanded dashboard shows call count', async ({ page }) => {
-    await page.locator('.health-chip').first().click()
+    await page.locator('.expand-btn').click()
     await expect(page.locator('.dashboard-panel')).toBeVisible({ timeout: 10_000 })
     // The calls row has a row-label "calls:" inside a .card-row
     await expect(page.locator('.card-row', { hasText: 'calls:' }).first()).toBeVisible()
   })
 
   test('expanded dashboard shows sparkline svg', async ({ page }) => {
-    await page.locator('.health-chip').first().click()
+    await page.locator('.expand-btn').click()
     await expect(page.locator('.dashboard-panel')).toBeVisible({ timeout: 10_000 })
     // Sparkline row + svg are only rendered when latencies.length > 0.
     // Give the health monitor time to record some latency samples.
@@ -98,7 +105,7 @@ test.describe('health dashboard', () => {
   })
 
   test('closing the dashboard hides it', async ({ page }) => {
-    await page.locator('.health-chip').first().click()
+    await page.locator('.expand-btn').click()
     await expect(page.locator('.dashboard-panel')).toBeVisible({ timeout: 10_000 })
     await page.locator('.close-btn').click()
     await expect(page.locator('.dashboard-backdrop')).toHaveCount(0, { timeout: 5_000 })
@@ -106,7 +113,7 @@ test.describe('health dashboard', () => {
   })
 
   test('clicking backdrop closes dashboard', async ({ page }) => {
-    await page.locator('.health-chip').first().click()
+    await page.locator('.expand-btn').click()
     await expect(page.locator('.dashboard-backdrop')).toBeVisible({ timeout: 10_000 })
     // Click on the backdrop itself (not the panel) — the .self modifier means only a direct
     // click on .dashboard-backdrop triggers close.  Click near the top-left corner.
