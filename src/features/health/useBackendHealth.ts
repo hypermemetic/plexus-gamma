@@ -59,11 +59,6 @@ export function computeLatencyStats(latencies: number[]): {
 
 // ─── Hash event parser ────────────────────────────────────────────────────────
 
-interface HashEvent {
-  event: string
-  value: string
-}
-
 function extractHashValue(data: unknown): string | null {
   if (typeof data !== 'object' || data === null) return null
   const obj = data as Record<string, unknown>

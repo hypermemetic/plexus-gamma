@@ -247,8 +247,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import type { MethodEntry } from '../../components/CommandPalette.vue'
-import { createClient } from '../../lib/plexus/transport'
-import type { PlexusRpcClient } from '../../lib/plexus/transport'
+import { getSharedClient } from '../../lib/plexus/clientRegistry'
 import SchemaField from '../../components/SchemaField.vue'
 import type { JsonSchema } from '../../components/SchemaField.vue'
 import { getCachedTreeSync } from '../../lib/plexus/schemaCache'
@@ -396,23 +395,11 @@ function resolvedStepSchema(step: WorkflowStep): JsonSchema | null {
 
 // ─── RPC client pool ──────────────────────────────────────────────────────────
 
-const clients = ref<Map<string, PlexusRpcClient>>(new Map())
-
-function getClient(backendName: string): PlexusRpcClient {
-  const existing = clients.value.get(backendName)
-  if (existing) return existing
+function getClient(backendName: string) {
   const conn = props.connections.find(c => c.name === backendName)
   const url = conn?.url ?? `ws://127.0.0.1:4444`
-  const client = createClient({ backend: backendName, url })
-  clients.value.set(backendName, client)
-  return client
+  return getSharedClient(backendName, url)
 }
-
-onBeforeUnmount(() => {
-  for (const client of clients.value.values()) {
-    client.disconnect()
-  }
-})
 
 // ─── Workflow CRUD ────────────────────────────────────────────────────────────
 

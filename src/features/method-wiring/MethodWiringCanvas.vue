@@ -203,7 +203,7 @@
                 <div class="param-form-title">
                   Params
                   <span v-if="availableRefIds(node.id).length" class="param-hint">
-                    ref: {{ availableRefIds(node.id).map(id => `{${id}}`).join(' ') }}
+                    ref: {{ availableRefIds(node.id).map(id => '{' + id + '}').join(' ') }}
                   </span>
                 </div>
                 <SchemaField
