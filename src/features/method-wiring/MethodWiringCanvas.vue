@@ -584,7 +584,9 @@ const {
 } = useCanvasPanZoom()
 
 const { autoLayout } = useNodeLayout(nodes, edges, layoutTick)
-const { load: loadPipeline, exportJson, importJson } = useWiringPersist(nodes, edges)
+const { load: loadPipeline, exportJson, importJson } = useWiringPersist(nodes, edges, {
+  selectedNodeId, panelMode, pan, zoom,
+})
 
 // ─── SVG dimensions (ResizeObserver) ─────────────────────────
 const canvasWrap = ref<HTMLDivElement | null>(null)
