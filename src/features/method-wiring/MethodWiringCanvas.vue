@@ -1441,6 +1441,7 @@ function onCanvasClick(e: MouseEvent) {
   const hadNodeDrag = nodeDragMoved
   const prevSelectedNode = selectedNodeId.value
   const prevSelectedEdge = selectedEdgeId.value
+  const hadMenu = !!contextMenu.value || !!edgeContextMenu.value || !!routingPicker.value
   pendingEdgeJustCancelled = false
   nodeDragMoved = false
   pendingEdge.value = null
@@ -1450,6 +1451,7 @@ function onCanvasClick(e: MouseEvent) {
   selectedNodeId.value = null
   selectedEdgeId.value = null
   if (hadNodeDrag) return
+  if (hadMenu) return
   if (canvasSearch.value) { canvasSearch.value = null; return }
   if (panMoved || hadPending) return
   // Edge was selected: open search in split-edge mode
