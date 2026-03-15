@@ -163,7 +163,7 @@
       <!-- Right canvas -->
       <CanvasLayer
         class="canvas-wrap"
-        :class="{ panning: isPanning }"
+        :class="{ panning: isPanning, 'edge-active': !!pendingEdge }"
         ref="canvasLayerRef"
         :transform="transformStyle"
         @click="onCanvasClick"
@@ -195,11 +195,18 @@
               <path
                 :d="edgePath(edge)"
                 class="edge-path"
-                :class="{ 'edge-hover': hoveredEdge === edge.id }"
+                :class="{ 'edge-hover': hoveredEdge === edge.id, 'edge-selected': selectedEdgeId === edge.id }"
+                fill="none"
+              />
+              <!-- Wide invisible hit area for easier clicking -->
+              <path
+                :d="edgePath(edge)"
+                class="edge-hit"
                 fill="none"
                 @mouseenter="hoveredEdge = edge.id"
                 @mouseleave="hoveredEdge = null"
-                @click.stop="removeEdge(edge.id)"
+                @click.stop="selectEdge(edge.id)"
+                @dblclick.stop="splitEdgeInsert($event, edge)"
               />
               <!-- Routing badge — click to open picker -->
               <g
@@ -283,10 +290,11 @@
               @click.stop
             />
             <div v-else class="node-title" @dblclick.stop="startEditNodeLabel(node.id, nodeTitle(node))">{{ nodeTitle(node) }}</div>
+            <div class="node-command">{{ nodeCommand(node) }}</div>
             <div v-if="nodeSubtitle(node)" class="node-subtitle">{{ nodeSubtitle(node) }}</div>
 
             <!-- Input ports (params) on the left -->
-            <div class="node-ports-left" @mousedown.stop>
+            <div class="node-ports-left">
               <div
                 v-for="param in getParamNames(node)"
                 :key="param"
@@ -715,11 +723,26 @@ const canvasSearchResults = computed((): SearchResult[] => {
 function selectCanvasSearchItem(result: SearchResult | undefined) {
   if (!result || !canvasSearch.value) return
   const pos = { x: canvasSearch.value.canvasX, y: canvasSearch.value.canvasY }
+  const split = pendingSplitEdge
+  pendingSplitEdge = null
   canvasSearch.value = null
   if (result.type === 'quick') {
     result.action(pos)
   } else {
     addNode({ backend: result.entry.backendName, fullPath: result.entry.fullPath, path: result.entry.path, method: result.entry.method }, pos)
+  }
+  if (split) {
+    const newNodeId = selectedNodeId.value
+    if (newNodeId) {
+      const newNode = nodes.value.find(n => n.id === newNodeId)
+      edges.value = edges.value.filter(e => e.id !== split.edgeId)
+      if (newNode) {
+        const firstParam = getParamNames(newNode)[0]
+        const rc = { separator: '', predicate: '', reducer: '', initial: '', typeFilter: [] as string[] }
+        if (firstParam) edges.value.push({ id: makeEdgeId(), fromNodeId: split.fromNodeId, toNodeId: newNodeId, toParam: firstParam, routing: 'auto', routeConfig: rc })
+        edges.value.push({ id: makeEdgeId(), fromNodeId: newNodeId, toNodeId: split.toNodeId, toParam: split.toParam, routing: 'auto', routeConfig: rc })
+      }
+    }
   }
 }
 
@@ -727,8 +750,8 @@ watch(canvasSearch, val => {
   if (val) nextTick(() => canvasSearchInput.value?.focus())
 })
 
-function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
-  addNode({ backend: item.backendName, fullPath: item.fullPath, path: item.path, method: item.method })
+function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }, pos?: { x: number; y: number }): void {
+  addNode({ backend: item.backendName, fullPath: item.fullPath, path: item.path, method: item.method }, pos)
 }
 
 // ─── RPC clients (shared registry) ───────────────────────────
@@ -754,6 +777,7 @@ const ROUTE_LABELS: Record<RouteMode, string> = {
 const nodes = ref<WireNode[]>([])
 const edges = ref<WireEdge[]>([])
 const selectedNodeId = ref<string | null>(null)
+const selectedEdgeId = ref<string | null>(null)
 const panelMode = ref<PanelMode>('float')
 const running = ref(false)
 const previewMode = ref(false)
@@ -964,13 +988,16 @@ function nodeBackground(kind: NodeKind): string {
 }
 
 function nodeTitle(node: WireNode): string {
-  if (node.label) return node.label
+  return node.label || node.id
+}
+
+function nodeCommand(node: WireNode): string {
   switch (node.kind) {
     case 'rpc':      return node.method?.fullPath ?? ''
-    case 'extract':  return 'Extract'
-    case 'template': return 'Template'
-    case 'merge':    return 'Merge'
-    case 'script':   return 'Script'
+    case 'extract':  return 'extract'
+    case 'template': return 'template'
+    case 'merge':    return 'merge'
+    case 'script':   return 'script'
     case 'vars':     return node.ui.storeName || 'vars'
     case 'widget':   return node.ui.widgetKind
     case 'layout':   return `layout:${node.ui.dir}`
@@ -993,10 +1020,8 @@ function commitNodeLabel(nodeId: string) {
   const node = nodes.value.find(n => n.id === nodeId)
   if (node) {
     const trimmed = editingLabel.value.trim()
-    if (trimmed !== nodeTitle(node) || node.label) {
-      pushUndo()
-      node.label = trimmed || undefined
-    }
+    const newLabel = (trimmed && trimmed !== node.id) ? trimmed : undefined
+    if (newLabel !== node.label) { pushUndo(); node.label = newLabel }
   }
   editingNodeId.value = null
 }
@@ -1031,9 +1056,13 @@ interface DragState {
 }
 
 let dragState: DragState | null = null
+let nodeDragMoved = false
 
 interface ResizeState { nodeId: string; startMouseX: number; startW: number }
 let resizeState: ResizeState | null = null
+
+interface SplitEdgeInfo { edgeId: string; fromNodeId: string; toNodeId: string; toParam: string }
+let pendingSplitEdge: SplitEdgeInfo | null = null
 
 function startResize(e: MouseEvent, nodeId: string) {
   const node = nodes.value.find(n => n.id === nodeId)
@@ -1125,14 +1154,19 @@ const keymap = useKeymap<CanvasAction>(
     undo:  () => { canvasSearch.value = null; undo() },
     redo:  () => { canvasSearch.value = null; redo() },
     cancel: () => {
+      if (previewMode.value) { previewMode.value = false; return }
       canvasSearch.value = null
       pendingEdge.value = null
       contextMenu.value = null
       routingPicker.value = null
+      selectedEdgeId.value = null
       keymapHelpOpen.value = false
     },
     preview:    () => { previewMode.value = !previewMode.value },
-    deleteNode: () => { if (selectedNodeId.value) deleteNode(selectedNodeId.value) },
+    deleteNode: () => {
+      if (selectedEdgeId.value) { removeEdge(selectedEdgeId.value) }
+      else if (selectedNodeId.value) deleteNode(selectedNodeId.value)
+    },
     search: () => {
       if (!canvasSearch.value) {
         const rect = canvasWrap.value?.getBoundingClientRect()
@@ -1161,6 +1195,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
 function onNodeCaptureMousedown(nodeId: string) {
   canvasSearch.value = null
+  selectedEdgeId.value = null
   if (!pendingEdge.value) selectedNodeId.value = nodeId
 }
 
@@ -1179,6 +1214,7 @@ function onMouseMove(e: MouseEvent) {
     const screenDx = e.clientX - dragState.startMouseX
     const screenDy = e.clientY - dragState.startMouseY
     if (Math.hypot(screenDx, screenDy) < 5) return
+    nodeDragMoved = true
     const node = nodes.value.find(n => n.id === dragState!.nodeId)
     if (node) {
       node.pos.x = snap(dragState.startNodeX + screenDx / zoom.value)
@@ -1351,10 +1387,14 @@ function onInputPortClick(toNodeId: string, toParam: string) {
 
 function onCanvasClick(e: MouseEvent) {
   const hadPending = !!pendingEdge.value || pendingEdgeJustCancelled
+  const hadNodeDrag = nodeDragMoved
   pendingEdgeJustCancelled = false
+  nodeDragMoved = false
   pendingEdge.value = null
   contextMenu.value = null
   routingPicker.value = null
+  selectedEdgeId.value = null
+  if (hadNodeDrag) return
   if (canvasSearch.value) {
     canvasSearch.value = null
     selectedNodeId.value = null
@@ -1487,6 +1527,21 @@ function removeEdge(edgeId: string) {
   pushUndo()
   edges.value = edges.value.filter(e => e.id !== edgeId)
   if (routingPicker.value?.edgeId === edgeId) routingPicker.value = null
+  if (selectedEdgeId.value === edgeId) selectedEdgeId.value = null
+}
+
+function selectEdge(id: string) {
+  selectedEdgeId.value = selectedEdgeId.value === id ? null : id
+  selectedNodeId.value = null
+}
+
+function splitEdgeInsert(e: MouseEvent, edge: WireEdge) {
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (!rect) return
+  pendingSplitEdge = { edgeId: edge.id, fromNodeId: edge.fromNodeId, toNodeId: edge.toNodeId, toParam: edge.toParam }
+  const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+  canvasSearch.value = { x: e.clientX - rect.left, y: e.clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '' }
+  canvasSearchIdx.value = 0
 }
 
 function decrementMultiplier(edgeId: string) {
@@ -2325,6 +2380,11 @@ function resultPreview(result: unknown): string {
 }
 
 .canvas-wrap.panning { cursor: grabbing !important; }
+.canvas-wrap.edge-active { cursor: crosshair !important; }
+.canvas-wrap.edge-active .edge-hit,
+.canvas-wrap.edge-active .edge-badge-g,
+.canvas-wrap.edge-active .edge-mult-g { pointer-events: none; }
+.canvas-wrap.edge-active .wire-node { cursor: crosshair !important; }
 
 .edge-svg {
   position: absolute;
@@ -2336,12 +2396,18 @@ function resultPreview(result: unknown): string {
 .edge-path {
   stroke: #1f3a5f;
   stroke-width: 2;
-  pointer-events: stroke;
-  cursor: pointer;
+  pointer-events: none;
   transition: stroke 0.15s;
 }
-.edge-path.edge-hover { stroke: #58a6ff; }
+.edge-path.edge-hover { stroke: #3a6a9f; }
+.edge-path.edge-selected { stroke: #58a6ff; }
 .edge-path.edge-pending { stroke: #3a5a7a; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
+.edge-hit {
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+  cursor: pointer;
+}
 
 /* ── Wire node ───────────────────────────────────────────────── */
 .wire-node {
@@ -2385,7 +2451,16 @@ function resultPreview(result: unknown): string {
   word-break: break-all;
   vertical-align: middle;
   font-weight: 600;
-  cursor: text;
+}
+.node-command {
+  display: block;
+  font-size: 10px;
+  color: #484f58;
+  font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
 }
 .node-title-input {
   display: block;
