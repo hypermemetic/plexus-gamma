@@ -195,7 +195,7 @@
               <path
                 :d="edgePath(edge)"
                 class="edge-path"
-                :class="{ 'edge-hover': hoveredEdge === edge.id, 'edge-selected': selectedEdgeId === edge.id }"
+                :class="{ 'edge-hover': hoveredEdge === edge.id }"
                 fill="none"
               />
               <!-- Wide invisible hit area for easier clicking -->
@@ -205,8 +205,8 @@
                 fill="none"
                 @mouseenter="hoveredEdge = edge.id"
                 @mouseleave="hoveredEdge = null"
-                @click.stop="selectEdge(edge.id)"
-                @dblclick.stop="splitEdgeInsert($event, edge)"
+                @click.stop="onEdgeClick($event, edge)"
+                @dblclick.stop="onEdgeDblClick(edge.id)"
               />
               <!-- Routing badge — click to open picker -->
               <g
@@ -777,7 +777,6 @@ const ROUTE_LABELS: Record<RouteMode, string> = {
 const nodes = ref<WireNode[]>([])
 const edges = ref<WireEdge[]>([])
 const selectedNodeId = ref<string | null>(null)
-const selectedEdgeId = ref<string | null>(null)
 const panelMode = ref<PanelMode>('float')
 const running = ref(false)
 const previewMode = ref(false)
@@ -1159,14 +1158,10 @@ const keymap = useKeymap<CanvasAction>(
       pendingEdge.value = null
       contextMenu.value = null
       routingPicker.value = null
-      selectedEdgeId.value = null
       keymapHelpOpen.value = false
     },
     preview:    () => { previewMode.value = !previewMode.value },
-    deleteNode: () => {
-      if (selectedEdgeId.value) { removeEdge(selectedEdgeId.value) }
-      else if (selectedNodeId.value) deleteNode(selectedNodeId.value)
-    },
+    deleteNode: () => { if (selectedNodeId.value) deleteNode(selectedNodeId.value) },
     search: () => {
       if (!canvasSearch.value) {
         const rect = canvasWrap.value?.getBoundingClientRect()
@@ -1195,7 +1190,6 @@ function handleKeyDown(e: KeyboardEvent) {
 
 function onNodeCaptureMousedown(nodeId: string) {
   canvasSearch.value = null
-  selectedEdgeId.value = null
   if (!pendingEdge.value) selectedNodeId.value = nodeId
 }
 
@@ -1393,7 +1387,6 @@ function onCanvasClick(e: MouseEvent) {
   pendingEdge.value = null
   contextMenu.value = null
   routingPicker.value = null
-  selectedEdgeId.value = null
   if (hadNodeDrag) return
   if (canvasSearch.value) {
     canvasSearch.value = null
@@ -1527,20 +1520,31 @@ function removeEdge(edgeId: string) {
   pushUndo()
   edges.value = edges.value.filter(e => e.id !== edgeId)
   if (routingPicker.value?.edgeId === edgeId) routingPicker.value = null
-  if (selectedEdgeId.value === edgeId) selectedEdgeId.value = null
 }
 
-function selectEdge(id: string) {
-  selectedEdgeId.value = selectedEdgeId.value === id ? null : id
-  selectedNodeId.value = null
+let edgeClickTimer: ReturnType<typeof setTimeout> | null = null
+
+function onEdgeClick(e: MouseEvent, edge: WireEdge) {
+  if (edgeClickTimer !== null) { clearTimeout(edgeClickTimer); edgeClickTimer = null }
+  // Capture position now — event may not be valid inside setTimeout in all browsers
+  const cx = e.clientX, cy = e.clientY
+  edgeClickTimer = setTimeout(() => {
+    edgeClickTimer = null
+    doSplitEdgeInsert(cx, cy, edge)
+  }, 240)
 }
 
-function splitEdgeInsert(e: MouseEvent, edge: WireEdge) {
+function onEdgeDblClick(edgeId: string) {
+  if (edgeClickTimer !== null) { clearTimeout(edgeClickTimer); edgeClickTimer = null }
+  removeEdge(edgeId)
+}
+
+function doSplitEdgeInsert(clientX: number, clientY: number, edge: WireEdge) {
   const rect = canvasWrap.value?.getBoundingClientRect()
   if (!rect) return
   pendingSplitEdge = { edgeId: edge.id, fromNodeId: edge.fromNodeId, toNodeId: edge.toNodeId, toParam: edge.toParam }
-  const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
-  canvasSearch.value = { x: e.clientX - rect.left, y: e.clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '' }
+  const { x, y } = screenToCanvas(clientX, clientY, rect)
+  canvasSearch.value = { x: clientX - rect.left, y: clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '' }
   canvasSearchIdx.value = 0
 }
 
@@ -2401,7 +2405,6 @@ function resultPreview(result: unknown): string {
   vector-effect: non-scaling-stroke;
 }
 .edge-path.edge-hover { stroke: #4a8abf; }
-.edge-path.edge-selected { stroke: #58a6ff; }
 .edge-path.edge-pending { stroke: #3a6a9f; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
 .edge-hit {
   stroke: transparent;
