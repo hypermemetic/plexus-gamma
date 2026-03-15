@@ -1253,7 +1253,6 @@ function onInputPortClick(toNodeId: string, toParam: string) {
   const { fromNodeId } = pendingEdge.value
   if (fromNodeId === toNodeId) { pendingEdge.value = null; return }
   pushUndo()
-  edges.value = edges.value.filter(e => !(e.toNodeId === toNodeId && e.toParam === toParam))
   edges.value.push({
     id: makeEdgeId(), fromNodeId, toNodeId, toParam,
     routing: 'auto',
@@ -1263,6 +1262,7 @@ function onInputPortClick(toNodeId: string, toParam: string) {
 }
 
 function onCanvasClick(e: MouseEvent) {
+  const hadPending = !!pendingEdge.value
   pendingEdge.value = null
   contextMenu.value = null
   routingPicker.value = null
@@ -1272,7 +1272,7 @@ function onCanvasClick(e: MouseEvent) {
     return
   }
   selectedNodeId.value = null
-  if (!panMoved) {
+  if (!panMoved && !hadPending) {
     const rect = canvasWrap.value?.getBoundingClientRect()
     if (rect) {
       const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
@@ -2517,13 +2517,16 @@ function resultPreview(result: unknown): string {
 .routing-del-btn:hover { background: #2a1010; }
 
 /* ── Port larger hit area ────────────────────────────────────── */
+/* ::before extends OUTWARD only so it never overlaps the node body.
+   Input ports (left side): extend left/vertically.
+   Output port (right side): extend right/vertically.
+   This ensures hover indicator and click target always match. */
 .port { position: relative; }
-.port::before {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-}
+.port-in::before  { content: ''; position: absolute; top: -8px; bottom: -8px; left: -10px; right: 0; }
+.port-out::before { content: ''; position: absolute; top: -8px; bottom: -8px; right: -10px; left: 0; }
+/* Port containers sit above node-body content in stacking order */
+.node-ports-right { z-index: 2; }
+.node-ports-left  { position: relative; z-index: 2; }
 
 /* ── Canvas search popup ─────────────────────────────────────── */
 .canvas-search-popup {
