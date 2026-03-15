@@ -2394,14 +2394,14 @@ function resultPreview(result: unknown): string {
 }
 
 .edge-path {
-  stroke: #1f3a5f;
+  stroke: #2d5a8e;
   stroke-width: 2;
   pointer-events: none;
   transition: stroke 0.15s;
 }
-.edge-path.edge-hover { stroke: #3a6a9f; }
+.edge-path.edge-hover { stroke: #4a8abf; }
 .edge-path.edge-selected { stroke: #58a6ff; }
-.edge-path.edge-pending { stroke: #3a5a7a; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
+.edge-path.edge-pending { stroke: #3a6a9f; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
 .edge-hit {
   stroke: transparent;
   stroke-width: 14;
