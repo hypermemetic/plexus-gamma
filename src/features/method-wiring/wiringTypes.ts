@@ -46,6 +46,7 @@ export const DEFAULT_UI: NodeUi = {
 export interface WireNode {
   id: string
   kind: NodeKind
+  label?: string           // user-defined display name; overrides the derived title
   method?: MethodEntry
   transform: { path: string; template: string; code: string; inputNames: string[] }
   ui: NodeUi

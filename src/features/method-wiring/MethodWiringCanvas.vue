@@ -255,7 +255,18 @@
             <span class="status-dot" :class="`status-dot-${node.status}`"></span>
 
             <!-- Node title + subtitle -->
-            <div class="node-title">{{ nodeTitle(node) }}</div>
+            <input
+              v-if="editingNodeId === node.id"
+              class="node-title-input"
+              :value="editingLabel"
+              @input="editingLabel = ($event.target as HTMLInputElement).value"
+              @keydown.enter.stop.prevent="commitNodeLabel(node.id)"
+              @keydown.escape.stop="editingNodeId = null"
+              @blur="commitNodeLabel(node.id)"
+              @mousedown.stop
+              @click.stop
+            />
+            <div v-else class="node-title" @dblclick.stop="startEditNodeLabel(node.id, nodeTitle(node))">{{ nodeTitle(node) }}</div>
             <div v-if="nodeSubtitle(node)" class="node-subtitle">{{ nodeSubtitle(node) }}</div>
 
             <!-- Input ports (params) on the left -->
@@ -931,6 +942,7 @@ function nodeBackground(kind: NodeKind): string {
 }
 
 function nodeTitle(node: WireNode): string {
+  if (node.label) return node.label
   switch (node.kind) {
     case 'rpc':      return node.method?.fullPath ?? ''
     case 'extract':  return 'Extract'
@@ -941,6 +953,30 @@ function nodeTitle(node: WireNode): string {
     case 'widget':   return node.ui.widgetKind
     case 'layout':   return `layout:${node.ui.dir}`
   }
+}
+
+// ─── Inline node label editing ────────────────────────────────
+const editingNodeId = ref<string | null>(null)
+const editingLabel  = ref('')
+
+function startEditNodeLabel(nodeId: string, current: string) {
+  editingNodeId.value = nodeId
+  editingLabel.value  = current
+  nextTick(() => {
+    canvasWrap.value?.querySelector<HTMLInputElement>('.node-title-input')?.select()
+  })
+}
+
+function commitNodeLabel(nodeId: string) {
+  const node = nodes.value.find(n => n.id === nodeId)
+  if (node) {
+    const trimmed = editingLabel.value.trim()
+    if (trimmed !== nodeTitle(node) || node.label) {
+      pushUndo()
+      node.label = trimmed || undefined
+    }
+  }
+  editingNodeId.value = null
 }
 
 function nodeSubtitle(node: WireNode): string {
@@ -2266,6 +2302,22 @@ function resultPreview(result: unknown): string {
   word-break: break-all;
   vertical-align: middle;
   font-weight: 600;
+  cursor: text;
+}
+.node-title-input {
+  display: block;
+  width: 100%;
+  background: #0a0c10;
+  border: 1px solid #58a6ff;
+  border-radius: 3px;
+  color: #c9d1d9;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 4px;
+  outline: none;
+  box-sizing: border-box;
+  margin-bottom: 2px;
 }
 .node-subtitle {
   font-size: 10px;
