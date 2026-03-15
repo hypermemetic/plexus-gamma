@@ -2341,7 +2341,7 @@ function resultPreview(result: unknown): string {
   transition: stroke 0.15s;
 }
 .edge-path.edge-hover { stroke: #58a6ff; }
-.edge-path.edge-pending { stroke: #3a5a7a; stroke-dasharray: 5 4; }
+.edge-path.edge-pending { stroke: #3a5a7a; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
 
 /* ── Wire node ───────────────────────────────────────────────── */
 .wire-node {
