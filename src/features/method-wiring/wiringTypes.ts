@@ -64,4 +64,6 @@ export interface WireEdge {
   toParam: string
   routing: RouteMode
   routeConfig: RouteConfig
+  /** When > 1, the edge input is repeated this many times before routing. Visualised as ×N badge. */
+  multiplier?: number
 }

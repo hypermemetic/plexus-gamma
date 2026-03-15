@@ -218,6 +218,22 @@
                 />
                 <text :x="mid.x" :y="mid.y + 4" class="edge-badge-text" text-anchor="middle">{{ ROUTE_LABELS[edge.routing] }}</text>
               </g>
+              <!-- Multiplier badge — click to decrement -->
+              <g
+                v-if="(edge.multiplier ?? 1) > 1 && edgeMidpoint(edge)"
+                :key="'mult'"
+                class="edge-mult-g"
+                @click.stop="decrementMultiplier(edge.id)"
+                @mouseenter="hoveredEdge = edge.id"
+                @mouseleave="hoveredEdge = null"
+              >
+                <rect
+                  :x="edgeMidpoint(edge)!.x + 20" :y="edgeMidpoint(edge)!.y - 8"
+                  width="26" height="16" rx="8"
+                  class="edge-mult-bg"
+                />
+                <text :x="edgeMidpoint(edge)!.x + 33" :y="edgeMidpoint(edge)!.y + 4" class="edge-mult-text" text-anchor="middle">×{{ edge.multiplier }}</text>
+              </g>
             </g>
             <!-- Pending edge (drawing in progress) -->
             <path
@@ -835,9 +851,14 @@ onMounted(() => {
   }
 })
 
+onMounted(() => {
+  document.addEventListener('mousedown', onGlobalPendingEdgeCancel, true)
+})
+
 onUnmounted(() => {
   resizeObserver?.disconnect()
   edgeDragCleanup?.()
+  document.removeEventListener('mousedown', onGlobalPendingEdgeCancel, true)
 })
 
 // ─── Node IDs ─────────────────────────────────────────────────
@@ -1244,6 +1265,21 @@ function inputPortPos(nodeId: string, param: string): { x: number; y: number } |
 }
 
 // ─── Edge drag-to-connect ─────────────────────────────────────
+
+// Cancel a pending edge on any click that is not on a port element.
+// Runs in capture phase so @click.stop on children (edges, buttons, etc.)
+// cannot swallow the event before we see it.
+function onGlobalPendingEdgeCancel(e: MouseEvent) {
+  if (!pendingEdge.value) return
+  let el: HTMLElement | null = e.target as HTMLElement
+  while (el) {
+    // Port clicks are handled by their own handlers — let them proceed.
+    if (el.classList.contains('port-in') || el.classList.contains('port-out')) return
+    el = el.parentElement
+  }
+  pendingEdge.value = null
+}
+
 let edgeDragCleanup: (() => void) | null = null
 
 function startEdgeDrag(_e: MouseEvent, fromNodeId: string) {
@@ -1289,11 +1325,19 @@ function onInputPortClick(toNodeId: string, toParam: string) {
   const { fromNodeId } = pendingEdge.value
   if (fromNodeId === toNodeId) { pendingEdge.value = null; return }
   pushUndo()
-  edges.value.push({
-    id: makeEdgeId(), fromNodeId, toNodeId, toParam,
-    routing: 'auto',
-    routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [] },
-  })
+  // Duplicate connection → increment multiplier on the existing edge
+  const existing = edges.value.find(
+    e => e.fromNodeId === fromNodeId && e.toNodeId === toNodeId && e.toParam === toParam
+  )
+  if (existing) {
+    existing.multiplier = (existing.multiplier ?? 1) + 1
+  } else {
+    edges.value.push({
+      id: makeEdgeId(), fromNodeId, toNodeId, toParam,
+      routing: 'auto',
+      routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [] },
+    })
+  }
   pendingEdge.value = null
 }
 
@@ -1434,6 +1478,18 @@ function removeEdge(edgeId: string) {
   pushUndo()
   edges.value = edges.value.filter(e => e.id !== edgeId)
   if (routingPicker.value?.edgeId === edgeId) routingPicker.value = null
+}
+
+function decrementMultiplier(edgeId: string) {
+  const edge = edges.value.find(e => e.id === edgeId)
+  if (!edge) return
+  pushUndo()
+  const next = (edge.multiplier ?? 1) - 1
+  if (next <= 1) {
+    edge.multiplier = undefined
+  } else {
+    edge.multiplier = next
+  }
 }
 
 // ─── Params ───────────────────────────────────────────────────
@@ -1690,7 +1746,10 @@ function extractStringValue(item: unknown): string {
   return String(item ?? '')
 }
 
-function applyRouting(items: unknown[], edge: WireEdge): unknown {
+function applyRouting(rawItems: unknown[], edge: WireEdge): unknown {
+  // Repeat the stream multiplier times before applying the routing function
+  const m = edge.multiplier ?? 1
+  const items = m > 1 ? Array.from({ length: m }, () => rawItems).flat() : rawItems
   switch (edge.routing) {
     case 'each':    return items
     case 'collect': return items
@@ -1781,11 +1840,12 @@ async function executeNodeWithRouting(
   if (eachEdges.length === 0) {
     allEmissions = await executeNodeOnce(node, scalarInputs, nodeResults)
   } else {
-    const eachStreams = eachEdges.map(edge => ({
-      param: edge.toParam,
-      fromNodeId: edge.fromNodeId,
-      items: filterByType(nodeEmissions.get(edge.fromNodeId) ?? [], edge.routeConfig.typeFilter),
-    }))
+    const eachStreams = eachEdges.map(edge => {
+      const raw = filterByType(nodeEmissions.get(edge.fromNodeId) ?? [], edge.routeConfig.typeFilter)
+      const m = edge.multiplier ?? 1
+      const items = m > 1 ? Array.from({ length: m }, () => raw).flat() : raw
+      return { param: edge.toParam, fromNodeId: edge.fromNodeId, items }
+    })
     const minLen = Math.min(...eachStreams.map(s => s.items.length))
     allEmissions = []
     for (let i = 0; i < minLen; i++) {
@@ -2489,6 +2549,13 @@ function resultPreview(result: unknown): string {
   user-select: none;
 }
 .edge-badge-g:hover .edge-badge-text { fill: #c9d1d9; }
+
+/* ── Multiplier badge ────────────────────────────────────────── */
+.edge-mult-g { cursor: pointer; pointer-events: all; }
+.edge-mult-bg { fill: #2a1a40; stroke: #7c50cc; stroke-width: 1; }
+.edge-mult-g:hover .edge-mult-bg { fill: #3a2050; stroke: #a070f0; }
+.edge-mult-text { font-family: inherit; font-size: 9px; fill: #a070f0; user-select: none; }
+.edge-mult-g:hover .edge-mult-text { fill: #c9a0ff; }
 
 /* ── Routing picker ──────────────────────────────────────────── */
 .routing-picker {
