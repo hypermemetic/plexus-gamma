@@ -1,3 +1,4 @@
+import { nextTick } from 'vue'
 import type { Ref } from 'vue'
 import type { WireNode, WireEdge } from './wiringTypes'
 
@@ -73,7 +74,9 @@ export function useNodeLayout(
       })
     }
 
-    layoutTick.value++
+    // Wait for Vue to flush node position changes to the DOM before
+    // recomputing edge paths (which use getBoundingClientRect)
+    nextTick(() => { layoutTick.value++ })
   }
 
   return { autoLayout }
