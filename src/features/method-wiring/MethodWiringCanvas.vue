@@ -2562,6 +2562,8 @@ function resultPreview(result: unknown): string {
 }
 .bend-handle:hover { fill: #1a2840; stroke: #79c0ff; }
 .bend-handle:active { cursor: grabbing; }
+.edge-path.edge-hover { stroke: #58a6ff; }
+.edge-path.edge-pending { stroke: #3a5a7a; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
 
 /* ── Wire node ───────────────────────────────────────────────── */
 .wire-node {
