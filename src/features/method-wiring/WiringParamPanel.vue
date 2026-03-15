@@ -66,6 +66,24 @@
           :value="node.transform.template"
           @input="emit('update:transform', { template: ($event.target as HTMLTextAreaElement).value })"
         />
+
+        <!-- Live preview -->
+        <template v-if="templatePreview !== null">
+          <div class="pf-section-title" style="margin-top:8px">preview</div>
+          <pre class="pf-template-preview">{{ templatePreview }}</pre>
+        </template>
+
+        <!-- Variable list with type info -->
+        <template v-if="templateVars.length > 0">
+          <div class="pf-section-title" style="margin-top:8px">variables</div>
+          <div v-for="v in templateVars" :key="v.name" class="pf-var-row">
+            <span class="pf-var-name">&#123;&#123;{{ v.name }}&#125;&#125;</span>
+            <span v-if="v.connected" class="pf-var-type">{{ v.typeName }}</span>
+            <span v-if="v.connected && v.preview" class="pf-var-preview">{{ v.preview }}</span>
+            <span v-if="!v.connected" class="pf-var-unset">not connected</span>
+          </div>
+        </template>
+
         <div class="pf-section-title" style="margin-top:8px">ports</div>
         <div v-for="(_, pi) in node.transform.inputNames" :key="pi" class="pf-row">
           <input
@@ -282,6 +300,8 @@ const props = defineProps<{
   availableRefs: string[]
   resolvedSchema: JsonSchema | null
   mode?: PanelMode
+  /** Current upstream result values keyed by this node's input param names */
+  inputValues?: Record<string, unknown>
 }>()
 
 const emit = defineEmits<{
@@ -348,6 +368,40 @@ function copyOutput() {
   const text = outputText.value
   navigator.clipboard.writeText(text).catch(() => { alert(text) })
 }
+
+// ─── Mustache template preview ────────────────────────────────
+interface TemplateVar { name: string; connected: boolean; typeName: string; preview: string }
+
+const templateVars = computed((): TemplateVar[] => {
+  if (!props.node || props.node.kind !== 'template') return []
+  const names = props.node.transform.inputNames
+  const vals = props.inputValues ?? {}
+  return names.map(name => {
+    const v = vals[name]
+    const connected = name in vals
+    let typeName = ''
+    let preview = ''
+    if (connected && v !== undefined && v !== null) {
+      typeName = Array.isArray(v) ? `array[${(v as unknown[]).length}]` : typeof v
+      const str = typeof v === 'string' ? v : JSON.stringify(v)
+      preview = str.length > 48 ? str.slice(0, 48) + '…' : str
+    }
+    return { name, connected, typeName, preview }
+  })
+})
+
+const templatePreview = computed((): string | null => {
+  if (!props.node || props.node.kind !== 'template') return null
+  const tmpl = props.node.transform.template
+  if (!tmpl) return null
+  const vals = props.inputValues ?? {}
+  return tmpl.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (!(key in vals)) return match
+    const v = vals[key]
+    if (v === undefined || v === null) return match
+    return typeof v === 'string' ? v : JSON.stringify(v)
+  })
+})
 
 // ─── Form helpers ─────────────────────────────────────────────
 function formatSchema(s: unknown): string {
@@ -569,4 +623,59 @@ function addStoreKey() {
   cursor: text;
 }
 .pf-output.pf-output-error { color: #f85149; }
+
+/* ── Mustache preview ──────────────────────────────────────────── */
+.pf-template-preview {
+  background: #0a0c10;
+  border: 1px solid #21262d;
+  border-radius: 4px;
+  color: #c9d1d9;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 2px;
+  user-select: text;
+  cursor: text;
+}
+
+.pf-var-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  flex-wrap: wrap;
+}
+.pf-var-name {
+  font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 10px;
+  color: #e3b341;
+  flex-shrink: 0;
+}
+.pf-var-type {
+  font-size: 9px;
+  color: #58a6ff;
+  background: #0d1a2d;
+  border: 1px solid #1a3a5a;
+  border-radius: 3px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+.pf-var-preview {
+  font-size: 10px;
+  color: #8b949e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+  font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
+}
+.pf-var-unset {
+  font-size: 9px;
+  color: #484f58;
+  font-style: italic;
+}
 </style>

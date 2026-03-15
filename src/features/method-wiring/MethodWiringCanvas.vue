@@ -430,6 +430,7 @@
           :connected-params="selectedNodeConnectedParams"
           :available-refs="selectedNodeRefs"
           :resolved-schema="selectedNodeSchema"
+          :input-values="selectedNodeInputValues"
           :mode="panelMode"
           @update:mode="panelMode = $event"
           @close="selectedNodeId = null"
@@ -1569,6 +1570,20 @@ const selectedNodeRefs = computed(() =>
 const selectedNodeSchema = computed(() =>
   selectedNode.value ? resolvedParamSchema(selectedNode.value) : null
 )
+
+// Current upstream results keyed by the input param name of the selected node.
+// Used to power the mustache template live preview.
+const selectedNodeInputValues = computed((): Record<string, unknown> => {
+  if (!selectedNodeId.value) return {}
+  const result: Record<string, unknown> = {}
+  for (const edge of edges.value.filter(e => e.toNodeId === selectedNodeId.value)) {
+    const fromNode = nodes.value.find(n => n.id === edge.fromNodeId)
+    if (fromNode && fromNode.result !== undefined) {
+      result[edge.toParam] = fromNode.result
+    }
+  }
+  return result
+})
 
 // Canvas-space → screen-relative-to-wrap (for panel anchor positioning)
 const selectedNodeAnchorX = computed(() =>
