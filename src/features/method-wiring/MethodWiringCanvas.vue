@@ -1033,10 +1033,27 @@ function handleKeyDown(e: KeyboardEvent) {
     contextMenu.value = null
     routingPicker.value = null
   }
-  // P to toggle preview (only when not typing in an input)
-  if (e.key === 'p' && e.target === e.currentTarget) {
+  // Keys below only fire when the canvas itself is focused (not inside an input/textarea)
+  if (e.target !== e.currentTarget) return
+
+  if (e.key === 'p') {
     e.preventDefault()
     previewMode.value = !previewMode.value
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId.value) {
+    e.preventDefault()
+    deleteNode(selectedNodeId.value)
+  }
+  if (e.key === '/' && !canvasSearch.value) {
+    e.preventDefault()
+    const rect = canvasWrap.value?.getBoundingClientRect()
+    if (rect) {
+      const cx = rect.width / 2
+      const cy = rect.height / 2
+      const { x, y } = screenToCanvas(cx + rect.left, cy + rect.top, rect)
+      canvasSearch.value = { x: cx, y: cy - 160, canvasX: snap(x), canvasY: snap(y), query: '' }
+      canvasSearchIdx.value = 0
+    }
   }
 }
 
