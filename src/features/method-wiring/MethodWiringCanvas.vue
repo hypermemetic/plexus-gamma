@@ -2398,15 +2398,17 @@ function resultPreview(result: unknown): string {
   stroke-width: 2;
   pointer-events: none;
   transition: stroke 0.15s;
+  vector-effect: non-scaling-stroke;
 }
 .edge-path.edge-hover { stroke: #4a8abf; }
 .edge-path.edge-selected { stroke: #58a6ff; }
 .edge-path.edge-pending { stroke: #3a6a9f; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
 .edge-hit {
   stroke: transparent;
-  stroke-width: 14;
+  stroke-width: 20;
   pointer-events: stroke;
   cursor: pointer;
+  vector-effect: non-scaling-stroke;
 }
 
 /* ── Wire node ───────────────────────────────────────────────── */
