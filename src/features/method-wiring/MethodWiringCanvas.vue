@@ -1550,10 +1550,7 @@ function edgeMidpoint(edge: WireEdge): { x: number; y: number } | null {
   const from = outputPortPos(edge.fromNodeId)
   const to = inputPortPos(edge.toNodeId, edge.toParam)
   if (!from || !to) return null
-  const bends = edge.bendPoints ?? []
-  if (bends.length === 0) return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
-  const pts = [from, ...bends, to]
-  return pts[Math.floor(pts.length / 2)] ?? null
+  return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
 }
 
 // ─── Edge paths (bezier, in canvas space) ────────────────────
