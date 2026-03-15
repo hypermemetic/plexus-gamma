@@ -1270,7 +1270,13 @@ function inputPortPos(nodeId: string, param: string): { x: number; y: number } |
 // Cancel a pending edge on any click that is not on a port element.
 // Runs in capture phase so @click.stop on children (edges, buttons, etc.)
 // cannot swallow the event before we see it.
+// Set to true when onGlobalPendingEdgeCancel cancels a pending edge on mousedown.
+// onCanvasClick reads this to suppress the search popup that would otherwise open
+// because pendingEdge is already null by the time the click event fires.
+let pendingEdgeJustCancelled = false
+
 function onGlobalPendingEdgeCancel(e: MouseEvent) {
+  pendingEdgeJustCancelled = false          // reset on every mousedown
   if (!pendingEdge.value) return
   let el: HTMLElement | null = e.target as HTMLElement
   while (el) {
@@ -1279,6 +1285,7 @@ function onGlobalPendingEdgeCancel(e: MouseEvent) {
     el = el.parentElement
   }
   pendingEdge.value = null
+  pendingEdgeJustCancelled = true
 }
 
 let edgeDragCleanup: (() => void) | null = null
@@ -1343,7 +1350,8 @@ function onInputPortClick(toNodeId: string, toParam: string) {
 }
 
 function onCanvasClick(e: MouseEvent) {
-  const hadPending = !!pendingEdge.value
+  const hadPending = !!pendingEdge.value || pendingEdgeJustCancelled
+  pendingEdgeJustCancelled = false
   pendingEdge.value = null
   contextMenu.value = null
   routingPicker.value = null
