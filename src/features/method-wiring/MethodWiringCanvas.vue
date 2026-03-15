@@ -16,6 +16,7 @@
       <button class="tb-btn" @click="redo" :disabled="redoStack.length === 0" title="Redo (Ctrl+Y)">[↪ Redo]</button>
       <button class="tb-btn" @click="copySnapshot" title="Copy run snapshot to clipboard">[Snapshot]</button>
       <button class="tb-btn" :class="{ 'tb-active': previewMode }" @click="previewMode = !previewMode" title="Toggle UI preview (P)">[Preview]</button>
+      <button class="tb-btn" @click="keymapHelpOpen = !keymapHelpOpen" title="Keyboard shortcuts (?)">[?]</button>
       <input type="file" ref="importFileInput" accept=".json" style="display:none" @change="onImportFile" />
       <span v-if="runError" class="tb-error">{{ runError }}</span>
     </div>
@@ -423,6 +424,16 @@
           @run="runAll()"
         />
 
+        <!-- Keymap help overlay -->
+        <KeymapHelpPanel
+          :open="keymapHelpOpen"
+          :defs="canvasActionDefs"
+          :current-keys="keymap.currentKeys"
+          @close="keymapHelpOpen = false"
+          @set-keys="keymap.setKeys"
+          @reset="keymap.resetKeys"
+        />
+
         <!-- Canvas search popover -->
         <div
           v-if="canvasSearch"
@@ -495,6 +506,7 @@ import { useWiringPersist } from './useWiringPersist'
 import type { WireNode, WireEdge, NodeKind, RouteMode, WidgetKind, LayoutDir, NodeUi } from './wiringTypes'
 import { DEFAULT_UI } from './wiringTypes'
 import WiringUIPreview from './WiringUIPreview.vue'
+import KeymapHelpPanel from './KeymapHelpPanel.vue'
 import { useKeymap } from './useKeymap'
 import type { ActionDef } from './useKeymap'
 
@@ -1017,6 +1029,8 @@ function onCanvasWheel(e: WheelEvent) {
 // Keymap
 // ---------------------------------------------------------------------------
 
+const keymapHelpOpen = ref(false)
+
 type CanvasAction =
   | 'run'
   | 'undo'
@@ -1029,6 +1043,7 @@ type CanvasAction =
   | 'autoLayoutKey'
   | 'resetViewKey'
   | 'exportKey'
+  | 'showHelp'
 
 const canvasActionDefs: Record<CanvasAction, ActionDef> = {
   run:            { label: 'Run pipeline',       defaultKeys: ['ctrl+enter', 'meta+enter'] },
@@ -1042,9 +1057,10 @@ const canvasActionDefs: Record<CanvasAction, ActionDef> = {
   autoLayoutKey:  { label: 'Auto-layout',        defaultKeys: ['l'],     requiresFocus: true },
   resetViewKey:   { label: 'Reset view',         defaultKeys: ['0'],     requiresFocus: true },
   exportKey:      { label: 'Export JSON',        defaultKeys: ['e'],     requiresFocus: true },
+  showHelp:       { label: 'Show shortcuts',     defaultKeys: ['?'],     requiresFocus: true },
 }
 
-const { handleKeyDown: _handleKeyDown } = useKeymap<CanvasAction>(
+const keymap = useKeymap<CanvasAction>(
   canvasActionDefs,
   {
     run:   () => runPipeline(),
@@ -1055,6 +1071,7 @@ const { handleKeyDown: _handleKeyDown } = useKeymap<CanvasAction>(
       pendingEdge.value = null
       contextMenu.value = null
       routingPicker.value = null
+      keymapHelpOpen.value = false
     },
     preview:    () => { previewMode.value = !previewMode.value },
     deleteNode: () => { if (selectedNodeId.value) deleteNode(selectedNodeId.value) },
@@ -1074,13 +1091,14 @@ const { handleKeyDown: _handleKeyDown } = useKeymap<CanvasAction>(
     autoLayoutKey:   () => autoLayout(),
     resetViewKey:    () => resetView(),
     exportKey:       () => exportJson(),
+    showHelp:        () => { keymapHelpOpen.value = !keymapHelpOpen.value },
   },
   'wiring-canvas-keys',
 )
 
 function handleKeyDown(e: KeyboardEvent) {
   onKeyDown(e)
-  _handleKeyDown(e)
+  keymap.handleKeyDown(e)
 }
 
 function onNodeCaptureMousedown(nodeId: string) {
