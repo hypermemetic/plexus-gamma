@@ -1670,6 +1670,7 @@ function onEdgeDblClick(e: MouseEvent, edge: WireEdge) {
 function onEdgeContextMenu(e: MouseEvent, edgeId: string) {
   const rect = canvasWrap.value?.getBoundingClientRect()
   if (!rect) return
+  canvasSearch.value = null
   edgeContextMenu.value = { edgeId, x: e.clientX - rect.left, y: e.clientY - rect.top }
 }
 
