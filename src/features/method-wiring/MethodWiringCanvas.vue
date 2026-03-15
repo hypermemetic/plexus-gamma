@@ -2576,9 +2576,10 @@ function resultPreview(result: unknown): string {
   cursor: grab;
   r: 5;
   vector-effect: non-scaling-stroke;
+  transition: fill 0.1s, stroke 0.1s;
 }
-.bend-handle:hover { fill: #1a2840; stroke: #79c0ff; }
-.bend-handle:active { cursor: grabbing; }
+.bend-handle:hover { fill: #58a6ff; stroke: #a0cfff; }
+.bend-handle:active { fill: #79c0ff; stroke: #c9e6ff; cursor: grabbing; }
 .edge-path.edge-hover { stroke: #58a6ff; }
 .edge-path.edge-selected { stroke: #79c0ff; stroke-width: 2.5; }
 .edge-path.edge-pending { stroke: #3a5a7a; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
