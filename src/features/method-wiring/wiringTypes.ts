@@ -24,6 +24,10 @@ export interface NodeUi {
   dir: LayoutDir
   gap: number
   padding: number
+  // binding / run
+  binding: string      // input/slider: "varsNodeId.storeKey" — drives write-back
+  autoRun: boolean     // auto-rerun pipeline on input/slider change
+  runMode: 'full' | 'partial'  // button: full pipeline vs partial re-run from node
 }
 
 export const DEFAULT_UI: NodeUi = {
@@ -34,6 +38,9 @@ export const DEFAULT_UI: NodeUi = {
   dir: 'row',
   gap: 8,
   padding: 12,
+  binding: '',
+  autoRun: false,
+  runMode: 'partial',
 }
 
 export interface WireNode {

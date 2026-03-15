@@ -3,7 +3,12 @@
     <div class="uip-panel">
       <div class="uip-chrome">
         <span class="uip-title">UI Preview</span>
+        <button class="uip-run" @click="emit('run')" title="Run pipeline">▷ Run</button>
         <button class="uip-close" @click="emit('close')" title="Close preview">✕</button>
+      </div>
+      <div v-if="runningNodes > 0" class="uip-status uip-running">Running…</div>
+      <div v-else-if="errorNodes.length > 0" class="uip-status uip-error">
+        Error in {{ errorNodes[0]?.ui.label || errorNodes[0]?.kind }}
       </div>
       <div class="uip-body">
         <div v-if="rootNodes.length === 0" class="uip-empty">
@@ -16,6 +21,7 @@
             :node="node"
             :nodes="nodes"
             :edges="edges"
+            :in-preview="true"
             @param-update="emit('param-update', $event)"
             @trigger="emit('trigger', $event)"
           />
@@ -38,9 +44,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
+  run: []
   'param-update': [{ nodeId: string; key: string; value: unknown }]
   trigger: [string]
 }>()
+
+const runningNodes = computed(() => props.nodes.filter(n => n.status === 'running').length)
+const errorNodes = computed(() => props.nodes.filter(n => n.status === 'error'))
 
 // IDs of nodes that are children of a layout node (not top-level)
 const layoutChildIds = computed(() => {
@@ -107,6 +117,19 @@ const rootNodes = computed(() =>
   text-transform: uppercase;
 }
 
+.uip-run {
+  background: none;
+  border: 1px solid #1f3a5f;
+  color: #58a6ff;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 6px;
+}
+.uip-run:hover { background: #1a2840; }
+
 .uip-close {
   background: none;
   border: none;
@@ -117,6 +140,14 @@ const rootNodes = computed(() =>
   line-height: 1;
 }
 .uip-close:hover { color: #f85149; }
+
+.uip-status {
+  font-size: 11px;
+  padding: 4px 16px;
+  flex-shrink: 0;
+}
+.uip-running { color: #58a6ff; background: #0d1117; border-bottom: 1px solid #21262d; }
+.uip-error   { color: #f85149; background: #160a0a; border-bottom: 1px solid #3a1010; }
 
 .uip-body {
   padding: 20px;

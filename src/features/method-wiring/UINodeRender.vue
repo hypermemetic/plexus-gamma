@@ -1,12 +1,13 @@
 <template>
   <!-- Layout: flex container, children recursively rendered -->
-  <div v-if="node.kind === 'layout'" class="uin-layout" :style="layoutStyle">
+  <div v-if="node.kind === 'layout'" class="uin-layout" :class="{ 'uin-layout-preview': inPreview }" :style="layoutStyle">
     <UINodeRender
       v-for="child in layoutChildren"
       :key="child.id"
       :node="child"
       :nodes="nodes"
       :edges="edges"
+      :in-preview="inPreview"
       @param-update="emit('param-update', $event)"
       @trigger="emit('trigger', $event)"
     />
@@ -35,7 +36,7 @@
     <!-- button: click triggers re-run from this node -->
     <template v-else-if="node.ui.widgetKind === 'button'">
       <button class="uin-button" @click="emit('trigger', node.id)">
-        {{ node.ui.label || String(node.result ?? 'Run') }}
+        {{ node.ui.label || 'Run' }}
       </button>
     </template>
 
@@ -87,6 +88,7 @@ const props = defineProps<{
   node: WireNode
   nodes: WireNode[]
   edges: WireEdge[]
+  inPreview?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -157,6 +159,7 @@ function formatCell(v: unknown): string {
   min-width: 40px;
   min-height: 32px;
 }
+.uin-layout-preview { border-color: transparent; }
 
 .uin-widget {
   display: flex;

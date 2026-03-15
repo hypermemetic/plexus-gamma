@@ -176,6 +176,48 @@
               @input="emit('update:params', { ...node.params, step: Number(($event.target as HTMLInputElement).value) })" />
           </div>
         </template>
+        <!-- Binding: input + slider -->
+        <template v-if="node.ui.widgetKind === 'input' || node.ui.widgetKind === 'slider'">
+          <div class="pf-section-title" style="margin-top:8px">binding</div>
+          <div class="pf-row">
+            <label class="pf-label">target</label>
+            <input
+              class="pf-input"
+              placeholder="nodeId.key"
+              :value="node.ui.binding"
+              @change="emit('update:ui', { binding: ($event.target as HTMLInputElement).value })"
+            />
+          </div>
+          <div v-if="node.ui.binding && bindingTargetLabel" class="pf-hint">
+            → {{ bindingTargetLabel }}
+          </div>
+          <div class="pf-row">
+            <label class="pf-label pf-cb-label">
+              <input
+                type="checkbox"
+                :checked="node.ui.autoRun"
+                @change="emit('update:ui', { autoRun: ($event.target as HTMLInputElement).checked })"
+              />
+              auto-run
+            </label>
+          </div>
+        </template>
+        <!-- Run mode: button -->
+        <template v-if="node.ui.widgetKind === 'button'">
+          <div class="pf-section-title" style="margin-top:8px">run mode</div>
+          <div class="pf-widget-kinds">
+            <button
+              class="pf-kind-btn"
+              :class="{ active: node.ui.runMode === 'partial' }"
+              @click.stop="emit('update:ui', { runMode: 'partial' })"
+            >partial</button>
+            <button
+              class="pf-kind-btn"
+              :class="{ active: node.ui.runMode === 'full' }"
+              @click.stop="emit('update:ui', { runMode: 'full' })"
+            >full</button>
+          </div>
+        </template>
       </template>
 
       <!-- Layout: direction, gap, padding, slots -->
@@ -338,6 +380,16 @@ function updatePortName(pi: number, value: string) {
   emit('update:transform', { inputNames: names })
 }
 
+// ─── Binding helpers ──────────────────────────────────────────
+const bindingTargetLabel = computed(() => {
+  const b = props.node?.ui.binding ?? ''
+  if (!b.includes('.')) return ''
+  const dotIdx = b.indexOf('.')
+  const nodeId = b.slice(0, dotIdx)
+  const key = b.slice(dotIdx + 1)
+  return `${nodeId} → ${key}`
+})
+
 // ─── Vars store helpers ───────────────────────────────────────
 const WIDGET_KINDS = ['text', 'input', 'button', 'slider', 'table'] as const
 const newKeyName = ref('')
@@ -387,6 +439,7 @@ function addStoreKey() {
 
 .pf-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
 .pf-label { font-size: 10px; color: #8b949e; min-width: 50px; flex-shrink: 0; }
+.pf-cb-label { display: flex; align-items: center; gap: 5px; cursor: pointer; min-width: unset; }
 
 .pf-input {
   flex: 1;

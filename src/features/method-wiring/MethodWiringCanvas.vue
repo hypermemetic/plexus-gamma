@@ -417,6 +417,7 @@
           @close="previewMode = false"
           @param-update="onPreviewParamUpdate"
           @trigger="onPreviewTrigger"
+          @run="runAll()"
         />
 
         <!-- Mini-map (in canvas-wrap space, not transformed) -->
@@ -1242,13 +1243,47 @@ function onParamPanelUpdateUi(patch: Partial<NodeUi>) {
   if (node) Object.assign(node.ui, patch)
 }
 
+// ─── Preview run helpers ──────────────────────────────────────
+function runAll() {
+  const toIds = new Set(edges.value.map(e => e.toNodeId))
+  nodes.value
+    .filter(n => !toIds.has(n.id))
+    .forEach(n => rerunNode(n.id, true))
+}
+
+let previewRunTimer: ReturnType<typeof setTimeout> | null = null
+function schedulePreviewRun(nodeId: string) {
+  if (previewRunTimer !== null) clearTimeout(previewRunTimer)
+  previewRunTimer = setTimeout(() => rerunNode(nodeId, true), 300)
+}
+
 function onPreviewParamUpdate({ nodeId, key, value }: { nodeId: string; key: string; value: unknown }) {
   const node = nodes.value.find(n => n.id === nodeId)
-  if (node) node.params[key] = value
+  if (!node) return
+  node.params[key] = value
+
+  // Write-back to bound vars store
+  if (node.ui.binding) {
+    const dotIdx = node.ui.binding.indexOf('.')
+    const boundNodeId = node.ui.binding.slice(0, dotIdx)
+    const boundKey = node.ui.binding.slice(dotIdx + 1)
+    const varsNode = nodes.value.find(n => n.id === boundNodeId && n.kind === 'vars')
+    if (varsNode) varsNode.ui.store[boundKey] = value
+  }
+
+  // Auto-run (debounced for sliders)
+  if (node.ui.autoRun) {
+    const runTargetId = node.ui.binding
+      ? node.ui.binding.slice(0, node.ui.binding.indexOf('.'))
+      : nodeId
+    schedulePreviewRun(runTargetId)
+  }
 }
 
 function onPreviewTrigger(nodeId: string) {
-  rerunNode(nodeId, true)
+  const node = nodes.value.find(n => n.id === nodeId)
+  if (node?.ui.runMode === 'full') runAll()
+  else rerunNode(nodeId, true)
 }
 
 function onParamPanelUpdateTransform(patch: { path?: string; template?: string; code?: string; inputNames?: string[] }) {
