@@ -195,7 +195,7 @@
               <path
                 :d="edgePath(edge)"
                 class="edge-path"
-                :class="{ 'edge-hover': hoveredEdge === edge.id }"
+                :class="{ 'edge-hover': hoveredEdge === edge.id, 'edge-selected': selectedEdgeId === edge.id }"
                 fill="none"
               />
               <!-- Wide invisible hit area for easier clicking -->
@@ -506,6 +506,7 @@
           @mousedown.stop
           @click.stop
         >
+          <div v-if="canvasSearch.splitMode" class="cs-split-hint">→ insert into edge</div>
           <input
             ref="canvasSearchInput"
             class="cs-input"
@@ -683,8 +684,9 @@ const sidebarQuery = ref('')
 const sidebarInput = ref<HTMLInputElement | null>(null)
 
 // ─── Canvas search state ──────────────────────────────────────
-interface CanvasSearch { x: number; y: number; canvasX: number; canvasY: number; query: string }
+interface CanvasSearch { x: number; y: number; canvasX: number; canvasY: number; query: string; splitMode?: boolean }
 const canvasSearch = ref<CanvasSearch | null>(null)
+const selectedEdgeId = ref<string | null>(null)
 const canvasSearchInput = ref<HTMLInputElement | null>(null)
 const canvasSearchIdx = ref(0)
 let panMoved = false
@@ -1197,6 +1199,7 @@ const keymap = useKeymap<CanvasAction>(
       pendingEdge.value = null
       contextMenu.value = null
       routingPicker.value = null
+      selectedEdgeId.value = null
       keymapHelpOpen.value = false
     },
     preview:    () => { previewMode.value = !previewMode.value },
@@ -1436,32 +1439,39 @@ function onInputPortClick(toNodeId: string, toParam: string) {
 function onCanvasClick(e: MouseEvent) {
   const hadPending = !!pendingEdge.value || pendingEdgeJustCancelled
   const hadNodeDrag = nodeDragMoved
+  const prevSelectedNode = selectedNodeId.value
+  const prevSelectedEdge = selectedEdgeId.value
   pendingEdgeJustCancelled = false
   nodeDragMoved = false
   pendingEdge.value = null
   contextMenu.value = null
   edgeContextMenu.value = null
   routingPicker.value = null
-  if (hadNodeDrag) return
-  if (canvasSearch.value) {
-    canvasSearch.value = null
-    selectedNodeId.value = null
-    return
-  }
   selectedNodeId.value = null
-  if (!panMoved && !hadPending) {
-    const rect = canvasWrap.value?.getBoundingClientRect()
-    if (rect) {
-      const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
-      canvasSearch.value = { x: e.clientX - rect.left, y: e.clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '' }
-      canvasSearchIdx.value = 0
-    }
+  selectedEdgeId.value = null
+  if (hadNodeDrag) return
+  if (canvasSearch.value) { canvasSearch.value = null; return }
+  if (panMoved || hadPending) return
+  // Edge was selected: open search in split-edge mode
+  if (prevSelectedEdge) {
+    const edge = edges.value.find(e => e.id === prevSelectedEdge)
+    if (edge) { doSplitEdgeInsert(e.clientX, e.clientY, edge); return }
+  }
+  // Node was selected: just deselect, don't open search
+  if (prevSelectedNode) return
+  // Nothing selected: open search
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (rect) {
+    const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+    canvasSearch.value = { x: e.clientX - rect.left, y: e.clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '' }
+    canvasSearchIdx.value = 0
   }
 }
 
 function onCanvasContextMenu() {
   pendingEdge.value = null
   selectedNodeId.value = null
+  selectedEdgeId.value = null
   contextMenu.value = null
   edgeContextMenu.value = null
   routingPicker.value = null
@@ -1650,6 +1660,8 @@ function onEdgeClick(e: MouseEvent, edge: WireEdge) {
   const clientX = e.clientX, clientY = e.clientY
   edgeClickTimer = setTimeout(() => {
     edgeClickTimer = null
+    selectedEdgeId.value = edge.id
+    selectedNodeId.value = null
     const bpIdx = addBendPointAtPos(clientX, clientY, edge)
     if (bpIdx !== null) {
       edgeClickBendInfo = { edgeId: edge.id, bpIdx }
@@ -1664,6 +1676,7 @@ function onEdgeClick(e: MouseEvent, edge: WireEdge) {
 
 function onEdgeDblClick(e: MouseEvent, edge: WireEdge) {
   if (edgeClickTimer !== null) { clearTimeout(edgeClickTimer); edgeClickTimer = null }
+  selectedEdgeId.value = null
   // Remove any bend point just added by the first click of this dblclick
   if (edgeClickBendInfo?.edgeId === edge.id) {
     const freshEdge = edges.value.find(n => n.id === edge.id)
@@ -1685,7 +1698,7 @@ function doSplitEdgeInsert(clientX: number, clientY: number, edge: WireEdge) {
   if (!rect) return
   pendingSplitEdge = { edgeId: edge.id, fromNodeId: edge.fromNodeId, toNodeId: edge.toNodeId, toParam: edge.toParam }
   const { x, y } = screenToCanvas(clientX, clientY, rect)
-  canvasSearch.value = { x: clientX - rect.left, y: clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '' }
+  canvasSearch.value = { x: clientX - rect.left, y: clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '', splitMode: true }
   canvasSearchIdx.value = 0
 }
 
@@ -2567,6 +2580,7 @@ function resultPreview(result: unknown): string {
 .bend-handle:hover { fill: #1a2840; stroke: #79c0ff; }
 .bend-handle:active { cursor: grabbing; }
 .edge-path.edge-hover { stroke: #58a6ff; }
+.edge-path.edge-selected { stroke: #79c0ff; stroke-width: 2.5; }
 .edge-path.edge-pending { stroke: #3a5a7a; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
 
 /* ── Wire node ───────────────────────────────────────────────── */
@@ -2956,4 +2970,5 @@ function resultPreview(result: unknown): string {
 .cs-desc  { font-size: 10px; color: #484f58; margin-left: 4px; overflow: hidden; text-overflow: ellipsis; }
 
 .cs-empty { padding: 8px 10px; font-size: 11px; color: #484f58; }
+.cs-split-hint { padding: 4px 10px 2px; font-size: 10px; color: #58a6ff; letter-spacing: 0.03em; }
 </style>
