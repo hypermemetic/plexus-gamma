@@ -12,6 +12,8 @@
       <button class="tb-btn" @click="autoLayout" title="Auto-arrange nodes">[Auto Layout]</button>
       <button class="tb-btn" @click="resetView" title="Reset pan/zoom">[Reset View]</button>
       <button class="tb-btn" @click="triggerImport" title="Import pipeline JSON">[Import]</button>
+      <button class="tb-btn" @click="undo" :disabled="undoStack.length === 0" title="Undo (Ctrl+Z)">[↩ Undo]</button>
+      <button class="tb-btn" @click="redo" :disabled="redoStack.length === 0" title="Redo (Ctrl+Y)">[↪ Redo]</button>
       <button class="tb-btn" @click="copySnapshot" title="Copy run snapshot to clipboard">[Snapshot]</button>
       <button class="tb-btn" :class="{ 'tb-active': previewMode }" @click="previewMode = !previewMode" title="Toggle UI preview (P)">[Preview]</button>
       <input type="file" ref="importFileInput" accept=".json" style="display:none" @change="onImportFile" />
@@ -164,7 +166,7 @@
         ref="canvasLayerRef"
         :transform="transformStyle"
         @click="onCanvasClick"
-        @contextmenu.prevent="onCanvasClick"
+        @contextmenu.prevent="onCanvasContextMenu"
         @mousedown="onCanvasMouseDown"
         @mousemove="onMouseMove"
         @mouseup="onMouseUp"
@@ -266,6 +268,8 @@
                   class="port port-in"
                   :class="{ 'port-connected': isParamConnected(node.id, param), 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === param }"
                   :title="`Input: ${param}`"
+                  :data-node-id="node.id"
+                  :data-param="param"
                   @mousedown.stop
                   @mouseenter="hoveredPort = { nodeId: node.id, param }"
                   @mouseleave="hoveredPort = null"
@@ -281,10 +285,9 @@
                 class="port port-out"
                 :class="{ 'port-hover': hoveredPort?.nodeId === node.id && hoveredPort.param === '__out' }"
                 title="Output"
-                @mousedown.stop
                 @mouseenter="hoveredPort = { nodeId: node.id, param: '__out' }"
                 @mouseleave="hoveredPort = null"
-                @click.stop="onOutputPortClick(node.id)"
+                @mousedown.stop="startEdgeDrag($event, node.id)"
               ></div>
             </div>
 
@@ -306,7 +309,7 @@
 
           <!-- Empty state -->
           <div v-if="nodes.length === 0" class="canvas-empty">
-            Drag a method from the sidebar, or click one to add it
+            Click to search &amp; add nodes, or drag from the sidebar
           </div>
         </template>
 
@@ -419,6 +422,43 @@
           @trigger="onPreviewTrigger"
           @run="runAll()"
         />
+
+        <!-- Canvas search popover -->
+        <div
+          v-if="canvasSearch"
+          class="canvas-search-popup"
+          :style="{ left: `${canvasSearch.x}px`, top: `${canvasSearch.y}px` }"
+          @mousedown.stop
+          @click.stop
+        >
+          <input
+            ref="canvasSearchInput"
+            class="cs-input"
+            :value="canvasSearch.query"
+            placeholder="Add node…"
+            spellcheck="false"
+            @input="canvasSearch!.query = ($event.target as HTMLInputElement).value; canvasSearchIdx = 0"
+            @keydown.esc.stop="canvasSearch = null"
+            @keydown.down.prevent="canvasSearchIdx = Math.min(canvasSearchIdx + 1, canvasSearchResults.length - 1)"
+            @keydown.up.prevent="canvasSearchIdx = Math.max(canvasSearchIdx - 1, 0)"
+            @keydown.enter.prevent="selectCanvasSearchItem(canvasSearchResults[canvasSearchIdx])"
+          />
+          <div class="cs-list">
+            <div
+              v-for="(result, i) in canvasSearchResults"
+              :key="result.label"
+              class="cs-item"
+              :class="{ 'cs-item-active': i === canvasSearchIdx }"
+              @mouseenter="canvasSearchIdx = i"
+              @mousedown.prevent="selectCanvasSearchItem(result)"
+            >
+              <span class="cs-icon" :class="result.type === 'method' ? 'cs-method' : 'cs-quick'">{{ result.type === 'method' ? 'ƒ' : '◈' }}</span>
+              <span class="cs-label">{{ result.label }}</span>
+              <span v-if="result.type === 'method'" class="cs-desc">{{ result.desc }}</span>
+            </div>
+            <div v-if="canvasSearchResults.length === 0" class="cs-empty">No results</div>
+          </div>
+        </div>
 
         <!-- Mini-map (in canvas-wrap space, not transformed) -->
         <WiringMiniMap
@@ -564,6 +604,13 @@ function onSearchDragStart(e: DragEvent, item: { backendName: string; fullPath: 
 const sidebarQuery = ref('')
 const sidebarInput = ref<HTMLInputElement | null>(null)
 
+// ─── Canvas search state ──────────────────────────────────────
+interface CanvasSearch { x: number; y: number; canvasX: number; canvasY: number; query: string }
+const canvasSearch = ref<CanvasSearch | null>(null)
+const canvasSearchInput = ref<HTMLInputElement | null>(null)
+const canvasSearchIdx = ref(0)
+let panMoved = false
+
 const allTreeMethods = computed(() => {
   const result: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }[] = []
   for (const [name, tree] of Object.entries(sidebarTrees)) {
@@ -593,6 +640,50 @@ const filteredSearchMethods = computed(() => {
 function focusSidebar() {
   nextTick(() => focus(sidebarInput.value))
 }
+
+// ─── Canvas search results ────────────────────────────────────
+type QuickItem = { type: 'quick'; label: string; action: (pos: { x: number; y: number }) => void }
+type MethodItem = { type: 'method'; label: string; desc: string; entry: { backendName: string; fullPath: string; path: string[]; method: MethodSchema } }
+type SearchResult = QuickItem | MethodItem
+
+const canvasSearchResults = computed((): SearchResult[] => {
+  const q = (canvasSearch.value?.query ?? '').toLowerCase()
+  const quickItems: QuickItem[] = [
+    { type: 'quick', label: 'Extract',  action: pos => addTransformNode('extract', pos) },
+    { type: 'quick', label: 'Template', action: pos => addTransformNode('template', pos) },
+    { type: 'quick', label: 'Merge',    action: pos => addTransformNode('merge', pos) },
+    { type: 'quick', label: 'Script',   action: pos => addTransformNode('script', pos) },
+    { type: 'quick', label: 'Vars',     action: pos => addUiNode('vars', undefined, undefined, pos) },
+    { type: 'quick', label: 'Row',      action: pos => addUiNode('layout', undefined, 'row', pos) },
+    { type: 'quick', label: 'Col',      action: pos => addUiNode('layout', undefined, 'col', pos) },
+    { type: 'quick', label: 'Text',     action: pos => addUiNode('widget', 'text', undefined, pos) },
+    { type: 'quick', label: 'Input',    action: pos => addUiNode('widget', 'input', undefined, pos) },
+    { type: 'quick', label: 'Button',   action: pos => addUiNode('widget', 'button', undefined, pos) },
+    { type: 'quick', label: 'Slider',   action: pos => addUiNode('widget', 'slider', undefined, pos) },
+    { type: 'quick', label: 'Table',    action: pos => addUiNode('widget', 'table', undefined, pos) },
+  ]
+  const filtered = q ? quickItems.filter(i => i.label.toLowerCase().includes(q)) : quickItems
+  const methods: MethodItem[] = allTreeMethods.value
+    .filter(m => !q || m.fullPath.toLowerCase().includes(q) || m.backendName.toLowerCase().includes(q))
+    .slice(0, 40)
+    .map(m => ({ type: 'method', label: m.fullPath, desc: `[${m.backendName}]`, entry: m }))
+  return [...filtered, ...methods]
+})
+
+function selectCanvasSearchItem(result: SearchResult | undefined) {
+  if (!result || !canvasSearch.value) return
+  const pos = { x: canvasSearch.value.canvasX, y: canvasSearch.value.canvasY }
+  canvasSearch.value = null
+  if (result.type === 'quick') {
+    result.action(pos)
+  } else {
+    addNode({ backend: result.entry.backendName, fullPath: result.entry.fullPath, path: result.entry.path, method: result.entry.method }, pos)
+  }
+}
+
+watch(canvasSearch, val => {
+  if (val) nextTick(() => canvasSearchInput.value?.focus())
+})
 
 function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
   addNode({ backend: item.backendName, fullPath: item.fullPath, path: item.path, method: item.method })
@@ -627,6 +718,34 @@ const previewMode = ref(false)
 // Bump to force edge SVG re-render after node resize (DOM positions change non-reactively)
 const layoutTick = ref(0)
 const runError = ref<string | null>(null)
+
+// ─── Undo / Redo ──────────────────────────────────────────────
+const undoStack = ref<string[]>([])
+const redoStack = ref<string[]>([])
+
+function pushUndo() {
+  undoStack.value.push(JSON.stringify({ nodes: nodes.value, edges: edges.value }))
+  redoStack.value = []
+}
+function restoreSnapshot(snapshot: string) {
+  const data = JSON.parse(snapshot) as { nodes: WireNode[]; edges: WireEdge[] }
+  nodes.value = data.nodes
+  edges.value = data.edges
+  selectedNodeId.value = null
+  pendingEdge.value = null
+}
+function undo() {
+  const snap = undoStack.value.pop()
+  if (!snap) return
+  redoStack.value.push(JSON.stringify({ nodes: nodes.value, edges: edges.value }))
+  restoreSnapshot(snap)
+}
+function redo() {
+  const snap = redoStack.value.pop()
+  if (!snap) return
+  undoStack.value.push(JSON.stringify({ nodes: nodes.value, edges: edges.value }))
+  restoreSnapshot(snap)
+}
 
 // ─── Composables ──────────────────────────────────────────────
 const {
@@ -693,6 +812,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   resizeObserver?.disconnect()
+  edgeDragCleanup?.()
 })
 
 // ─── Node IDs ─────────────────────────────────────────────────
@@ -708,6 +828,7 @@ const GRID = 20
 function snap(v: number): number { return Math.round(v / GRID) * GRID }
 
 function addNode(entry: MethodEntry, pos?: { x: number; y: number }) {
+  pushUndo()
   const baseX = pos?.x ?? snap(60 + (nodes.value.length % 4) * 240)
   const baseY = pos?.y ?? snap(60 + Math.floor(nodes.value.length / 4) * 180)
   const node: WireNode = {
@@ -726,9 +847,10 @@ function addNode(entry: MethodEntry, pos?: { x: number; y: number }) {
   selectedNodeId.value = node.id
 }
 
-function addTransformNode(kind: Exclude<NodeKind, 'rpc'>) {
-  const baseX = snap(60 + (nodes.value.length % 4) * 240)
-  const baseY = snap(60 + Math.floor(nodes.value.length / 4) * 180)
+function addTransformNode(kind: Exclude<NodeKind, 'rpc'>, pos?: { x: number; y: number }) {
+  pushUndo()
+  const baseX = pos?.x ?? snap(60 + (nodes.value.length % 4) * 240)
+  const baseY = pos?.y ?? snap(60 + Math.floor(nodes.value.length / 4) * 180)
   const node: WireNode = {
     id: makeNodeId(),
     kind,
@@ -750,9 +872,10 @@ function addTransformNode(kind: Exclude<NodeKind, 'rpc'>) {
   selectedNodeId.value = node.id
 }
 
-function addUiNode(kind: 'vars' | 'widget' | 'layout', widgetKind?: WidgetKind, dir?: LayoutDir) {
-  const baseX = snap(60 + (nodes.value.length % 4) * 240)
-  const baseY = snap(60 + Math.floor(nodes.value.length / 4) * 180)
+function addUiNode(kind: 'vars' | 'widget' | 'layout', widgetKind?: WidgetKind, dir?: LayoutDir, pos?: { x: number; y: number }) {
+  pushUndo()
+  const baseX = pos?.x ?? snap(60 + (nodes.value.length % 4) * 240)
+  const baseY = pos?.y ?? snap(60 + Math.floor(nodes.value.length / 4) * 180)
   const ui: NodeUi = {
     ...DEFAULT_UI,
     ...(kind === 'widget' && widgetKind ? { widgetKind } : {}),
@@ -865,6 +988,7 @@ function startDrag(e: MouseEvent, nodeId: string) {
 
 // ─── Canvas mouse handlers ────────────────────────────────────
 function onCanvasMouseDown(e: MouseEvent) {
+  panMoved = false
   beginPan(e)
 }
 
@@ -893,6 +1017,22 @@ function handleKeyDown(e: KeyboardEvent) {
     e.preventDefault()
     runPipeline()
   }
+  if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+    e.preventDefault()
+    canvasSearch.value = null
+    undo()
+  }
+  if ((e.key === 'y' && (e.metaKey || e.ctrlKey)) || (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey)) {
+    e.preventDefault()
+    canvasSearch.value = null
+    redo()
+  }
+  if (e.key === 'Escape') {
+    canvasSearch.value = null
+    pendingEdge.value = null
+    contextMenu.value = null
+    routingPicker.value = null
+  }
   // P to toggle preview (only when not typing in an input)
   if (e.key === 'p' && e.target === e.currentTarget) {
     e.preventDefault()
@@ -901,11 +1041,12 @@ function handleKeyDown(e: KeyboardEvent) {
 }
 
 function onNodeCaptureMousedown(nodeId: string) {
+  canvasSearch.value = null
   if (!pendingEdge.value) selectedNodeId.value = nodeId
 }
 
 function onMouseMove(e: MouseEvent) {
-  if (onPanMove(e)) return
+  if (onPanMove(e)) { panMoved = true; return }
   if (resizeState) {
     const node = nodes.value.find(n => n.id === resizeState!.nodeId)
     if (node) {
@@ -1005,6 +1146,35 @@ function inputPortPos(nodeId: string, param: string): { x: number; y: number } |
   return { x: node.pos.x, y: node.pos.y + 40 + idx * 22 + 8 }
 }
 
+// ─── Edge drag-to-connect ─────────────────────────────────────
+let edgeDragCleanup: (() => void) | null = null
+
+function startEdgeDrag(_e: MouseEvent, fromNodeId: string) {
+  // Toggle: pressing same output port again cancels
+  if (pendingEdge.value?.fromNodeId === fromNodeId) {
+    pendingEdge.value = null
+    return
+  }
+  onOutputPortClick(fromNodeId)
+
+  const onUp = (upEvent: MouseEvent) => {
+    edgeDragCleanup = null
+    if (!pendingEdge.value) return
+    // Walk up from target to find an input port with data attributes
+    let el: HTMLElement | null = upEvent.target as HTMLElement
+    while (el) {
+      if (el.classList.contains('port-in') && el.dataset.nodeId && el.dataset.param) {
+        onInputPortClick(el.dataset.nodeId, el.dataset.param)
+        return
+      }
+      el = el.parentElement
+    }
+    // No target port — keep pendingEdge open for click-to-connect
+  }
+  edgeDragCleanup = () => document.removeEventListener('mouseup', onUp)
+  document.addEventListener('mouseup', onUp, { once: true })
+}
+
 function onOutputPortClick(fromNodeId: string) {
   if (pendingEdge.value) {
     if (pendingEdge.value.fromNodeId === fromNodeId) {
@@ -1021,6 +1191,7 @@ function onInputPortClick(toNodeId: string, toParam: string) {
   if (!pendingEdge.value) return
   const { fromNodeId } = pendingEdge.value
   if (fromNodeId === toNodeId) { pendingEdge.value = null; return }
+  pushUndo()
   edges.value = edges.value.filter(e => !(e.toNodeId === toNodeId && e.toParam === toParam))
   edges.value.push({
     id: makeEdgeId(), fromNodeId, toNodeId, toParam,
@@ -1030,11 +1201,32 @@ function onInputPortClick(toNodeId: string, toParam: string) {
   pendingEdge.value = null
 }
 
-function onCanvasClick() {
+function onCanvasClick(e: MouseEvent) {
+  pendingEdge.value = null
+  contextMenu.value = null
+  routingPicker.value = null
+  if (canvasSearch.value) {
+    canvasSearch.value = null
+    selectedNodeId.value = null
+    return
+  }
+  selectedNodeId.value = null
+  if (!panMoved) {
+    const rect = canvasWrap.value?.getBoundingClientRect()
+    if (rect) {
+      const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+      canvasSearch.value = { x: e.clientX - rect.left, y: e.clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '' }
+      canvasSearchIdx.value = 0
+    }
+  }
+}
+
+function onCanvasContextMenu() {
   pendingEdge.value = null
   selectedNodeId.value = null
   contextMenu.value = null
   routingPicker.value = null
+  canvasSearch.value = null
 }
 
 // ─── Context menu ─────────────────────────────────────────────
@@ -1050,6 +1242,7 @@ function showContextMenu(e: MouseEvent, nodeId: string) {
 }
 
 function deleteNode(nodeId: string) {
+  pushUndo()
   nodes.value = nodes.value.filter(n => n.id !== nodeId)
   edges.value = edges.value.filter(e => e.fromNodeId !== nodeId && e.toNodeId !== nodeId)
   if (selectedNodeId.value === nodeId) selectedNodeId.value = null
@@ -1057,6 +1250,7 @@ function deleteNode(nodeId: string) {
 }
 
 function disconnectNode(nodeId: string) {
+  pushUndo()
   edges.value = edges.value.filter(e => e.fromNodeId !== nodeId && e.toNodeId !== nodeId)
   contextMenu.value = null
 }
@@ -1140,6 +1334,7 @@ function bezierPath(x1: number, y1: number, x2: number, y2: number): string {
 }
 
 function removeEdge(edgeId: string) {
+  pushUndo()
   edges.value = edges.value.filter(e => e.id !== edgeId)
   if (routingPicker.value?.edgeId === edgeId) routingPicker.value = null
 }
@@ -1245,10 +1440,7 @@ function onParamPanelUpdateUi(patch: Partial<NodeUi>) {
 
 // ─── Preview run helpers ──────────────────────────────────────
 function runAll() {
-  const toIds = new Set(edges.value.map(e => e.toNodeId))
-  nodes.value
-    .filter(n => !toIds.has(n.id))
-    .forEach(n => rerunNode(n.id, true))
+  runPipeline()
 }
 
 let previewRunTimer: ReturnType<typeof setTimeout> | null = null
@@ -1327,6 +1519,7 @@ function onImportFile(e: Event) {
   const reader = new FileReader()
   reader.onload = (ev) => {
     const s = ev.target?.result as string
+    pushUndo()
     if (!importJson(s)) alert('Invalid pipeline JSON')
     ;(e.target as HTMLInputElement).value = ''
   }
@@ -1667,6 +1860,8 @@ function copySnapshot() {
 
 // ─── Toolbar actions ──────────────────────────────────────────
 function clearCanvas() {
+  if (!confirm('Clear all nodes and edges?')) return
+  pushUndo()
   nodes.value = []
   edges.value = []
   selectedNodeId.value = null
@@ -2259,4 +2454,65 @@ function resultPreview(result: unknown): string {
   text-align: center;
 }
 .routing-del-btn:hover { background: #2a1010; }
+
+/* ── Port larger hit area ────────────────────────────────────── */
+.port { position: relative; }
+.port::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+}
+
+/* ── Canvas search popup ─────────────────────────────────────── */
+.canvas-search-popup {
+  position: absolute;
+  z-index: 300;
+  pointer-events: auto;
+  background: #1a1d23;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.65);
+  width: 240px;
+  overflow: hidden;
+  transform: translateY(6px);
+}
+
+.cs-input {
+  width: 100%;
+  background: #111114;
+  border: none;
+  border-bottom: 1px solid #21262d;
+  color: #c9d1d9;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 8px 10px;
+  outline: none;
+  box-sizing: border-box;
+}
+.cs-input::placeholder { color: #484f58; }
+
+.cs-list { max-height: 220px; overflow-y: auto; }
+
+.cs-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #14171b;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.cs-item:last-child { border-bottom: none; }
+.cs-item:hover, .cs-item-active { background: #21262d; }
+
+.cs-icon { font-size: 10px; width: 12px; flex-shrink: 0; color: #484f58; }
+.cs-icon.cs-method { color: #79c0ff; }
+.cs-icon.cs-quick  { color: #a371f7; }
+
+.cs-label { font-size: 11px; color: #c9d1d9; flex-shrink: 0; }
+.cs-desc  { font-size: 10px; color: #484f58; margin-left: 4px; overflow: hidden; text-overflow: ellipsis; }
+
+.cs-empty { padding: 8px 10px; font-size: 11px; color: #484f58; }
 </style>
