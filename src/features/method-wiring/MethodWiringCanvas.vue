@@ -1550,7 +1550,13 @@ function edgeMidpoint(edge: WireEdge): { x: number; y: number } | null {
   const from = outputPortPos(edge.fromNodeId)
   const to = inputPortPos(edge.toNodeId, edge.toParam)
   if (!from || !to) return null
-  return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+  const bends = edge.bendPoints ?? []
+  if (bends.length === 0) return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+  // Midpoint of the middle segment — stays on the curve without sitting on a handle circle
+  const pts = [from, ...bends, to]
+  const mid = Math.floor((pts.length - 1) / 2)
+  const a = pts[mid]!, b = pts[mid + 1]!
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
 }
 
 // ─── Edge paths (bezier, in canvas space) ────────────────────
