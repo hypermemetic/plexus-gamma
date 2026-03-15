@@ -163,7 +163,7 @@
       <!-- Right canvas -->
       <CanvasLayer
         class="canvas-wrap"
-        :class="{ panning: isPanning }"
+        :class="{ panning: isPanning, 'edge-active': !!pendingEdge }"
         ref="canvasLayerRef"
         :transform="transformStyle"
         @click="onCanvasClick"
@@ -197,10 +197,33 @@
                 class="edge-path"
                 :class="{ 'edge-hover': hoveredEdge === edge.id }"
                 fill="none"
+              />
+              <!-- Wide invisible hit area for easier clicking -->
+              <path
+                :d="edgePath(edge)"
+                class="edge-hit"
+                fill="none"
                 @mouseenter="hoveredEdge = edge.id"
                 @mouseleave="hoveredEdge = null"
-                @click.stop="removeEdge(edge.id)"
+                @click.stop="onEdgeClick($event, edge)"
+                @dblclick.stop="onEdgeDblClick($event, edge)"
+                @contextmenu.stop.prevent="onEdgeContextMenu($event, edge.id)"
               />
+              <!-- Bend point handles -->
+              <g
+                v-for="(bp, bpi) in edge.bendPoints ?? []"
+                :key="'bp' + bpi"
+                class="bend-handle-g"
+                :class="{ 'bend-visible': hoveredEdge === edge.id || bendDragState?.edgeId === edge.id }"
+              >
+                <circle
+                  :cx="bp.x" :cy="bp.y" r="6"
+                  class="bend-handle"
+                  @mousedown.stop="startBendDrag($event, edge.id, bpi)"
+                  @mouseenter="hoveredEdge = edge.id"
+                  @contextmenu.stop.prevent="removeBendPoint(edge.id, bpi)"
+                />
+              </g>
               <!-- Routing badge — click to open picker -->
               <g
                 v-for="mid in edgeMidpoint(edge) ? [edgeMidpoint(edge)!] : []"
@@ -283,10 +306,11 @@
               @click.stop
             />
             <div v-else class="node-title" @dblclick.stop="startEditNodeLabel(node.id, nodeTitle(node))">{{ nodeTitle(node) }}</div>
+            <div class="node-command">{{ nodeCommand(node) }}</div>
             <div v-if="nodeSubtitle(node)" class="node-subtitle">{{ nodeSubtitle(node) }}</div>
 
             <!-- Input ports (params) on the left -->
-            <div class="node-ports-left" @mousedown.stop>
+            <div class="node-ports-left">
               <div
                 v-for="param in getParamNames(node)"
                 :key="param"
@@ -356,6 +380,18 @@
           <button class="ctx-item ctx-item-danger" @click="deleteNode(contextMenu!.nodeId)">Delete node</button>
           <button class="ctx-item" @click="disconnectNode(contextMenu!.nodeId)">Disconnect edges</button>
           <button class="ctx-item" @click="contextMenu = null">Cancel</button>
+        </div>
+
+        <!-- Edge context menu -->
+        <div
+          v-if="edgeContextMenu"
+          class="ctx-menu"
+          :style="{ left: `${edgeContextMenu.x}px`, top: `${edgeContextMenu.y}px` }"
+          @mousedown.stop
+          @click.stop
+        >
+          <button class="ctx-item ctx-item-danger" @click="removeEdge(edgeContextMenu!.edgeId); edgeContextMenu = null">Delete edge</button>
+          <button class="ctx-item" @click="edgeContextMenu = null">Cancel</button>
         </div>
 
         <!-- Routing picker (in canvas-wrap space, not transformed) -->
@@ -715,11 +751,26 @@ const canvasSearchResults = computed((): SearchResult[] => {
 function selectCanvasSearchItem(result: SearchResult | undefined) {
   if (!result || !canvasSearch.value) return
   const pos = { x: canvasSearch.value.canvasX, y: canvasSearch.value.canvasY }
+  const split = pendingSplitEdge
+  pendingSplitEdge = null
   canvasSearch.value = null
   if (result.type === 'quick') {
     result.action(pos)
   } else {
     addNode({ backend: result.entry.backendName, fullPath: result.entry.fullPath, path: result.entry.path, method: result.entry.method }, pos)
+  }
+  if (split) {
+    const newNodeId = selectedNodeId.value
+    if (newNodeId) {
+      const newNode = nodes.value.find(n => n.id === newNodeId)
+      edges.value = edges.value.filter(e => e.id !== split.edgeId)
+      if (newNode) {
+        const firstParam = getParamNames(newNode)[0]
+        const rc = { separator: '', predicate: '', reducer: '', initial: '', typeFilter: [] as string[] }
+        if (firstParam) edges.value.push({ id: makeEdgeId(), fromNodeId: split.fromNodeId, toNodeId: newNodeId, toParam: firstParam, routing: 'auto', routeConfig: rc })
+        edges.value.push({ id: makeEdgeId(), fromNodeId: newNodeId, toNodeId: split.toNodeId, toParam: split.toParam, routing: 'auto', routeConfig: rc })
+      }
+    }
   }
 }
 
@@ -727,8 +778,8 @@ watch(canvasSearch, val => {
   if (val) nextTick(() => canvasSearchInput.value?.focus())
 })
 
-function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
-  addNode({ backend: item.backendName, fullPath: item.fullPath, path: item.path, method: item.method })
+function addMethodEntry(item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }, pos?: { x: number; y: number }): void {
+  addNode({ backend: item.backendName, fullPath: item.fullPath, path: item.path, method: item.method }, pos)
 }
 
 // ─── RPC clients (shared registry) ───────────────────────────
@@ -964,13 +1015,16 @@ function nodeBackground(kind: NodeKind): string {
 }
 
 function nodeTitle(node: WireNode): string {
-  if (node.label) return node.label
+  return node.label || node.id
+}
+
+function nodeCommand(node: WireNode): string {
   switch (node.kind) {
     case 'rpc':      return node.method?.fullPath ?? ''
-    case 'extract':  return 'Extract'
-    case 'template': return 'Template'
-    case 'merge':    return 'Merge'
-    case 'script':   return 'Script'
+    case 'extract':  return 'extract'
+    case 'template': return 'template'
+    case 'merge':    return 'merge'
+    case 'script':   return 'script'
     case 'vars':     return node.ui.storeName || 'vars'
     case 'widget':   return node.ui.widgetKind
     case 'layout':   return `layout:${node.ui.dir}`
@@ -993,10 +1047,8 @@ function commitNodeLabel(nodeId: string) {
   const node = nodes.value.find(n => n.id === nodeId)
   if (node) {
     const trimmed = editingLabel.value.trim()
-    if (trimmed !== nodeTitle(node) || node.label) {
-      pushUndo()
-      node.label = trimmed || undefined
-    }
+    const newLabel = (trimmed && trimmed !== node.id) ? trimmed : undefined
+    if (newLabel !== node.label) { pushUndo(); node.label = newLabel }
   }
   editingNodeId.value = null
 }
@@ -1031,9 +1083,23 @@ interface DragState {
 }
 
 let dragState: DragState | null = null
+let nodeDragMoved = false
 
 interface ResizeState { nodeId: string; startMouseX: number; startW: number }
 let resizeState: ResizeState | null = null
+
+interface SplitEdgeInfo { edgeId: string; fromNodeId: string; toNodeId: string; toParam: string }
+let pendingSplitEdge: SplitEdgeInfo | null = null
+
+interface BendDragState { edgeId: string; bpIdx: number; startMouseX: number; startMouseY: number; startBendX: number; startBendY: number }
+const bendDragState = ref<BendDragState | null>(null)
+
+let mouseButtonDown = false
+let edgeClickTimer: ReturnType<typeof setTimeout> | null = null
+let edgeClickBendInfo: { edgeId: string; bpIdx: number } | null = null
+
+interface EdgeContextMenu { x: number; y: number; edgeId: string }
+const edgeContextMenu = ref<EdgeContextMenu | null>(null)
 
 function startResize(e: MouseEvent, nodeId: string) {
   const node = nodes.value.find(n => n.id === nodeId)
@@ -1060,6 +1126,7 @@ function startDrag(e: MouseEvent, nodeId: string) {
 
 // ─── Canvas mouse handlers ────────────────────────────────────
 function onCanvasMouseDown(e: MouseEvent) {
+  mouseButtonDown = true
   panMoved = false
   beginPan(e)
 }
@@ -1125,6 +1192,7 @@ const keymap = useKeymap<CanvasAction>(
     undo:  () => { canvasSearch.value = null; undo() },
     redo:  () => { canvasSearch.value = null; redo() },
     cancel: () => {
+      if (previewMode.value) { previewMode.value = false; return }
       canvasSearch.value = null
       pendingEdge.value = null
       contextMenu.value = null
@@ -1166,6 +1234,19 @@ function onNodeCaptureMousedown(nodeId: string) {
 
 function onMouseMove(e: MouseEvent) {
   if (onPanMove(e)) { panMoved = true; return }
+  if (bendDragState.value) {
+    const bds = bendDragState.value
+    const edge = edges.value.find(n => n.id === bds.edgeId)
+    const bp = edge?.bendPoints?.[bds.bpIdx]
+    if (bp) {
+      const screenDx = e.clientX - bds.startMouseX
+      const screenDy = e.clientY - bds.startMouseY
+      bp.x = snap(bds.startBendX + screenDx / zoom.value)
+      bp.y = snap(bds.startBendY + screenDy / zoom.value)
+      layoutTick.value++
+    }
+    return
+  }
   if (resizeState) {
     const node = nodes.value.find(n => n.id === resizeState!.nodeId)
     if (node) {
@@ -1179,6 +1260,7 @@ function onMouseMove(e: MouseEvent) {
     const screenDx = e.clientX - dragState.startMouseX
     const screenDy = e.clientY - dragState.startMouseY
     if (Math.hypot(screenDx, screenDy) < 5) return
+    nodeDragMoved = true
     const node = nodes.value.find(n => n.id === dragState!.nodeId)
     if (node) {
       node.pos.x = snap(dragState.startNodeX + screenDx / zoom.value)
@@ -1197,9 +1279,11 @@ function onMouseMove(e: MouseEvent) {
 }
 
 function onMouseUp() {
+  mouseButtonDown = false
   onPanEnd()
   dragState = null
   resizeState = null
+  bendDragState.value = null
 }
 
 // ─── Drop from sidebar ────────────────────────────────────────
@@ -1351,10 +1435,14 @@ function onInputPortClick(toNodeId: string, toParam: string) {
 
 function onCanvasClick(e: MouseEvent) {
   const hadPending = !!pendingEdge.value || pendingEdgeJustCancelled
+  const hadNodeDrag = nodeDragMoved
   pendingEdgeJustCancelled = false
+  nodeDragMoved = false
   pendingEdge.value = null
   contextMenu.value = null
+  edgeContextMenu.value = null
   routingPicker.value = null
+  if (hadNodeDrag) return
   if (canvasSearch.value) {
     canvasSearch.value = null
     selectedNodeId.value = null
@@ -1375,6 +1463,7 @@ function onCanvasContextMenu() {
   pendingEdge.value = null
   selectedNodeId.value = null
   contextMenu.value = null
+  edgeContextMenu.value = null
   routingPicker.value = null
   canvasSearch.value = null
 }
@@ -1461,7 +1550,10 @@ function edgeMidpoint(edge: WireEdge): { x: number; y: number } | null {
   const from = outputPortPos(edge.fromNodeId)
   const to = inputPortPos(edge.toNodeId, edge.toParam)
   if (!from || !to) return null
-  return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+  const bends = edge.bendPoints ?? []
+  if (bends.length === 0) return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+  const pts = [from, ...bends, to]
+  return pts[Math.floor(pts.length / 2)] ?? null
 }
 
 // ─── Edge paths (bezier, in canvas space) ────────────────────
@@ -1469,7 +1561,9 @@ function edgePath(edge: WireEdge): string {
   const from = outputPortPos(edge.fromNodeId)
   const to = inputPortPos(edge.toNodeId, edge.toParam)
   if (!from || !to) return ''
-  return bezierPath(from.x, from.y, to.x, to.y)
+  const bends = edge.bendPoints ?? []
+  if (bends.length === 0) return bezierPath(from.x, from.y, to.x, to.y)
+  return catmullRomSVG([from, ...bends, to])
 }
 
 const pendingEdgePath = computed(() => {
@@ -1487,6 +1581,108 @@ function removeEdge(edgeId: string) {
   pushUndo()
   edges.value = edges.value.filter(e => e.id !== edgeId)
   if (routingPicker.value?.edgeId === edgeId) routingPicker.value = null
+}
+
+// ─── Edge bend points ─────────────────────────────────────────
+
+function catmullRomSVG(pts: { x: number; y: number }[]): string {
+  if (pts.length < 2) return ''
+  if (pts.length === 2) return bezierPath(pts[0]!.x, pts[0]!.y, pts[1]!.x, pts[1]!.y)
+  const p = [pts[0], ...pts, pts[pts.length - 1]]
+  let d = `M ${pts[0]!.x} ${pts[0]!.y}`
+  for (let i = 1; i < pts.length; i++) {
+    const p0 = p[i - 1]!, p1 = p[i]!, p2 = p[i + 1]!, p3 = p[i + 2]!
+    const cp1x = p1.x + (p2.x - p0.x) / 6, cp1y = p1.y + (p2.y - p0.y) / 6
+    const cp2x = p2.x - (p3.x - p1.x) / 6, cp2y = p2.y - (p3.y - p1.y) / 6
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`
+  }
+  return d
+}
+
+function bendInsertIndex(cx: number, cy: number, pts: { x: number; y: number }[]): number {
+  let minDist = Infinity, best = pts.length - 1
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p = pts[i]!, q = pts[i + 1]!
+    const dx = q.x - p.x, dy = q.y - p.y
+    const len2 = dx * dx + dy * dy
+    const t = len2 > 0 ? Math.max(0, Math.min(1, ((cx - p.x) * dx + (cy - p.y) * dy) / len2)) : 0
+    const ex = p.x + t * dx - cx, ey = p.y + t * dy - cy
+    const dist = ex * ex + ey * ey
+    if (dist < minDist) { minDist = dist; best = i + 1 }
+  }
+  return best
+}
+
+function addBendPointAtPos(clientX: number, clientY: number, edge: WireEdge): number | null {
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (!rect) return null
+  const { x, y } = screenToCanvas(clientX, clientY, rect)
+  const bx = snap(x), by = snap(y)
+  if (!edge.bendPoints) edge.bendPoints = []
+  const from = outputPortPos(edge.fromNodeId), to = inputPortPos(edge.toNodeId, edge.toParam)
+  const pts = from && to ? [from, ...edge.bendPoints, to] : []
+  const insertAt = pts.length >= 2 ? bendInsertIndex(bx, by, pts) - 1 : edge.bendPoints.length
+  pushUndo()
+  edge.bendPoints.splice(Math.max(0, insertAt), 0, { x: bx, y: by })
+  return Math.max(0, insertAt)
+}
+
+function startBendDrag(e: MouseEvent, edgeId: string, bpIdx: number) {
+  const edge = edges.value.find(n => n.id === edgeId)
+  const bp = edge?.bendPoints?.[bpIdx]
+  if (!bp) return
+  bendDragState.value = { edgeId, bpIdx, startMouseX: e.clientX, startMouseY: e.clientY, startBendX: bp.x, startBendY: bp.y }
+}
+
+function removeBendPoint(edgeId: string, bpIdx: number) {
+  const edge = edges.value.find(n => n.id === edgeId)
+  if (!edge?.bendPoints) return
+  pushUndo()
+  edge.bendPoints.splice(bpIdx, 1)
+  if (edge.bendPoints.length === 0) edge.bendPoints = undefined
+}
+
+function onEdgeClick(e: MouseEvent, edge: WireEdge) {
+  if (edgeClickTimer !== null) { clearTimeout(edgeClickTimer); edgeClickTimer = null }
+  const clientX = e.clientX, clientY = e.clientY
+  edgeClickTimer = setTimeout(() => {
+    edgeClickTimer = null
+    const bpIdx = addBendPointAtPos(clientX, clientY, edge)
+    if (bpIdx !== null) {
+      edgeClickBendInfo = { edgeId: edge.id, bpIdx }
+      if (mouseButtonDown) {
+        const freshEdge = edges.value.find(n => n.id === edge.id)
+        const bp = freshEdge?.bendPoints?.[bpIdx]
+        if (bp) bendDragState.value = { edgeId: edge.id, bpIdx, startMouseX: clientX, startMouseY: clientY, startBendX: bp.x, startBendY: bp.y }
+      }
+    }
+  }, 200)
+}
+
+function onEdgeDblClick(e: MouseEvent, edge: WireEdge) {
+  if (edgeClickTimer !== null) { clearTimeout(edgeClickTimer); edgeClickTimer = null }
+  // Remove any bend point just added by the first click of this dblclick
+  if (edgeClickBendInfo?.edgeId === edge.id) {
+    const freshEdge = edges.value.find(n => n.id === edge.id)
+    freshEdge?.bendPoints?.splice(edgeClickBendInfo.bpIdx, 1)
+    edgeClickBendInfo = null
+  }
+  doSplitEdgeInsert(e.clientX, e.clientY, edge)
+}
+
+function onEdgeContextMenu(e: MouseEvent, edgeId: string) {
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (!rect) return
+  edgeContextMenu.value = { edgeId, x: e.clientX - rect.left, y: e.clientY - rect.top }
+}
+
+function doSplitEdgeInsert(clientX: number, clientY: number, edge: WireEdge) {
+  const rect = canvasWrap.value?.getBoundingClientRect()
+  if (!rect) return
+  pendingSplitEdge = { edgeId: edge.id, fromNodeId: edge.fromNodeId, toNodeId: edge.toNodeId, toParam: edge.toParam }
+  const { x, y } = screenToCanvas(clientX, clientY, rect)
+  canvasSearch.value = { x: clientX - rect.left, y: clientY - rect.top, canvasX: snap(x), canvasY: snap(y), query: '' }
+  canvasSearchIdx.value = 0
 }
 
 function decrementMultiplier(edgeId: string) {
@@ -2325,6 +2521,11 @@ function resultPreview(result: unknown): string {
 }
 
 .canvas-wrap.panning { cursor: grabbing !important; }
+.canvas-wrap.edge-active { cursor: crosshair !important; }
+.canvas-wrap.edge-active .edge-hit,
+.canvas-wrap.edge-active .edge-badge-g,
+.canvas-wrap.edge-active .edge-mult-g { pointer-events: none; }
+.canvas-wrap.edge-active .wire-node { cursor: crosshair !important; }
 
 .edge-svg {
   position: absolute;
@@ -2334,12 +2535,33 @@ function resultPreview(result: unknown): string {
 }
 
 .edge-path {
-  stroke: #1f3a5f;
+  stroke: #2d5a8e;
   stroke-width: 2;
+  pointer-events: none;
+  transition: stroke 0.15s;
+  vector-effect: non-scaling-stroke;
+}
+.edge-path.edge-hover { stroke: #4a8abf; }
+.edge-path.edge-pending { stroke: #3a6a9f; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
+.edge-hit {
+  stroke: transparent;
+  stroke-width: 20;
   pointer-events: stroke;
   cursor: pointer;
-  transition: stroke 0.15s;
+  vector-effect: non-scaling-stroke;
 }
+.bend-handle-g { pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+.bend-handle-g.bend-visible { pointer-events: all; opacity: 1; }
+.bend-handle {
+  fill: #0d1117;
+  stroke: #58a6ff;
+  stroke-width: 1.5;
+  cursor: grab;
+  r: 5;
+  vector-effect: non-scaling-stroke;
+}
+.bend-handle:hover { fill: #1a2840; stroke: #79c0ff; }
+.bend-handle:active { cursor: grabbing; }
 .edge-path.edge-hover { stroke: #58a6ff; }
 .edge-path.edge-pending { stroke: #3a5a7a; stroke-dasharray: 5 4; pointer-events: none; cursor: default; }
 
@@ -2385,7 +2607,16 @@ function resultPreview(result: unknown): string {
   word-break: break-all;
   vertical-align: middle;
   font-weight: 600;
-  cursor: text;
+}
+.node-command {
+  display: block;
+  font-size: 10px;
+  color: #484f58;
+  font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
 }
 .node-title-input {
   display: block;

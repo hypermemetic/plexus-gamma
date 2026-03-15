@@ -66,4 +66,6 @@ export interface WireEdge {
   routeConfig: RouteConfig
   /** When > 1, the edge input is repeated this many times before routing. Visualised as ×N badge. */
   multiplier?: number
+  /** User-added bend points that reshape the curve (canvas space). */
+  bendPoints?: { x: number; y: number }[]
 }
