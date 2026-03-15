@@ -495,6 +495,8 @@ import { useWiringPersist } from './useWiringPersist'
 import type { WireNode, WireEdge, NodeKind, RouteMode, WidgetKind, LayoutDir, NodeUi } from './wiringTypes'
 import { DEFAULT_UI } from './wiringTypes'
 import WiringUIPreview from './WiringUIPreview.vue'
+import { useKeymap } from './useKeymap'
+import type { ActionDef } from './useKeymap'
 
 const { focus } = useContainedFocus()
 
@@ -1011,50 +1013,74 @@ function onCanvasWheel(e: WheelEvent) {
   if (rect) panZoomWheel(e, rect)
 }
 
+// ---------------------------------------------------------------------------
+// Keymap
+// ---------------------------------------------------------------------------
+
+type CanvasAction =
+  | 'run'
+  | 'undo'
+  | 'redo'
+  | 'cancel'
+  | 'preview'
+  | 'deleteNode'
+  | 'search'
+  | 'focusSidebarKey'
+  | 'autoLayoutKey'
+  | 'resetViewKey'
+  | 'exportKey'
+
+const canvasActionDefs: Record<CanvasAction, ActionDef> = {
+  run:            { label: 'Run pipeline',       defaultKeys: ['ctrl+enter', 'meta+enter'] },
+  undo:           { label: 'Undo',               defaultKeys: ['ctrl+z', 'meta+z'] },
+  redo:           { label: 'Redo',               defaultKeys: ['ctrl+y', 'meta+y', 'ctrl+shift+z', 'meta+shift+z'] },
+  cancel:         { label: 'Cancel / close',     defaultKeys: ['escape'] },
+  preview:        { label: 'Toggle preview',     defaultKeys: ['p'],     requiresFocus: true },
+  deleteNode:     { label: 'Delete selected',    defaultKeys: ['delete', 'backspace'], requiresFocus: true },
+  search:         { label: 'Open node search',   defaultKeys: ['/'],     requiresFocus: true },
+  focusSidebarKey:{ label: 'Focus sidebar',      defaultKeys: ['f'],     requiresFocus: true },
+  autoLayoutKey:  { label: 'Auto-layout',        defaultKeys: ['l'],     requiresFocus: true },
+  resetViewKey:   { label: 'Reset view',         defaultKeys: ['0'],     requiresFocus: true },
+  exportKey:      { label: 'Export JSON',        defaultKeys: ['e'],     requiresFocus: true },
+}
+
+const { handleKeyDown: _handleKeyDown } = useKeymap<CanvasAction>(
+  canvasActionDefs,
+  {
+    run:   () => runPipeline(),
+    undo:  () => { canvasSearch.value = null; undo() },
+    redo:  () => { canvasSearch.value = null; redo() },
+    cancel: () => {
+      canvasSearch.value = null
+      pendingEdge.value = null
+      contextMenu.value = null
+      routingPicker.value = null
+    },
+    preview:    () => { previewMode.value = !previewMode.value },
+    deleteNode: () => { if (selectedNodeId.value) deleteNode(selectedNodeId.value) },
+    search: () => {
+      if (!canvasSearch.value) {
+        const rect = canvasWrap.value?.getBoundingClientRect()
+        if (rect) {
+          const cx = rect.width / 2
+          const cy = rect.height / 2
+          const { x, y } = screenToCanvas(cx + rect.left, cy + rect.top, rect)
+          canvasSearch.value = { x: cx, y: cy - 160, canvasX: snap(x), canvasY: snap(y), query: '' }
+          canvasSearchIdx.value = 0
+        }
+      }
+    },
+    focusSidebarKey: () => focusSidebar(),
+    autoLayoutKey:   () => autoLayout(),
+    resetViewKey:    () => resetView(),
+    exportKey:       () => exportJson(),
+  },
+  'wiring-canvas-keys',
+)
+
 function handleKeyDown(e: KeyboardEvent) {
   onKeyDown(e)
-  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-    e.preventDefault()
-    runPipeline()
-  }
-  if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-    e.preventDefault()
-    canvasSearch.value = null
-    undo()
-  }
-  if ((e.key === 'y' && (e.metaKey || e.ctrlKey)) || (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey)) {
-    e.preventDefault()
-    canvasSearch.value = null
-    redo()
-  }
-  if (e.key === 'Escape') {
-    canvasSearch.value = null
-    pendingEdge.value = null
-    contextMenu.value = null
-    routingPicker.value = null
-  }
-  // Keys below only fire when the canvas itself is focused (not inside an input/textarea)
-  if (e.target !== e.currentTarget) return
-
-  if (e.key === 'p') {
-    e.preventDefault()
-    previewMode.value = !previewMode.value
-  }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId.value) {
-    e.preventDefault()
-    deleteNode(selectedNodeId.value)
-  }
-  if (e.key === '/' && !canvasSearch.value) {
-    e.preventDefault()
-    const rect = canvasWrap.value?.getBoundingClientRect()
-    if (rect) {
-      const cx = rect.width / 2
-      const cy = rect.height / 2
-      const { x, y } = screenToCanvas(cx + rect.left, cy + rect.top, rect)
-      canvasSearch.value = { x: cx, y: cy - 160, canvasX: snap(x), canvasY: snap(y), query: '' }
-      canvasSearchIdx.value = 0
-    }
-  }
+  _handleKeyDown(e)
 }
 
 function onNodeCaptureMousedown(nodeId: string) {
