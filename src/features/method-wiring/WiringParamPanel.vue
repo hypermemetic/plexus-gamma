@@ -14,7 +14,7 @@
       <!-- RPC params -->
       <template v-if="node.kind === 'rpc'">
         <div v-if="availableRefs.length" class="pf-hint">
-          ref: {{ availableRefs.map(id => '{' + id + '}').join(' ') }}
+          ref: {{ availableRefs.map(id => '{' + '{' + id + '}' + '}').join(' ') }}
         </div>
         <SchemaField
           v-if="resolvedSchema"

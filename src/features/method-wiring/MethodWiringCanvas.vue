@@ -1792,7 +1792,7 @@ const selectedNodeConnectedParams = computed(() =>
 )
 
 const selectedNodeRefs = computed(() =>
-  nodes.value.filter(n => n.id !== selectedNodeId.value).map(n => n.id)
+  nodes.value.filter(n => n.id !== selectedNodeId.value).map(n => nodeTitle(n))
 )
 
 const selectedNodeSchema = computed(() =>
@@ -1808,6 +1808,8 @@ const selectedNodeInputValues = computed((): Record<string, unknown> => {
     const fromNode = nodes.value.find(n => n.id === edge.fromNodeId)
     if (fromNode && fromNode.result !== undefined) {
       result[edge.toParam] = fromNode.result
+      const title = nodeTitle(fromNode)
+      if (title !== fromNode.id) result[title] = fromNode.result
     }
   }
   return result
@@ -1953,7 +1955,7 @@ function resolveTemplateRefs(value: string, results: Map<string, unknown>): unkn
 }
 
 // ─── Transform node execution ─────────────────────────────────
-function executeTransform(node: WireNode, inputs: Map<string, unknown>): unknown {
+function executeTransform(node: WireNode, inputs: Map<string, unknown>, nodeResults?: Map<string, unknown>): unknown {
   switch (node.kind) {
     case 'vars':    return { ...node.ui.store }
     case 'widget': {
@@ -1966,8 +1968,17 @@ function executeTransform(node: WireNode, inputs: Map<string, unknown>): unknown
       }
     }
     case 'extract':  return getPath(inputs.get('input'), node.transform.path)
-    case 'template': return node.transform.template.replace(/\{\{(\w+)\}\}/g,
-                       (_, k: string) => String(inputs.get(k) ?? ''))
+    case 'template': {
+      const byTitle = new Map<string, unknown>()
+      if (nodeResults) {
+        for (const [id, result] of nodeResults) {
+          const n = nodes.value.find(n => n.id === id)
+          if (n) byTitle.set(nodeTitle(n), result)
+        }
+      }
+      return node.transform.template.replace(/\{\{(\w+)\}\}/g,
+        (_, k: string) => String(inputs.has(k) ? inputs.get(k) : (byTitle.get(k) ?? '')))
+    }
     case 'merge':    return Object.assign({}, ...node.transform.inputNames
                        .map(n => (inputs.get(n) ?? {}) as object))
     case 'script':   return new Function('input',
@@ -2026,7 +2037,7 @@ async function executeNodeOnce(
   nodeResults: Map<string, unknown>,
 ): Promise<unknown[]> {
   if (node.kind !== 'rpc') {
-    return [executeTransform(node, inputs)]
+    return [executeTransform(node, inputs, nodeResults)]
   }
   const client = getClient(node.method!.backend)
   const paramSchema = resolvedParamSchema(node)
