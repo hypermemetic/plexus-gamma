@@ -84,7 +84,7 @@ automatically without the user adding a connection manually.
 ## Zero-config microservice integration
 
 ```
-1. Start a new plexus-rpc service (any language — substrate/Rust, synapse/Haskell, etc.)
+1. Start a new plexus-rpc service (e.g. substrate/Rust or any language implementing the protocol)
 2. It calls registry.register() on the hub
 3. plexus-gamma sees the registry.list() response change
 4. New backend appears in the sidebar, all plugins browsable, all methods invokable

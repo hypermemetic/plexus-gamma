@@ -153,8 +153,6 @@ const path = computed(() => props.path ?? [])
 }
 
 .detail-inner {
-  max-width: 1050px;
-  margin: 0 auto;
   padding: 24px 32px;
 }
 

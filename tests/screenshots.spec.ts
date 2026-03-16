@@ -2,7 +2,7 @@
  * Screenshot capture tests — saves to docs/screenshots/ for README embedding.
  *
  * Each test:
- *   1. Forces midnight theme so screenshots are consistent
+ *   1. Forces daylight theme so screenshots look clean on GitHub README
  *   2. Waits for the exact UI state needed (no arbitrary timeouts)
  *   3. Injects transparent-background CSS so PNGs blend into README
  *   4. Asserts the file was written and is non-empty
@@ -30,11 +30,13 @@ function shotPath(name: string) {
   return path.join(SHOTS_DIR, `${name}.png`)
 }
 
-/** Force midnight theme regardless of stored localStorage. */
-async function setMidnightTheme(page: Page) {
+/** Force daylight theme regardless of stored localStorage. */
+async function setDaylightTheme(page: Page) {
   await page.evaluate(() => {
-    localStorage.setItem('plexus-theme', 'midnight')
-    document.documentElement.dataset.theme = 'midnight'
+    localStorage.setItem('plexus-theme', 'daylight')
+    document.documentElement.dataset.theme = 'daylight'
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.setAttribute('data-theme', 'daylight')
   })
 }
 
@@ -65,7 +67,7 @@ async function waitForTree(page: Page) {
 
 test('01 — explorer: echo plugin selected', async ({ page }) => {
   await page.goto('/')
-  await setMidnightTheme(page)
+  await setDaylightTheme(page)
   await page.reload()
 
   await waitForTree(page)
@@ -80,7 +82,7 @@ test('01 — explorer: echo plugin selected', async ({ page }) => {
 
 test('02 — topology: canvas graph', async ({ page }) => {
   await page.goto('/')
-  await setMidnightTheme(page)
+  await setDaylightTheme(page)
   await page.reload()
 
   await waitForTree(page)
@@ -108,13 +110,18 @@ test('02 — topology: canvas graph', async ({ page }) => {
     return lit(left) > 100 && lit(right) > 50
   }, { timeout: 15_000 })
 
+  // Switch to dots mode so nodes are compact, then fit to show all structure
+  await page.locator('.tool-btn[title="Method dots"]').click()
+  await page.locator('.tool-btn[title="Fit to view"]').click()
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(r)))
+
   const p = await capture(page, '02-topology')
   assertCaptured(p)
 })
 
 test('03 — sheet: bottom panel open', async ({ page }) => {
   await page.goto('/')
-  await setMidnightTheme(page)
+  await setDaylightTheme(page)
   await page.reload()
 
   await waitForTree(page)
@@ -133,13 +140,13 @@ test('03 — sheet: bottom panel open', async ({ page }) => {
   assertCaptured(p)
 })
 
-test('04 — wiring: bash nodes', async ({ page }) => {
-  // Clear any previous wiring state so canvas starts fresh
+test('04 — wiring: bash → mustache template → bash', async ({ page }) => {
+  // Start clean
   await page.goto('/')
   await page.evaluate(() => {
     localStorage.removeItem('plexus-wiring-v1')
-    localStorage.setItem('plexus-theme', 'midnight')
-    document.documentElement.dataset.theme = 'midnight'
+    localStorage.setItem('plexus-theme', 'daylight')
+    document.documentElement.setAttribute('data-theme', 'daylight')
   })
   await page.reload()
 
@@ -148,23 +155,86 @@ test('04 — wiring: bash nodes', async ({ page }) => {
   await expect(page.locator('.wiring-root')).toBeVisible({ timeout: 8_000 })
   await expect(page.locator('.sidebar-search')).toBeVisible({ timeout: 8_000 })
 
-  // Search for bash methods and add two nodes to the canvas
+  // Add first bash.execute node (n1)
   await page.locator('.sidebar-search').fill('bash')
   await expect(page.locator('.sb-row-method').first()).toBeVisible({ timeout: 10_000 })
-
-  // Add first bash node — wait for it to appear on canvas
   await page.locator('.sb-row-method').nth(0).click()
   await expect(page.locator('.wire-node').first()).toBeVisible({ timeout: 8_000 })
 
-  // Add second bash node — wait for it to appear
-  await page.locator('.sb-row-method').nth(0).click()
+  // Clear search so transform buttons are visible, then add Template (mustache) node (n2)
+  await page.locator('.sidebar-search').fill('')
+  await expect(page.locator('.transform-btn', { hasText: 'Template' })).toBeVisible({ timeout: 5_000 })
+  await page.locator('.transform-btn', { hasText: 'Template' }).click()
   await expect(page.locator('.wire-node').nth(1)).toBeVisible({ timeout: 8_000 })
 
-  // Deselect any nodes so no detail panel is open
-  await page.keyboard.press('Escape')
-  await expect(page.locator('.wire-node-detail')).toBeHidden({ timeout: 3_000 })
+  // Search bash again and add second bash.execute node (n3)
+  await page.locator('.sidebar-search').fill('bash')
+  await expect(page.locator('.sb-row-method').first()).toBeVisible({ timeout: 10_000 })
+  await page.locator('.sb-row-method').nth(0).click()
+  await expect(page.locator('.wire-node').nth(2)).toBeVisible({ timeout: 8_000 })
 
-  // Hide the minimap overlay before capture
+  // Wait for the wiring state to be persisted to localStorage
+  await page.waitForFunction(() => {
+    try {
+      const raw = localStorage.getItem('plexus-wiring-v1')
+      return raw !== null && JSON.parse(raw).nodes?.length >= 3
+    } catch { return false }
+  }, { timeout: 5_000 })
+
+  // Inject edges, params, and mustache template directly into the wiring state.
+  // Pipeline: bash "printf 'hello plexus'" → template → bash (runs the rendered command)
+  await page.evaluate(() => {
+    const raw = localStorage.getItem('plexus-wiring-v1')!
+    const state = JSON.parse(raw)
+    const [n1, n2, n3] = state.nodes
+
+    // Detect the bash param name from the live schema (usually 'command')
+    const bashProps = n1?.method?.method?.params?.properties ?? {}
+    const bashParam = Object.keys(bashProps)[0] ?? 'command'
+
+    // n1: run a simple command to produce input text
+    n1.params = { [bashParam]: "printf 'hello plexus'" }
+
+    // n2: mustache template — wraps the input in an uppercase bash command
+    n2.transform.template = 'echo "{{slot0}}" | tr a-z A-Z'
+    n2.transform.inputNames = ['slot0']
+
+    // n3: command is wired from n2's rendered output
+    n3.params = {}
+
+    // Wire n1 → n2(slot0) → n3(bash command param)
+    state.edges = [
+      {
+        id: 'e1', fromNodeId: n1.id, toNodeId: n2.id, toParam: 'slot0',
+        routing: 'auto',
+        routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [] },
+      },
+      {
+        id: 'e2', fromNodeId: n2.id, toNodeId: n3.id, toParam: bashParam,
+        routing: 'auto',
+        routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [] },
+      },
+    ]
+
+    localStorage.setItem('plexus-wiring-v1', JSON.stringify(state))
+    // Return to explorer so waitForTree works after reload
+    localStorage.setItem('plexus-active-view', 'multi-explorer')
+  })
+
+  // Reload so the wiring canvas picks up the full pre-wired state
+  await page.reload()
+  await waitForTree(page)  // confirms backend is connected
+  await page.locator('.view-tab').nth(TAB.wiring).click()
+  await expect(page.locator('.wire-node').nth(2)).toBeVisible({ timeout: 8_000 })
+
+  // Deselect any nodes, then run the pipeline
+  await page.keyboard.press('Escape')
+  await page.locator('.tb-run').click()
+
+  // Wait for all 3 nodes to complete (last node result appears last)
+  await expect(page.locator('.node-result').nth(2)).toBeVisible({ timeout: 20_000 })
+
+  // Hide minimap overlay before capture
   await page.addStyleTag({ content: '.wiring-minimap { display: none !important; }' })
 
   const p = await capture(page, '04-wiring')
