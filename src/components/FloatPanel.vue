@@ -28,6 +28,9 @@
 
     <!-- Body (slot content) -->
     <slot />
+
+    <!-- Bottom-mode end cap — shows there's no more content below -->
+    <div v-if="effectiveMode === 'bottom'" class="panel-end-cap"></div>
   </div>
 </template>
 
@@ -199,6 +202,14 @@ onUnmounted(() => {
   overflow: hidden;
 }
 .panel-bottom.panel-open { transform: translateY(0); }
+
+/* ── Bottom end-cap ──────────────────────────────────────────── */
+.panel-end-cap {
+  flex-shrink: 0;
+  height: 6px;
+  background: var(--bg-1);
+  border-top: 1px solid var(--border);
+}
 
 /* ── Header ──────────────────────────────────────────────────── */
 .panel-handle-row {
