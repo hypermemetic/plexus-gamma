@@ -114,8 +114,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
 }
 
 .km-panel {
-  background: #13161c;
-  border: 1px solid #30363d;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
   border-radius: 10px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.7);
   width: 100%;
@@ -130,8 +130,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
   display: flex;
   align-items: center;
   padding: 8px 14px 8px 16px;
-  border-bottom: 1px solid #21262d;
-  background: #1a1d23;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-3);
   border-radius: 10px 10px 0 0;
   flex-shrink: 0;
 }
@@ -139,7 +139,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
 .km-title {
   flex: 1;
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -147,13 +147,13 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
 .km-close {
   background: none;
   border: none;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 13px;
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
 }
-.km-close:hover { color: #f85149; }
+.km-close:hover { color: var(--red); }
 
 .km-body {
   overflow-y: auto;
@@ -166,15 +166,15 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
   align-items: center;
   padding: 6px 16px;
   gap: 12px;
-  border-bottom: 1px solid #161b22;
+  border-bottom: 1px solid var(--bg-3);
 }
 .km-row:last-child { border-bottom: none; }
-.km-row-capturing { background: #0d1117; }
+.km-row-capturing { background: var(--bg-2); }
 
 .km-label {
   flex: 1;
   font-size: 12px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
 }
 
@@ -186,10 +186,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
 }
 
 .km-key {
-  background: #21262d;
-  border: 1px solid #30363d;
+  background: var(--border);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #8b949e;
+  color: var(--text-muted);
   font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
   font-size: 10px;
   padding: 2px 6px;
@@ -197,8 +197,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
 }
 .km-key-capturing {
   background: #0d1a2d;
-  border-color: #58a6ff;
-  color: #58a6ff;
+  border-color: var(--accent);
+  color: var(--accent);
   animation: km-blink 1s step-end infinite;
 }
 @keyframes km-blink {
@@ -216,18 +216,18 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
   border-radius: 3px;
   line-height: 1;
 }
-.km-rebind-btn { color: #484f58; }
-.km-rebind-btn:hover { color: #58a6ff; background: #1a2840; }
-.km-cancel-btn { color: #f85149; font-size: 10px; }
+.km-rebind-btn { color: var(--text-dim); }
+.km-rebind-btn:hover { color: var(--accent); background: var(--accent-bg); }
+.km-cancel-btn { color: var(--red); font-size: 10px; }
 .km-cancel-btn:hover { background: #2a0e0e; }
-.km-reset-btn { color: #484f58; }
-.km-reset-btn:hover { color: #e3b341; background: #2a2000; }
+.km-reset-btn { color: var(--text-dim); }
+.km-reset-btn:hover { color: var(--yellow); background: #2a2000; }
 
 .km-footer {
   padding: 8px 16px;
   font-size: 10px;
-  color: #484f58;
-  border-top: 1px solid #21262d;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
   flex-shrink: 0;
   letter-spacing: 0.03em;
 }

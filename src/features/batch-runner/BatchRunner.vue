@@ -347,9 +347,9 @@ async function runBatch(): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #161b22;
-  border: 1px solid #30363d;
-  color: #8b949e;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  color: var(--text-muted);
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 4px;
@@ -359,14 +359,14 @@ async function runBatch(): Promise<void> {
   margin-top: 6px;
 }
 .batch-toggle:hover {
-  border-color: #58a6ff;
-  color: #58a6ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ── Panel ────────────────────────────────────────────────────────────── */
 .batch-panel {
-  background: #0d1117;
-  border: 1px solid #21262d;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -381,8 +381,8 @@ async function runBatch(): Promise<void> {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #080a0e;
-  border-bottom: 1px solid #21262d;
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
@@ -391,7 +391,7 @@ async function runBatch(): Promise<void> {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #484f58;
+  color: var(--text-dim);
   flex-shrink: 0;
 }
 
@@ -404,28 +404,28 @@ async function runBatch(): Promise<void> {
 
 .concurrency-label {
   font-size: 11px;
-  color: #484f58;
+  color: var(--text-dim);
 }
 
 .concurrency-input {
   width: 48px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 11px;
   padding: 2px 5px;
   text-align: center;
   outline: none;
 }
-.concurrency-input:focus { border-color: #58a6ff; }
+.concurrency-input:focus { border-color: var(--accent); }
 .concurrency-input:disabled { opacity: 0.5; }
 
 .run-btn {
-  background: #1a2840;
-  border: 1px solid #1f3a5f;
-  color: #58a6ff;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 600;
   padding: 3px 10px;
@@ -434,13 +434,13 @@ async function runBatch(): Promise<void> {
   font-family: inherit;
   white-space: nowrap;
 }
-.run-btn:hover:not(:disabled) { background: #1f3a5f; }
+.run-btn:hover:not(:disabled) { background: var(--accent-bg-2); }
 .run-btn:disabled { opacity: 0.4; cursor: default; }
 
 .stop-btn {
-  background: #2d1117;
+  background: var(--red-bg);
   border: 1px solid #3d2121;
-  color: #f85149;
+  color: var(--red);
   font-size: 11px;
   font-weight: 600;
   padding: 3px 10px;
@@ -452,8 +452,8 @@ async function runBatch(): Promise<void> {
 
 .close-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 4px;
@@ -461,12 +461,12 @@ async function runBatch(): Promise<void> {
   font-family: inherit;
   margin-left: auto;
 }
-.close-btn:hover { border-color: #8b949e; color: #8b949e; }
+.close-btn:hover { border-color: var(--text-muted); color: var(--text-muted); }
 
 /* ── Input section ────────────────────────────────────────────────────── */
 .batch-input-section {
   padding: 10px 12px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -476,15 +476,15 @@ async function runBatch(): Promise<void> {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #484f58;
+  color: var(--text-dim);
 }
 
 .batch-textarea {
   width: 100%;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 12px;
   padding: 6px 8px;
@@ -493,23 +493,23 @@ async function runBatch(): Promise<void> {
   outline: none;
   line-height: 1.5;
 }
-.batch-textarea:focus { border-color: #58a6ff; }
+.batch-textarea:focus { border-color: var(--accent); }
 .batch-textarea:disabled { opacity: 0.6; }
 
 .batch-parse-error {
   font-size: 11px;
-  color: #f85149;
+  color: var(--red);
 }
 
 .batch-item-count {
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.count-check { color: #3fb950; }
+.count-check { color: var(--green); }
 
 /* ── Results table ────────────────────────────────────────────────────── */
 .batch-results {
@@ -523,23 +523,23 @@ async function runBatch(): Promise<void> {
 }
 
 .batch-table thead tr {
-  background: #080a0e;
+  background: var(--bg-0);
 }
 
 .batch-table th {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 5px 10px;
   text-align: left;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .batch-row {
-  border-bottom: 1px solid #161b22;
+  border-bottom: 1px solid var(--bg-3);
   transition: background 0.08s;
 }
 .batch-row:last-child { border-bottom: none; }
@@ -550,14 +550,14 @@ async function runBatch(): Promise<void> {
   vertical-align: top;
 }
 
-.col-index  { width: 32px; color: #484f58; font-size: 10px; text-align: right; }
+.col-index  { width: 32px; color: var(--text-dim); font-size: 10px; text-align: right; }
 .col-params { width: 35%; }
 .col-status { width: 100px; white-space: nowrap; }
 .col-result { min-width: 0; }
 
 /* params inline code */
 .params-inline {
-  color: #8b949e;
+  color: var(--text-muted);
   font-family: inherit;
   font-size: 11px;
   white-space: nowrap;
@@ -572,24 +572,24 @@ async function runBatch(): Promise<void> {
   font-size: 12px;
   margin-right: 4px;
 }
-.status-icon.pending { color: #484f58; }
-.status-icon.running { color: #58a6ff; display: inline-block; animation: spin 1s linear infinite; }
-.status-icon.done    { color: #3fb950; }
-.status-icon.error   { color: #f85149; }
+.status-icon.pending { color: var(--text-dim); }
+.status-icon.running { color: var(--accent); display: inline-block; animation: spin 1s linear infinite; }
+.status-icon.done    { color: var(--green); }
+.status-icon.error   { color: var(--red); }
 
 .status-text {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.status-text.pending { color: #484f58; }
-.status-text.running { color: #58a6ff; }
-.status-text.done    { color: #3fb950; }
-.status-text.error   { color: #f85149; }
+.status-text.pending { color: var(--text-dim); }
+.status-text.running { color: var(--accent); }
+.status-text.done    { color: var(--green); }
+.status-text.error   { color: var(--red); }
 
 .duration-text {
   font-size: 9px;
-  color: #30363d;
+  color: var(--border-2);
   margin-left: 4px;
 }
 
@@ -607,7 +607,7 @@ async function runBatch(): Promise<void> {
 }
 
 .result-inline {
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 11px;
   white-space: nowrap;
@@ -619,8 +619,8 @@ async function runBatch(): Promise<void> {
 
 .expand-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-size: 10px;
   padding: 0 4px;
   border-radius: 3px;
@@ -629,36 +629,36 @@ async function runBatch(): Promise<void> {
   flex-shrink: 0;
   line-height: 1.5;
 }
-.expand-btn:hover { border-color: #8b949e; color: #8b949e; }
-.expand-btn.active { border-color: #58a6ff; color: #58a6ff; background: #1a2840; }
+.expand-btn:hover { border-color: var(--text-muted); color: var(--text-muted); }
+.expand-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
 .result-expanded {
   margin: 4px 0 0;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 10px;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
-  background: #080a0e;
-  border: 1px solid #21262d;
+  background: var(--bg-0);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 6px 8px;
 }
 
 .error-message {
-  color: #f85149;
+  color: var(--red);
   font-size: 11px;
 }
 
 .running-indicator {
-  color: #58a6ff;
+  color: var(--accent);
   font-size: 11px;
   animation: pulse 1.2s ease-in-out infinite;
 }
 
 .pending-dash {
-  color: #30363d;
+  color: var(--border-2);
   font-size: 11px;
 }
 
@@ -673,29 +673,29 @@ async function runBatch(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  background: #080a0e;
-  border-top: 1px solid #21262d;
+  background: var(--bg-0);
+  border-top: 1px solid var(--border);
   gap: 8px;
 }
 
 .footer-summary {
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
 }
 
 .footer-errors {
-  color: #f85149;
+  color: var(--red);
 }
 
 .copy-results-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-size: 10px;
   padding: 2px 8px;
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
 }
-.copy-results-btn:hover { border-color: #8b949e; color: #8b949e; }
+.copy-results-btn:hover { border-color: var(--text-muted); color: var(--text-muted); }
 </style>

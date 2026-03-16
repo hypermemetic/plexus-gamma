@@ -395,9 +395,9 @@ const passCount = computed(() =>
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #161b22;
-  border: 1px solid #30363d;
-  color: #8b949e;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  color: var(--text-muted);
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 4px;
@@ -407,14 +407,14 @@ const passCount = computed(() =>
   margin-top: 6px;
 }
 .suite-toggle:hover {
-  border-color: #3fb950;
-  color: #3fb950;
+  border-color: var(--green);
+  color: var(--green);
 }
 
 /* ── Panel ───────────────────────────────────────────────────────────── */
 .suite-panel {
-  background: #0d1117;
-  border: 1px solid #21262d;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -429,8 +429,8 @@ const passCount = computed(() =>
   justify-content: space-between;
   gap: 8px;
   padding: 8px 12px;
-  background: #080a0e;
-  border-bottom: 1px solid #21262d;
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
@@ -439,14 +439,14 @@ const passCount = computed(() =>
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #484f58;
+  color: var(--text-dim);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .suite-method {
-  color: #79c0ff;
+  color: var(--accent-2);
   font-size: 11px;
   font-weight: 400;
   text-transform: none;
@@ -461,9 +461,9 @@ const passCount = computed(() =>
 
 /* ── Run all button ──────────────────────────────────────────────────── */
 .run-all-btn {
-  background: #1a2840;
-  border: 1px solid #1f3a5f;
-  color: #58a6ff;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 600;
   padding: 3px 10px;
@@ -472,49 +472,49 @@ const passCount = computed(() =>
   font-family: inherit;
   white-space: nowrap;
 }
-.run-all-btn:hover:not(:disabled) { background: #1f3a5f; }
+.run-all-btn:hover:not(:disabled) { background: var(--accent-bg-2); }
 .run-all-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Close button ────────────────────────────────────────────────────── */
 .close-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
 }
-.close-btn:hover { border-color: #8b949e; color: #8b949e; }
+.close-btn:hover { border-color: var(--text-muted); color: var(--text-muted); }
 
 /* ── New test form ───────────────────────────────────────────────────── */
 .new-test-form {
   padding: 10px 12px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: #080a0e;
+  background: var(--bg-0);
 }
 
 .new-test-name {
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 12px;
   padding: 5px 8px;
   outline: none;
 }
-.new-test-name:focus { border-color: #58a6ff; }
+.new-test-name:focus { border-color: var(--accent); }
 
 .new-test-params {
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 11px;
   padding: 5px 8px;
@@ -524,11 +524,11 @@ const passCount = computed(() =>
   line-height: 1.5;
   width: 100%;
 }
-.new-test-params:focus { border-color: #58a6ff; }
+.new-test-params:focus { border-color: var(--accent); }
 
 .form-error {
   font-size: 11px;
-  color: #f85149;
+  color: var(--red);
 }
 
 .new-test-actions {
@@ -538,9 +538,9 @@ const passCount = computed(() =>
 
 /* ── Shared small buttons ────────────────────────────────────────────── */
 .add-btn {
-  background: #1a2840;
-  border: 1px solid #1f3a5f;
-  color: #58a6ff;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 600;
   padding: 4px 12px;
@@ -548,20 +548,20 @@ const passCount = computed(() =>
   cursor: pointer;
   font-family: inherit;
 }
-.add-btn:hover { background: #1f3a5f; }
+.add-btn:hover { background: var(--accent-bg-2); }
 .add-btn.small { padding: 2px 8px; font-size: 10px; }
 
 .cancel-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-size: 11px;
   padding: 4px 12px;
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
 }
-.cancel-btn:hover { border-color: #8b949e; color: #8b949e; }
+.cancel-btn:hover { border-color: var(--text-muted); color: var(--text-muted); }
 .cancel-btn.small { padding: 2px 8px; font-size: 10px; }
 
 /* ── Test list ───────────────────────────────────────────────────────── */
@@ -573,13 +573,13 @@ const passCount = computed(() =>
 .empty-tests {
   padding: 12px 14px;
   font-size: 11px;
-  color: #30363d;
+  color: var(--border-2);
   font-style: italic;
 }
 
 /* ── Test item ───────────────────────────────────────────────────────── */
 .test-item {
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
 }
 .test-item:last-child { border-bottom: none; }
 
@@ -588,7 +588,7 @@ const passCount = computed(() =>
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  background: #0d1117;
+  background: var(--bg-2);
   transition: background 0.08s;
 }
 .test-row:hover { background: #111823; }
@@ -596,7 +596,7 @@ const passCount = computed(() =>
 .test-expand-btn {
   background: none;
   border: none;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 11px;
   cursor: pointer;
   padding: 0 2px;
@@ -604,10 +604,10 @@ const passCount = computed(() =>
   flex-shrink: 0;
   line-height: 1;
 }
-.test-expand-btn:hover { color: #8b949e; }
+.test-expand-btn:hover { color: var(--text-muted); }
 
 .test-name {
-  color: #79c0ff;
+  color: var(--accent-2);
   font-size: 12px;
   font-weight: 500;
   flex: 1;
@@ -624,15 +624,15 @@ const passCount = computed(() =>
   text-align: center;
   flex-shrink: 0;
 }
-.run-badge.pass    { color: #3fb950; }
-.run-badge.fail    { color: #f85149; }
-.run-badge.pending { color: #484f58; }
+.run-badge.pass    { color: var(--green); }
+.run-badge.fail    { color: var(--red); }
+.run-badge.pending { color: var(--text-dim); }
 
 /* ── Per-test run button ─────────────────────────────────────────────── */
 .run-btn {
-  background: #1a2840;
-  border: 1px solid #1f3a5f;
-  color: #58a6ff;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
+  color: var(--accent);
   font-size: 10px;
   font-weight: 600;
   padding: 2px 8px;
@@ -642,14 +642,14 @@ const passCount = computed(() =>
   flex-shrink: 0;
   white-space: nowrap;
 }
-.run-btn:hover:not(:disabled) { background: #1f3a5f; }
+.run-btn:hover:not(:disabled) { background: var(--accent-bg-2); }
 .run-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Delete test button ──────────────────────────────────────────────── */
 .delete-btn {
   background: none;
   border: 1px solid transparent;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
   padding: 2px 5px;
   border-radius: 4px;
@@ -657,13 +657,13 @@ const passCount = computed(() =>
   font-family: inherit;
   flex-shrink: 0;
 }
-.delete-btn:hover { border-color: #f85149; color: #f85149; }
+.delete-btn:hover { border-color: var(--red); color: var(--red); }
 
 /* ── Test body ───────────────────────────────────────────────────────── */
 .test-body {
   padding: 8px 14px 10px 28px;
-  background: #080a0e;
-  border-top: 1px solid #161b22;
+  background: var(--bg-0);
+  border-top: 1px solid var(--bg-3);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -679,12 +679,12 @@ const passCount = computed(() =>
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #484f58;
+  color: var(--text-dim);
   flex-shrink: 0;
 }
 
 .test-params-code {
-  color: #8b949e;
+  color: var(--text-muted);
   font-family: inherit;
   font-size: 11px;
   word-break: break-all;
@@ -699,7 +699,7 @@ const passCount = computed(() =>
 
 .no-assertions {
   font-size: 11px;
-  color: #30363d;
+  color: var(--border-2);
   font-style: italic;
   padding: 2px 0;
 }
@@ -710,18 +710,18 @@ const passCount = computed(() =>
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  background: #111114;
+  background: var(--bg-1);
   border-radius: 4px;
   font-size: 11px;
   border: 1px solid transparent;
   transition: background 0.08s;
 }
-.assertion-row:hover { background: #161b22; }
+.assertion-row:hover { background: var(--bg-3); }
 .assertion-row.a-pass { border-color: #1f4030; }
 .assertion-row.a-fail { border-color: #3d2121; }
 
 .a-field {
-  color: #79c0ff;
+  color: var(--accent-2);
   font-family: inherit;
   flex-shrink: 0;
   min-width: 0;
@@ -732,7 +732,7 @@ const passCount = computed(() =>
 }
 
 .a-op {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -740,7 +740,7 @@ const passCount = computed(() =>
 }
 
 .a-value {
-  color: #e3b341;
+  color: var(--yellow);
   font-family: inherit;
   flex: 1;
   min-width: 0;
@@ -755,13 +755,13 @@ const passCount = computed(() =>
   font-weight: 600;
   flex-shrink: 0;
 }
-.a-status.pass    { color: #3fb950; }
-.a-status.fail    { color: #f85149; }
-.a-status.pending { color: #484f58; }
+.a-status.pass    { color: var(--green); }
+.a-status.fail    { color: var(--red); }
+.a-status.pending { color: var(--text-dim); }
 
 .a-actual {
   font-size: 10px;
-  color: #f85149;
+  color: var(--red);
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -772,7 +772,7 @@ const passCount = computed(() =>
 .delete-assertion-btn {
   background: none;
   border: 1px solid transparent;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
   padding: 1px 4px;
   border-radius: 3px;
@@ -781,7 +781,7 @@ const passCount = computed(() =>
   flex-shrink: 0;
   margin-left: auto;
 }
-.delete-assertion-btn:hover { border-color: #f85149; color: #f85149; }
+.delete-assertion-btn:hover { border-color: var(--red); color: var(--red); }
 
 /* ── Add assertion form ──────────────────────────────────────────────── */
 .add-assertion-form {
@@ -793,10 +793,10 @@ const passCount = computed(() =>
 }
 
 .a-input {
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 11px;
   padding: 3px 7px;
@@ -804,26 +804,26 @@ const passCount = computed(() =>
   min-width: 80px;
   max-width: 140px;
 }
-.a-input:focus { border-color: #58a6ff; }
+.a-input:focus { border-color: var(--accent); }
 .a-value-input { max-width: 160px; }
 
 .a-select {
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 11px;
   padding: 3px 5px;
   outline: none;
   cursor: pointer;
 }
-.a-select:focus { border-color: #58a6ff; }
+.a-select:focus { border-color: var(--accent); }
 
 .add-assertion-btn {
   background: none;
-  border: 1px dashed #30363d;
-  color: #484f58;
+  border: 1px dashed var(--border-2);
+  color: var(--text-dim);
   font-size: 10px;
   padding: 3px 10px;
   border-radius: 4px;
@@ -832,7 +832,7 @@ const passCount = computed(() =>
   margin-top: 2px;
   transition: border-color 0.1s, color 0.1s;
 }
-.add-assertion-btn:hover { border-color: #3fb950; color: #3fb950; }
+.add-assertion-btn:hover { border-color: var(--green); color: var(--green); }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */
 .suite-footer {
@@ -841,14 +841,14 @@ const passCount = computed(() =>
   justify-content: space-between;
   gap: 8px;
   padding: 7px 12px;
-  background: #080a0e;
-  border-top: 1px solid #21262d;
+  background: var(--bg-0);
+  border-top: 1px solid var(--border);
 }
 
 .new-test-btn {
   background: none;
-  border: 1px dashed #30363d;
-  color: #484f58;
+  border: 1px dashed var(--border-2);
+  color: var(--text-dim);
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 4px;
@@ -856,10 +856,10 @@ const passCount = computed(() =>
   font-family: inherit;
   transition: border-color 0.1s, color 0.1s;
 }
-.new-test-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.new-test-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 .suite-summary {
   font-size: 11px;
-  color: #484f58;
+  color: var(--text-dim);
 }
 </style>

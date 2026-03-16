@@ -190,7 +190,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
   ctx.lineWidth   = 1
   ctx.stroke()
 
-  ctx.fillStyle    = isHub ? '#7aabff' : '#c9d1d9'
+  ctx.fillStyle    = isHub ? '#7aabff' : 'var(--text)'
   ctx.font         = `600 12px ${FONT_MONO}`
   ctx.textBaseline = 'middle'
   ctx.textAlign    = 'left'
@@ -259,7 +259,7 @@ function render(): void {
   const dpr = Number(canvas.dataset.dpr || '1')
 
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = '#0d0d0f'
+  ctx.fillStyle = 'var(--bg-0)'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
   if (!rootNode) return
@@ -424,7 +424,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #0d0d0f;
+  background: var(--bg-0);
   min-width: 0;
 }
 
@@ -433,8 +433,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border-bottom: 1px solid #21262d;
-  background: #0a0a0c;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-0);
   flex-shrink: 0;
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
 }
@@ -444,13 +444,13 @@ onUnmounted(() => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #58a6ff;
+  color: var(--accent);
 }
 
 .tool-btn {
   background: none;
   border: none;
-  color: #8b949e;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 14px;
   padding: 2px 5px;
@@ -458,13 +458,13 @@ onUnmounted(() => {
   line-height: 1;
   font-family: inherit;
 }
-.tool-btn:hover:not(:disabled) { color: #c9d1d9; background: #21262d; }
+.tool-btn:hover:not(:disabled) { color: var(--text); background: var(--border); }
 .tool-btn:disabled { opacity: 0.4; cursor: default; }
-.tool-btn.active { color: #58a6ff; background: #1a2840; }
+.tool-btn.active { color: var(--accent); background: var(--accent-bg); }
 
 .method-mode-btns {
   display: flex;
-  border: 1px solid #30363d;
+  border: 1px solid var(--border-2);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -472,7 +472,7 @@ onUnmounted(() => {
 
 .canvas-hint {
   font-size: 10px;
-  color: #484f58;
+  color: var(--text-dim);
   margin-left: auto;
 }
 
@@ -492,12 +492,12 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   font-size: 13px;
-  color: #8b949e;
+  color: var(--text-muted);
   pointer-events: none;
   font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
 }
 .overlay.error {
-  color: #f85149;
+  color: var(--red);
   background: rgba(45, 17, 23, 0.7);
 }
 

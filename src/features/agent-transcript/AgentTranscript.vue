@@ -426,9 +426,9 @@ async function send(): Promise<void> {
 /* ── Toggle button ───────────────────────────────────────────────────────── */
 .chat-toggle {
   align-self: flex-start;
-  background: #161b22;
-  border: 1px solid #30363d;
-  color: #79c0ff;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  color: var(--accent-2);
   font-family: inherit;
   font-size: 11px;
   font-weight: 600;
@@ -439,22 +439,22 @@ async function send(): Promise<void> {
   transition: background 0.1s, border-color 0.1s;
 }
 .chat-toggle:hover {
-  background: #1a2840;
-  border-color: #58a6ff;
+  background: var(--accent-bg);
+  border-color: var(--accent);
 }
 .chat-toggle.open {
-  background: #1a2840;
-  border-color: #58a6ff;
-  color: #58a6ff;
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ── Panel ───────────────────────────────────────────────────────────────── */
 .chat-panel {
   display: flex;
   flex-direction: column;
-  border: 1px solid #21262d;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #0d1117;
+  background: var(--bg-2);
   overflow: hidden;
   margin-top: 6px;
 }
@@ -465,23 +465,23 @@ async function send(): Promise<void> {
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  border-bottom: 1px solid #21262d;
-  background: #111114;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
 }
 
 .session-label {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #484f58;
+  color: var(--text-dim);
   flex-shrink: 0;
 }
 
 .session-input {
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 11px;
   padding: 3px 7px;
@@ -490,13 +490,13 @@ async function send(): Promise<void> {
   min-width: 0;
 }
 .session-input:focus {
-  border-color: #58a6ff;
+  border-color: var(--accent);
 }
 
 .new-session-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
   padding: 2px 8px;
@@ -505,8 +505,8 @@ async function send(): Promise<void> {
   flex-shrink: 0;
 }
 .new-session-btn:hover {
-  border-color: #8b949e;
-  color: #8b949e;
+  border-color: var(--text-muted);
+  color: var(--text-muted);
 }
 
 /* ── Thread ──────────────────────────────────────────────────────────────── */
@@ -519,11 +519,11 @@ async function send(): Promise<void> {
   gap: 8px;
   min-height: 200px;
   max-height: 480px;
-  background: #0d1117;
+  background: var(--bg-2);
 }
 
 .thread-empty {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 12px;
   font-style: italic;
   text-align: center;
@@ -555,16 +555,16 @@ async function send(): Promise<void> {
 }
 
 .user-bubble {
-  background: #1a2840;
-  border: 1px solid #1f3a5f;
-  color: #79c0ff;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
+  color: var(--accent-2);
   border-bottom-right-radius: 2px;
 }
 
 .assistant-bubble {
-  background: #161b22;
-  border: 1px solid #21262d;
-  color: #c9d1d9;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text);
   border-bottom-left-radius: 2px;
 }
 
@@ -578,8 +578,8 @@ async function send(): Promise<void> {
 .raw-toggle {
   align-self: flex-end;
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-family: inherit;
   font-size: 9px;
   padding: 0px 5px;
@@ -588,19 +588,19 @@ async function send(): Promise<void> {
   letter-spacing: 0.04em;
 }
 .raw-toggle:hover {
-  border-color: #8b949e;
-  color: #8b949e;
+  border-color: var(--text-muted);
+  color: var(--text-muted);
 }
 
 .raw-json {
   margin: 2px 0 0;
-  color: #8b949e;
+  color: var(--text-muted);
   font-size: 10px;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
-  background: #0d1117;
-  border: 1px solid #21262d;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 6px 8px;
   max-height: 200px;
@@ -627,7 +627,7 @@ async function send(): Promise<void> {
   cursor: pointer;
   font-family: inherit;
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
   width: 100%;
   text-align: left;
 }
@@ -637,17 +637,17 @@ async function send(): Promise<void> {
 
 .tool-icon {
   font-size: 11px;
-  color: #58a6ff;
+  color: var(--accent);
 }
 
 .tool-name {
-  color: #79c0ff;
+  color: var(--accent-2);
   font-size: 11px;
   flex: 1;
 }
 
 .tool-chevron {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
 }
 
@@ -658,7 +658,7 @@ async function send(): Promise<void> {
 
 .tool-json {
   margin: 0;
-  color: #c9d1d9;
+  color: var(--text);
   font-size: 10px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -668,17 +668,17 @@ async function send(): Promise<void> {
 /* ── Progress line ───────────────────────────────────────────────────────── */
 .progress-line {
   font-size: 11px;
-  color: #484f58;
+  color: var(--text-dim);
   padding: 1px 4px;
   font-style: italic;
 }
 
 /* ── Error bubble ────────────────────────────────────────────────────────── */
 .error-bubble {
-  background: #2d1117;
+  background: var(--red-bg);
   border: 1px solid #3d2121;
   border-radius: 6px;
-  color: #f85149;
+  color: var(--red);
   font-size: 12px;
   padding: 7px 11px;
   line-height: 1.5;
@@ -688,7 +688,7 @@ async function send(): Promise<void> {
 /* ── Done marker ─────────────────────────────────────────────────────────── */
 .done-marker {
   font-size: 11px;
-  color: #3fb950;
+  color: var(--green);
   text-align: center;
   opacity: 0.7;
   padding: 2px 0;
@@ -701,15 +701,15 @@ async function send(): Promise<void> {
 }
 
 .thinking-bubble {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
   border-radius: 8px;
   border-bottom-left-radius: 2px;
   padding: 7px 12px;
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #8b949e;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -720,18 +720,18 @@ async function send(): Promise<void> {
 
 .thinking-spinner {
   animation: spin-pulse 1.2s ease-in-out infinite;
-  color: #58a6ff;
+  color: var(--accent);
 }
 
 .thinking-label {
-  color: #8b949e;
+  color: var(--text-muted);
   font-style: italic;
 }
 
 /* ── Usage footer ────────────────────────────────────────────────────────── */
 .usage-footer {
   font-size: 10px;
-  color: #484f58;
+  color: var(--text-dim);
   text-align: right;
   padding: 0 4px;
 }
@@ -742,16 +742,16 @@ async function send(): Promise<void> {
   flex-direction: column;
   gap: 6px;
   padding: 8px 12px 10px;
-  border-top: 1px solid #21262d;
-  background: #111114;
+  border-top: 1px solid var(--border);
+  background: var(--bg-1);
 }
 
 .prompt-input {
   width: 100%;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 12px;
   padding: 6px 9px;
@@ -761,7 +761,7 @@ async function send(): Promise<void> {
   line-height: 1.5;
 }
 .prompt-input:focus {
-  border-color: #58a6ff;
+  border-color: var(--accent);
 }
 .prompt-input:disabled {
   opacity: 0.5;
@@ -776,9 +776,9 @@ async function send(): Promise<void> {
 }
 
 .send-btn {
-  background: #1a2840;
-  border: 1px solid #1f3a5f;
-  color: #58a6ff;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
+  color: var(--accent);
   font-family: inherit;
   font-size: 11px;
   font-weight: 600;
@@ -791,22 +791,22 @@ async function send(): Promise<void> {
   transition: background 0.1s;
 }
 .send-btn:hover:not(:disabled) {
-  background: #1f3a5f;
+  background: var(--accent-bg-2);
 }
 .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .send-btn.running {
-  color: #8b949e;
-  border-color: #30363d;
-  background: #161b22;
+  color: var(--text-muted);
+  border-color: var(--border-2);
+  background: var(--bg-3);
 }
 
 .cancel-btn {
-  background: #2d1117;
+  background: var(--red-bg);
   border: 1px solid #3d2121;
-  color: #f85149;
+  color: var(--red);
   font-family: inherit;
   font-size: 11px;
   padding: 5px 9px;
@@ -819,8 +819,8 @@ async function send(): Promise<void> {
 
 .clear-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
   padding: 4px 8px;
@@ -828,7 +828,7 @@ async function send(): Promise<void> {
   cursor: pointer;
 }
 .clear-btn:hover {
-  border-color: #484f58;
-  color: #8b949e;
+  border-color: var(--text-dim);
+  color: var(--text-muted);
 }
 </style>

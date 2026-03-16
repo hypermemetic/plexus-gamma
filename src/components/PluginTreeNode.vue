@@ -66,7 +66,7 @@ function toggle() {
   background: none;
   border: none;
   cursor: pointer;
-  color: #8b949e;
+  color: var(--text-muted);
   font-family: inherit;
   font-size: 12px;
   text-align: left;
@@ -76,17 +76,17 @@ function toggle() {
   overflow: hidden;
 }
 
-.node-row:hover { background: #161b22; color: #c9d1d9; }
-.node-row.selected { background: #1a2840; color: #58a6ff; }
-.node-row.hub { color: #c9d1d9; }
+.node-row:hover { background: var(--bg-3); color: var(--text); }
+.node-row.selected { background: var(--accent-bg); color: var(--accent); }
+.node-row.hub { color: var(--text); }
 .node-row.leaf { padding-left: 22px; }
-.node-row.selected.leaf { color: #58a6ff; }
+.node-row.selected.leaf { color: var(--accent); }
 
-.node-toggle { font-size: 10px; width: 10px; flex-shrink: 0; color: #484f58; text-align: center; }
-.node-row.selected .node-toggle { color: #58a6ff; }
+.node-toggle { font-size: 10px; width: 10px; flex-shrink: 0; color: var(--text-dim); text-align: center; }
+.node-row.selected .node-toggle { color: var(--accent); }
 
 .node-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.node-count { font-size: 10px; color: #484f58; flex-shrink: 0; }
+.node-count { font-size: 10px; color: var(--text-dim); flex-shrink: 0; }
 
 .node-children { padding-left: 12px; }
 </style>

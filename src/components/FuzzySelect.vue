@@ -115,24 +115,24 @@ defineExpose({ focus: () => containedFocus(inputEl.value) })
 .fuzzy-input {
   width: 100%;
   box-sizing: border-box;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 12px;
   padding: 4px 8px;
   outline: none;
 }
-.fuzzy-input:focus { border-color: #58a6ff; }
+.fuzzy-input:focus { border-color: var(--accent); }
 
 .fuzzy-dropdown {
   position: absolute;
   top: calc(100% + 2px);
   left: 0;
   right: 0;
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
   max-height: 160px;
   overflow-y: auto;
@@ -143,12 +143,12 @@ defineExpose({ focus: () => containedFocus(inputEl.value) })
 .fuzzy-option {
   padding: 5px 10px;
   font-size: 12px;
-  color: #c9d1d9;
+  color: var(--text);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .fuzzy-option:hover,
-.fuzzy-option.active { background: #1f2937; color: #58a6ff; }
+.fuzzy-option.active { background: #1f2937; color: var(--accent); }
 </style>

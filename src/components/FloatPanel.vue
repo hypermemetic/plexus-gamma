@@ -143,12 +143,12 @@ onUnmounted(() => {
 <style scoped>
 /* ── Base ────────────────────────────────────────────────────── */
 .float-panel {
-  background: #13161c;
-  border: 1px solid #30363d;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
   z-index: 300;
   font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
   font-size: 12px;
-  color: #c9d1d9;
+  color: var(--text);
   display: flex;
   flex-direction: column;
   pointer-events: auto;
@@ -174,7 +174,7 @@ onUnmounted(() => {
   bottom: 0;
   width: 300px;
   border: none;
-  border-left: 1px solid #30363d;
+  border-left: 1px solid var(--border-2);
   border-radius: 0;
   box-shadow: -4px 0 24px rgba(0,0,0,0.5);
   transform: translateX(100%);
@@ -191,7 +191,7 @@ onUnmounted(() => {
   right: 0;
   max-height: 55vh;
   border: none;
-  border-top: 1px solid #30363d;
+  border-top: 1px solid var(--border-2);
   border-radius: 0;
   box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
   transform: translateY(100%);
@@ -206,20 +206,20 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 7px 10px 6px;
-  background: #1a1d23;
-  border-bottom: 1px solid #21262d;
+  background: var(--bg-3);
+  border-bottom: 1px solid var(--border);
   user-select: none;
   flex-shrink: 0;
 }
 .panel-float .panel-handle-row { cursor: grab; }
 .panel-float .panel-handle-row:active { cursor: grabbing; }
 
-.panel-drag-handle { font-size: 12px; color: #484f58; flex-shrink: 0; }
+.panel-drag-handle { font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
 
 .panel-title {
   flex: 1;
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -231,25 +231,25 @@ onUnmounted(() => {
 .mode-btn {
   background: none;
   border: 1px solid transparent;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 11px;
   padding: 1px 4px;
   border-radius: 3px;
   cursor: pointer;
   line-height: 1.2;
 }
-.mode-btn:hover { color: #8b949e; border-color: #30363d; }
-.mode-btn.active { color: #58a6ff; border-color: #58a6ff33; background: #1a2840; }
+.mode-btn:hover { color: var(--text-muted); border-color: var(--border-2); }
+.mode-btn.active { color: var(--accent); border-color: var(--accent)33; background: var(--accent-bg); }
 
 .panel-close-btn {
   background: none;
   border: none;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 13px;
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
   flex-shrink: 0;
 }
-.panel-close-btn:hover { color: #f85149; }
+.panel-close-btn:hover { color: var(--red); }
 </style>

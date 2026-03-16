@@ -483,7 +483,7 @@ function addStoreKey() {
 
 .pf-section-title {
   font-size: 10px;
-  color: #484f58;
+  color: var(--text-dim);
   letter-spacing: 0.05em;
   margin-bottom: 2px;
   display: flex;
@@ -492,32 +492,32 @@ function addStoreKey() {
 }
 
 .pf-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
-.pf-label { font-size: 10px; color: #8b949e; min-width: 50px; flex-shrink: 0; }
+.pf-label { font-size: 10px; color: var(--text-muted); min-width: 50px; flex-shrink: 0; }
 .pf-cb-label { display: flex; align-items: center; gap: 5px; cursor: pointer; min-width: unset; }
 
 .pf-input {
   flex: 1;
   background: #0a0c10;
-  border: 1px solid #30363d;
+  border: 1px solid var(--border-2);
   border-radius: 3px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 10px;
   padding: 3px 6px;
   outline: none;
   min-width: 0;
 }
-.pf-input:focus { border-color: #58a6ff; }
-.pf-input:disabled { color: #484f58; }
+.pf-input:focus { border-color: var(--accent); }
+.pf-input:disabled { color: var(--text-dim); }
 .pf-full { width: 100%; box-sizing: border-box; }
 .pf-port-name { min-width: 80px; max-width: 140px; flex: 1; }
 
 .pf-textarea {
   width: 100%;
   background: #0a0c10;
-  border: 1px solid #30363d;
+  border: 1px solid var(--border-2);
   border-radius: 3px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 10px;
   padding: 4px 6px;
@@ -526,23 +526,23 @@ function addStoreKey() {
   outline: none;
   line-height: 1.4;
 }
-.pf-textarea:focus { border-color: #58a6ff; }
+.pf-textarea:focus { border-color: var(--accent); }
 
 .pf-del-btn {
   background: none;
   border: none;
-  color: #484f58;
+  color: var(--text-dim);
   cursor: pointer;
   font-size: 10px;
   padding: 1px 3px;
   flex-shrink: 0;
 }
-.pf-del-btn:hover { color: #f85149; }
+.pf-del-btn:hover { color: var(--red); }
 
 .pf-add-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
   padding: 2px 8px;
@@ -551,30 +551,30 @@ function addStoreKey() {
   margin-top: 2px;
   align-self: flex-start;
 }
-.pf-add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.pf-add-btn:hover { border-color: var(--accent); color: var(--accent); }
 .pf-schema-field { margin-top: 2px; }
-.pf-key-label { font-family: 'Berkeley Mono', ui-monospace, monospace; color: #a371f7; min-width: 50px; }
+.pf-key-label { font-family: 'Berkeley Mono', ui-monospace, monospace; color: var(--purple); min-width: 50px; }
 .pf-add-key-row { margin-top: 4px; }
 .pf-add-key-btn { padding: 2px 6px; margin-top: 0; }
 
 .pf-widget-kinds { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
 .pf-kind-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
   padding: 2px 7px;
   border-radius: 3px;
   cursor: pointer;
 }
-.pf-kind-btn:hover { border-color: #8b949e; color: #8b949e; }
-.pf-kind-btn.active { border-color: #58a6ff; color: #58a6ff; background: #0d1a2a; }
+.pf-kind-btn:hover { border-color: var(--text-muted); color: var(--text-muted); }
+.pf-kind-btn.active { border-color: var(--accent); color: var(--accent); background: #0d1a2a; }
 
 /* ── Returns schema ──────────────────────────────────────────── */
 .pf-returns {
   font-size: 9px;
-  color: #a371f7;
+  color: var(--purple);
   background: #100d1a;
   border: 1px solid #2d1f4e;
   border-radius: 3px;
@@ -594,24 +594,24 @@ function addStoreKey() {
   justify-content: space-between;
   margin-top: 8px;
 }
-.pf-output-ok-title { color: #3fb950; }
-.pf-output-error-title { color: #f85149; }
+.pf-output-ok-title { color: var(--green); }
+.pf-output-error-title { color: var(--red); }
 .pf-copy-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #8b949e;
+  border: 1px solid var(--border-2);
+  color: var(--text-muted);
   font-size: 11px;
   padding: 1px 5px;
   border-radius: 3px;
   cursor: pointer;
   line-height: 1;
 }
-.pf-copy-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.pf-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
 .pf-output {
   font-size: 11px;
-  color: #3fb950;
-  background: #0d1117;
-  border: 1px solid #21262d;
+  color: var(--green);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 6px 8px;
   margin: 4px 0 0;
@@ -622,14 +622,14 @@ function addStoreKey() {
   user-select: text;
   cursor: text;
 }
-.pf-output.pf-output-error { color: #f85149; }
+.pf-output.pf-output-error { color: var(--red); }
 
 /* ── Mustache preview ──────────────────────────────────────────── */
 .pf-template-preview {
   background: #0a0c10;
-  border: 1px solid #21262d;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 11px;
   padding: 6px 8px;
@@ -652,12 +652,12 @@ function addStoreKey() {
 .pf-var-name {
   font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
   font-size: 10px;
-  color: #e3b341;
+  color: var(--yellow);
   flex-shrink: 0;
 }
 .pf-var-type {
   font-size: 9px;
-  color: #58a6ff;
+  color: var(--accent);
   background: #0d1a2d;
   border: 1px solid #1a3a5a;
   border-radius: 3px;
@@ -666,7 +666,7 @@ function addStoreKey() {
 }
 .pf-var-preview {
   font-size: 10px;
-  color: #8b949e;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -675,7 +675,7 @@ function addStoreKey() {
 }
 .pf-var-unset {
   font-size: 9px;
-  color: #484f58;
+  color: var(--text-dim);
   font-style: italic;
 }
 </style>

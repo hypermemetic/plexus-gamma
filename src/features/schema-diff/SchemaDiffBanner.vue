@@ -89,11 +89,11 @@ watch(() => props.diff, () => { expanded.value = false })
   bottom: 0;
   left: 0;
   right: 0;
-  background: #0d1117;
-  border-top: 1px solid #21262d;
+  background: var(--bg-2);
+  border-top: 1px solid var(--border);
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
   font-size: 12px;
-  color: #c9d1d9;
+  color: var(--text);
   z-index: 100;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
 }
@@ -109,28 +109,28 @@ watch(() => props.diff, () => { expanded.value = false })
 
 .banner-icon {
   font-size: 13px;
-  color: #58a6ff;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
 .banner-title {
   font-weight: 600;
-  color: #e6edf3;
+  color: var(--text-2);
   white-space: nowrap;
 }
 
 .banner-backend {
-  color: #58a6ff;
+  color: var(--accent);
   font-size: 11px;
-  background: #1a2840;
-  border: 1px solid #1f3a5f;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
   border-radius: 3px;
   padding: 1px 6px;
   white-space: nowrap;
 }
 
 .banner-count {
-  color: #8b949e;
+  color: var(--text-muted);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -146,8 +146,8 @@ watch(() => props.diff, () => { expanded.value = false })
 /* ── Buttons ────────────────────────────────────────────────── */
 .banner-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #8b949e;
+  border: 1px solid var(--border-2);
+  color: var(--text-muted);
   font-family: inherit;
   font-size: 11px;
   padding: 2px 8px;
@@ -158,45 +158,45 @@ watch(() => props.diff, () => { expanded.value = false })
 }
 
 .banner-btn:hover {
-  color: #c9d1d9;
-  border-color: #484f58;
+  color: var(--text);
+  border-color: var(--text-dim);
 }
 
 .banner-btn--ghost {
-  color: #58a6ff;
-  border-color: #1f3a5f;
+  color: var(--accent);
+  border-color: var(--accent-bg-2);
   background: #0d1a2d;
 }
 .banner-btn--ghost:hover {
-  background: #1a2840;
-  border-color: #58a6ff;
+  background: var(--accent-bg);
+  border-color: var(--accent);
 }
 
 .banner-btn--primary {
-  color: #58a6ff;
-  border-color: #1f3a5f;
-  background: #1a2840;
+  color: var(--accent);
+  border-color: var(--accent-bg-2);
+  background: var(--accent-bg);
 }
 .banner-btn--primary:hover {
-  background: #1f3a5f;
-  border-color: #58a6ff;
+  background: var(--accent-bg-2);
+  border-color: var(--accent);
 }
 
 .banner-btn--close {
   padding: 2px 5px;
   font-size: 11px;
-  color: #484f58;
+  color: var(--text-dim);
   border-color: transparent;
 }
 .banner-btn--close:hover {
-  color: #f85149;
+  color: var(--red);
   border-color: #3d2121;
-  background: #2d1117;
+  background: var(--red-bg);
 }
 
 /* ── Diff body ──────────────────────────────────────────────── */
 .diff-body {
-  border-top: 1px solid #21262d;
+  border-top: 1px solid var(--border);
   padding: 6px 14px 8px;
   display: flex;
   flex-direction: column;
@@ -210,7 +210,7 @@ watch(() => props.diff, () => { expanded.value = false })
 }
 
 .diff-empty-msg {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 11px;
   font-style: italic;
 }
@@ -232,33 +232,33 @@ watch(() => props.diff, () => { expanded.value = false })
 }
 
 .diff-path {
-  color: #e6edf3;
+  color: var(--text-2);
   font-size: 11px;
 }
 
 .diff-label {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
 }
 
 .diff-hashes {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
   font-family: inherit;
 }
 
 /* Per-kind colours */
-.diff-row--added .diff-sigil   { color: #3fb950; }
-.diff-row--added .diff-path    { color: #3fb950; }
+.diff-row--added .diff-sigil   { color: var(--green); }
+.diff-row--added .diff-path    { color: var(--green); }
 .diff-row--added .diff-label   { color: #2ea043; }
 
-.diff-row--changed .diff-sigil { color: #e3b341; }
-.diff-row--changed .diff-path  { color: #e3b341; }
+.diff-row--changed .diff-sigil { color: var(--yellow); }
+.diff-row--changed .diff-path  { color: var(--yellow); }
 .diff-row--changed .diff-label { color: #bb8009; }
-.diff-row--changed .diff-hashes { color: #8b949e; }
+.diff-row--changed .diff-hashes { color: var(--text-muted); }
 
-.diff-row--removed .diff-sigil { color: #f85149; }
-.diff-row--removed .diff-path  { color: #f85149; }
+.diff-row--removed .diff-sigil { color: var(--red); }
+.diff-row--removed .diff-path  { color: var(--red); }
 .diff-row--removed .diff-label { color: #b91c1c; }
 
 /* ── Transitions ────────────────────────────────────────────── */

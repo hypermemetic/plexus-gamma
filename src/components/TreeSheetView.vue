@@ -308,20 +308,20 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #0d0d0f;
+  background: var(--bg-0);
 }
 
 /* ── Backend selector ─────────────────────────────────────────── */
 .sheet-conn-sel {
   padding: 6px 12px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .conn-select {
-  background: #161b22;
-  border: 1px solid #30363d;
-  color: #c9d1d9;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  color: var(--text);
   font-family: inherit;
   font-size: 11px;
   padding: 3px 8px;
@@ -329,8 +329,8 @@ onUnmounted(() => {
   outline: none;
   cursor: pointer;
 }
-.conn-select:focus { border-color: #58a6ff; }
-.conn-select option { background: #161b22; }
+.conn-select:focus { border-color: var(--accent); }
+.conn-select option { background: var(--bg-3); }
 
 /* ── Tree area ────────────────────────────────────────────────── */
 .tree-area {
@@ -341,7 +341,7 @@ onUnmounted(() => {
 
 .loading-state {
   padding: 24px 20px;
-  color: #8b949e;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -350,8 +350,8 @@ onUnmounted(() => {
 
 .error-banner {
   padding: 8px 16px;
-  background: #2d1117;
-  color: #f85149;
+  background: var(--red-bg);
+  color: var(--red);
   font-size: 11px;
 }
 
@@ -367,8 +367,8 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   height: 55%;
-  background: #111114;
-  border-top: 1px solid #21262d;
+  background: var(--bg-1);
+  border-top: 1px solid var(--border);
   border-radius: 12px 12px 0 0;
   display: flex;
   flex-direction: column;
@@ -393,7 +393,7 @@ onUnmounted(() => {
 .sheet-handle-bar {
   width: 36px;
   height: 3px;
-  background: #30363d;
+  background: var(--border-2);
   border-radius: 2px;
 }
 
@@ -402,13 +402,13 @@ onUnmounted(() => {
   right: 12px;
   background: none;
   border: none;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 14px;
   cursor: pointer;
   padding: 2px 4px;
   line-height: 1;
 }
-.sheet-close:hover { color: #8b949e; }
+.sheet-close:hover { color: var(--text-muted); }
 
 /* ── Sheet content ────────────────────────────────────────────── */
 .sheet-content {
@@ -420,7 +420,7 @@ onUnmounted(() => {
 
 .sheet-loading {
   padding: 20px 0;
-  color: #8b949e;
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -439,16 +439,16 @@ onUnmounted(() => {
   border: none;
   font-family: inherit;
   font-size: 11px;
-  color: #484f58;
+  color: var(--text-dim);
   cursor: pointer;
   padding: 1px 3px;
   border-radius: 3px;
 }
-.crumb:hover { color: #8b949e; background: #161b22; }
-.crumb-root { color: #484f58; }
-.crumb-active { color: #58a6ff; cursor: default; }
+.crumb:hover { color: var(--text-muted); background: var(--bg-3); }
+.crumb-root { color: var(--text-dim); }
+.crumb-active { color: var(--accent); cursor: default; }
 .crumb-active:hover { background: none; }
-.crumb-sep { color: #30363d; padding: 0 1px; }
+.crumb-sep { color: var(--border-2); padding: 0 1px; }
 
 /* Content fade transition */
 .content-fade-enter-active { transition: opacity 0.15s ease, transform 0.15s ease; }
@@ -463,14 +463,14 @@ onUnmounted(() => {
 .sheet-plugin-name {
   font-size: 15px;
   font-weight: 600;
-  color: #e6edf3;
+  color: var(--text-2);
   margin: 0 0 4px;
   font-family: inherit;
 }
 
 .sheet-plugin-desc {
   font-size: 12px;
-  color: #8b949e;
+  color: var(--text-muted);
   margin: 0;
   line-height: 1.5;
 }
@@ -483,7 +483,7 @@ onUnmounted(() => {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #484f58;
+  color: var(--text-dim);
   margin-bottom: 8px;
 }
 
@@ -495,16 +495,16 @@ onUnmounted(() => {
 }
 
 .ns-chip {
-  background: #1a2840;
-  border: 1px solid #1f3a5f;
-  color: #58a6ff;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
+  color: var(--accent);
   font-family: inherit;
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 12px;
   cursor: pointer;
 }
-.ns-chip:hover { background: #1f3a5f; }
+.ns-chip:hover { background: var(--accent-bg-2); }
 
 /* Method rows */
 .method-row-btn {
@@ -512,8 +512,8 @@ onUnmounted(() => {
   flex-direction: column;
   width: 100%;
   padding: 8px 10px;
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
   text-align: left;
@@ -522,8 +522,8 @@ onUnmounted(() => {
   gap: 2px;
   transition: border-color 0.1s;
 }
-.method-row-btn:hover { border-color: #388bfd; background: #1a2840; }
-.method-row-btn:focus { outline: none; border-color: #58a6ff; }
+.method-row-btn:hover { border-color: #388bfd; background: var(--accent-bg); }
+.method-row-btn:focus { outline: none; border-color: var(--accent); }
 
 .method-row-left {
   display: flex;
@@ -533,12 +533,12 @@ onUnmounted(() => {
 
 .method-row-name {
   font-size: 12px;
-  color: #79c0ff;
+  color: var(--accent-2);
 }
 
 .method-row-desc {
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
@@ -550,13 +550,13 @@ onUnmounted(() => {
   letter-spacing: 0.04em;
 }
 .method-row-tag.stream { background: #0d3350; color: #388bfd; }
-.method-row-tag.bidir  { background: #2d1f4e; color: #a371f7; }
+.method-row-tag.bidir  { background: #2d1f4e; color: var(--purple); }
 
 /* ── Method full-page overlay ────────────────────────────────── */
 .method-page {
   position: absolute;
   inset: 0;
-  background: #111114;
+  background: var(--bg-1);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -573,25 +573,25 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .back-btn {
   background: none;
   border: none;
-  color: #58a6ff;
+  color: var(--accent);
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
   padding: 2px 0;
   flex-shrink: 0;
 }
-.back-btn:hover { color: #79c0ff; }
+.back-btn:hover { color: var(--accent-2); }
 
 .method-page-title {
   font-size: 12px;
-  color: #e6edf3;
+  color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

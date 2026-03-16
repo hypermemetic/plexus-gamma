@@ -58,7 +58,7 @@ const activeIdx = ref(0)
 const inputRef  = ref<HTMLInputElement | null>(null)
 const listRef   = ref<HTMLElement | null>(null)
 
-const BACKEND_COLORS = ['#58a6ff', '#3fb950', '#e3b341', '#bc8cff', '#ff7b72', '#79c0ff']
+const BACKEND_COLORS = ['var(--accent)', 'var(--green)', 'var(--yellow)', '#bc8cff', '#ff7b72', 'var(--accent-2)']
 const colorMap = new Map<string, string>()
 let colorIdx = 0
 
@@ -135,8 +135,8 @@ function select(entry: MethodEntry) {
 
 .palette-panel {
   width: 560px;
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8);
@@ -144,17 +144,17 @@ function select(entry: MethodEntry) {
 
 .palette-input {
   width: 100%;
-  background: #0d1117;
+  background: var(--bg-2);
   border: none;
-  border-bottom: 1px solid #30363d;
-  color: #e6edf3;
+  border-bottom: 1px solid var(--border-2);
+  color: var(--text-2);
   font-family: inherit;
   font-size: 14px;
   padding: 12px 16px;
   outline: none;
   box-sizing: border-box;
 }
-.palette-input::placeholder { color: #484f58; }
+.palette-input::placeholder { color: var(--text-dim); }
 
 .palette-results {
   max-height: calc(8 * 40px);
@@ -169,11 +169,11 @@ function select(entry: MethodEntry) {
   cursor: pointer;
   font-size: 12px;
   min-height: 40px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
 }
 .palette-row:last-child { border-bottom: none; }
 .palette-row:hover,
-.palette-row.active { background: #1a2840; }
+.palette-row.active { background: var(--accent-bg); }
 
 .palette-backend {
   font-size: 10px;
@@ -183,12 +183,12 @@ function select(entry: MethodEntry) {
 }
 
 .palette-path {
-  color: #e6edf3;
+  color: var(--text-2);
   flex-shrink: 0;
 }
 
 .palette-desc {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -198,7 +198,7 @@ function select(entry: MethodEntry) {
 
 .palette-empty {
   padding: 16px;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 12px;
   text-align: center;
 }

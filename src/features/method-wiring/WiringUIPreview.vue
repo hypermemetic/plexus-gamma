@@ -86,8 +86,8 @@ const rootNodes = computed(() =>
 }
 
 .uip-panel {
-  background: #13161c;
-  border: 1px solid #30363d;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
   border-radius: 10px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
   min-width: 320px;
@@ -103,8 +103,8 @@ const rootNodes = computed(() =>
   display: flex;
   align-items: center;
   padding: 8px 14px 8px 16px;
-  border-bottom: 1px solid #21262d;
-  background: #1a1d23;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-3);
   border-radius: 10px 10px 0 0;
   flex-shrink: 0;
 }
@@ -112,15 +112,15 @@ const rootNodes = computed(() =>
 .uip-title {
   flex: 1;
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .uip-run {
   background: none;
-  border: 1px solid #1f3a5f;
-  color: #58a6ff;
+  border: 1px solid var(--accent-bg-2);
+  color: var(--accent);
   font-family: inherit;
   font-size: 11px;
   padding: 2px 10px;
@@ -128,26 +128,26 @@ const rootNodes = computed(() =>
   cursor: pointer;
   margin-right: 6px;
 }
-.uip-run:hover { background: #1a2840; }
+.uip-run:hover { background: var(--accent-bg); }
 
 .uip-close {
   background: none;
   border: none;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 13px;
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
 }
-.uip-close:hover { color: #f85149; }
+.uip-close:hover { color: var(--red); }
 
 .uip-status {
   font-size: 11px;
   padding: 4px 16px;
   flex-shrink: 0;
 }
-.uip-running { color: #58a6ff; background: #0d1117; border-bottom: 1px solid #21262d; }
-.uip-error   { color: #f85149; background: #160a0a; border-bottom: 1px solid #3a1010; }
+.uip-running { color: var(--accent); background: var(--bg-2); border-bottom: 1px solid var(--border); }
+.uip-error   { color: var(--red); background: #160a0a; border-bottom: 1px solid #3a1010; }
 
 .uip-body {
   padding: 20px;
@@ -161,9 +161,9 @@ const rootNodes = computed(() =>
 
 .uip-empty {
   font-size: 12px;
-  color: #484f58;
+  color: var(--text-dim);
   text-align: center;
   padding: 32px 0;
 }
-.uip-empty strong { color: #8b949e; }
+.uip-empty strong { color: var(--text-muted); }
 </style>

@@ -7,14 +7,78 @@ html, body, #app {
   width: 100%;
 }
 
+/* ── Theme variables ─────────────────────────────────────────── */
+/* midnight (dark) */
+:root, [data-theme="midnight"] {
+  color-scheme: dark;
+  --bg-0:           #0d0d0f;
+  --bg-1:           #111114;
+  --bg-2:           #0d1117;
+  --bg-3:           #161b22;
+  --border:         #21262d;
+  --border-2:       #30363d;
+  --text:           #c9d1d9;
+  --text-2:         #e6edf3;
+  --text-muted:     #8b949e;
+  --text-dim:       #484f58;
+  --accent:         #58a6ff;
+  --accent-2:       #79c0ff;
+  --accent-bg:      #1a2840;
+  --accent-bg-2:    #1f3a5f;
+  --red:            #f85149;
+  --red-bg:         #2d1117;
+  --green:          #3fb950;
+  --yellow:         #e3b341;
+  --purple:         #a371f7;
+  --grid-dot:       #1e2530;
+  --node-extract-bg:  #3a2a0a;
+  --node-template-bg: #1a2a10;
+  --node-merge-bg:    #0a2a2a;
+  --node-script-bg:   #2a0a3a;
+  --node-vars-bg:     #1a0a2a;
+  --node-widget-bg:   #0a1a2a;
+  --node-layout-bg:   #0a1520;
+}
+
+/* daylight (light) */
+[data-theme="daylight"] {
+  color-scheme: light;
+  --bg-0:           #f6f8fa;
+  --bg-1:           #f0f3f6;
+  --bg-2:           #ffffff;
+  --bg-3:           #f6f8fa;
+  --border:         #d0d7de;
+  --border-2:       #afb8c1;
+  --text:           #1f2328;
+  --text-2:         #0d1117;
+  --text-muted:     #636c76;
+  --text-dim:       #6e7781;
+  --accent:         #0969da;
+  --accent-2:       #368cf9;
+  --accent-bg:      #ddf4ff;
+  --accent-bg-2:    #b6d4f8;
+  --red:            #d1242f;
+  --red-bg:         #ffebe9;
+  --green:          #1a7f37;
+  --yellow:         #9a6700;
+  --purple:         #8250df;
+  --grid-dot:       #dde2e8;
+  --node-extract-bg:  #fff8e6;
+  --node-template-bg: #e6f4ea;
+  --node-merge-bg:    #e0f5f5;
+  --node-script-bg:   #f0e8ff;
+  --node-vars-bg:     #ede6ff;
+  --node-widget-bg:   #e6f0ff;
+  --node-layout-bg:   #e8f0f8;
+}
+
 body {
-  background: #0d0d0f;
-  color: #c9d1d9;
+  background: var(--bg-0);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #484f58; }
-
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }

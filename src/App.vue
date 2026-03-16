@@ -38,6 +38,11 @@
         </form>
         <button v-else class="add-btn" @click="showAdd = true" title="Add backend">+</button>
 
+        <!-- Theme toggle -->
+        <button class="theme-toggle" @click="toggleTheme" :title="theme === 'daylight' ? 'Switch to midnight' : 'Switch to daylight'">
+          {{ theme === 'daylight' ? '☾' : '☀' }}
+        </button>
+
         <!-- Build hash -->
         <span class="build-hash" title="Build commit">{{ __GIT_HASH__ }}</span>
 
@@ -127,6 +132,16 @@ const connections = ref<BackendConnection[]>([
 ])
 
 const activeConn = ref<BackendConnection | null>(connections.value[0] ?? null)
+
+// ─── Theme ────────────────────────────────────────────────────
+type Theme = 'daylight' | 'midnight'
+const savedTheme = localStorage.getItem('plexus-theme') as Theme | null
+const theme = ref<Theme>(savedTheme ?? 'daylight')
+function applyTheme(t: Theme) { document.documentElement.dataset.theme = t }
+applyTheme(theme.value)
+watch(theme, t => { applyTheme(t); localStorage.setItem('plexus-theme', t) })
+function toggleTheme() { theme.value = theme.value === 'daylight' ? 'midnight' : 'daylight' }
+
 type ViewName = 'multi-explorer' | 'canvas' | 'sheet' | 'wiring' | 'orchestration'
 const VALID_VIEWS: ViewName[] = ['multi-explorer', 'canvas', 'sheet', 'wiring', 'orchestration']
 const savedView = localStorage.getItem('plexus-active-view') as ViewName | null
@@ -254,8 +269,8 @@ onMounted(runScan)
   overflow: hidden;
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
   font-size: 13px;
-  background: #0d0d0f;
-  color: #c9d1d9;
+  background: var(--bg-0);
+  color: var(--text);
 }
 
 /* ── Connection bar ─────────────────────────────────────────── */
@@ -264,20 +279,26 @@ onMounted(runScan)
   align-items: center;
   justify-content: space-between;
   height: 36px;
-  background: #0a0a0c;
-  border-bottom: 1px solid #21262d;
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border);
   padding: 0 10px;
   flex-shrink: 0;
   gap: 8px;
 }
 
 .conn-bar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
-.build-hash { font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace; font-size: 10px; color: #484f58; letter-spacing: 0.04em; }
+.build-hash { font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace; font-size: 10px; color: var(--text-dim); letter-spacing: 0.04em; }
+.theme-toggle {
+  background: none; border: 1px solid var(--border-2); color: var(--text-muted);
+  font-size: 12px; width: 22px; height: 22px; border-radius: 4px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
 .palette-trigger {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
   padding: 2px 7px;
@@ -285,29 +306,29 @@ onMounted(runScan)
   cursor: pointer;
   letter-spacing: 0.03em;
 }
-.palette-trigger:hover { border-color: #58a6ff; color: #58a6ff; }
+.palette-trigger:hover { border-color: var(--accent); color: var(--accent); }
 
 .add-btn {
-  background: none; border: 1px solid #30363d; color: #8b949e;
+  background: none; border: 1px solid var(--border-2); color: var(--text-muted);
   font-size: 14px; width: 22px; height: 22px; border-radius: 4px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   line-height: 1;
 }
-.add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.add-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 .add-form { display: flex; align-items: center; gap: 4px; }
 .add-input {
-  background: #161b22; border: 1px solid #30363d; color: #c9d1d9;
+  background: var(--bg-3); border: 1px solid var(--border-2); color: var(--text);
   font-family: inherit; font-size: 11px; padding: 3px 8px; border-radius: 4px;
   outline: none; height: 22px;
 }
-.add-input:focus { border-color: #58a6ff; }
+.add-input:focus { border-color: var(--accent); }
 .add-submit {
-  background: #1a2840; border: 1px solid #1f3a5f; color: #58a6ff;
+  background: var(--accent-bg); border: 1px solid var(--accent-bg-2); color: var(--accent);
   font-family: inherit; font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer;
 }
 .add-cancel {
-  background: none; border: none; color: #484f58; cursor: pointer; font-size: 12px; padding: 2px 4px;
+  background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 2px 4px;
 }
 
 /* ── View tabs ──────────────────────────────────────────────── */
@@ -315,8 +336,8 @@ onMounted(runScan)
 
 .view-tab {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
   padding: 2px 7px;
@@ -324,14 +345,14 @@ onMounted(runScan)
   cursor: pointer;
   letter-spacing: 0.03em;
 }
-.view-tab:hover { border-color: #8b949e; color: #8b949e; }
-.view-tab.active { border-color: #58a6ff; color: #58a6ff; background: #1a2840; }
+.view-tab:hover { border-color: var(--text-muted); color: var(--text-muted); }
+.view-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
 /* ── Main area ──────────────────────────────────────────────── */
 .main { flex: 1; overflow: hidden; display: flex; }
 
 .no-conn {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  color: #484f58; font-size: 14px;
+  color: var(--text-dim); font-size: 14px;
 }
 </style>

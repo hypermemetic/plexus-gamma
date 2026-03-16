@@ -109,7 +109,7 @@
                   :y="bar.y"
                   :width="bar.w"
                   :height="bar.h"
-                  fill="#58a6ff"
+                  fill="var(--accent)"
                   rx="1"
                 />
               </svg>
@@ -245,32 +245,32 @@ function sparklineWidth(h: BackendHealth): number {
   gap: 3px;
   padding: 2px 7px 2px 5px;
   border-radius: 10px;
-  border: 1px solid #30363d;
+  border: 1px solid var(--border-2);
   background: none;
   font-family: inherit;
   font-size: 10px;
-  color: #8b949e;
+  color: var(--text-muted);
   cursor: pointer;
   white-space: nowrap;
   transition: border-color 0.2s, background 0.2s;
 }
 
 .health-chip:hover {
-  background: #161b22;
-  border-color: #484f58;
+  background: var(--bg-3);
+  border-color: var(--text-dim);
 }
 
 .health-chip.active {
-  background: #1a2840;
+  background: var(--accent-bg);
   border-color: #1f5a8a;
 }
 
 .health-chip.active .chip-name {
-  color: #58a6ff;
+  color: var(--accent);
 }
 
 .health-chip.hash-pulsed {
-  border-color: #e3b341;
+  border-color: var(--yellow);
 }
 
 .chip-scanning {
@@ -278,7 +278,7 @@ function sparklineWidth(h: BackendHealth): number {
   align-items: center;
   padding: 2px 6px;
   font-size: 10px;
-  color: #484f58;
+  color: var(--text-dim);
 }
 
 @keyframes scanPulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
@@ -289,22 +289,22 @@ function sparklineWidth(h: BackendHealth): number {
   line-height: 1;
 }
 
-.dot-ok      { color: #3fb950; }
-.dot-degraded { color: #e3b341; }
-.dot-down    { color: #f85149; }
+.dot-ok      { color: var(--green); }
+.dot-degraded { color: var(--yellow); }
+.dot-down    { color: var(--red); }
 
 .chip-name {
-  color: #c9d1d9;
+  color: var(--text);
   font-weight: 500;
 }
 
 .chip-latency {
-  color: #58a6ff;
+  color: var(--accent);
   font-size: 9px;
 }
 
 .chip-down {
-  color: #f85149;
+  color: var(--red);
   font-size: 9px;
 }
 
@@ -320,8 +320,8 @@ function sparklineWidth(h: BackendHealth): number {
 
 .expand-btn {
   background: none;
-  border: 1px solid #30363d;
-  color: #484f58;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
   font-size: 12px;
   width: 20px;
   height: 20px;
@@ -336,8 +336,8 @@ function sparklineWidth(h: BackendHealth): number {
 }
 
 .expand-btn:hover {
-  color: #58a6ff;
-  border-color: #58a6ff;
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .expand-icon {
@@ -360,15 +360,15 @@ function sparklineWidth(h: BackendHealth): number {
   width: 700px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 64px);
-  background: #0d1117;
-  border: 1px solid #21262d;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
   font-size: 12px;
-  color: #c9d1d9;
+  color: var(--text);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
 }
 
@@ -377,21 +377,21 @@ function sparklineWidth(h: BackendHealth): number {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .dashboard-title {
   font-size: 13px;
   font-weight: 600;
-  color: #e6edf3;
+  color: var(--text-2);
   letter-spacing: 0.02em;
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 14px;
   cursor: pointer;
   padding: 2px 6px;
@@ -401,8 +401,8 @@ function sparklineWidth(h: BackendHealth): number {
 }
 
 .close-btn:hover {
-  color: #c9d1d9;
-  background: #21262d;
+  color: var(--text);
+  background: var(--border);
 }
 
 .dashboard-body {
@@ -416,8 +416,8 @@ function sparklineWidth(h: BackendHealth): number {
 /* ── Backend card ─────────────────────────────────────────────────────────── */
 
 .backend-card {
-  background: #111114;
-  border: 1px solid #21262d;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 10px 12px;
   display: flex;
@@ -439,12 +439,12 @@ function sparklineWidth(h: BackendHealth): number {
 
 .card-name {
   font-weight: 600;
-  color: #e6edf3;
+  color: var(--text-2);
   font-size: 13px;
 }
 
 .card-url {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
   flex: 1;
   overflow: hidden;
@@ -462,12 +462,12 @@ function sparklineWidth(h: BackendHealth): number {
   flex-shrink: 0;
 }
 
-.label-ok       { color: #3fb950; background: rgba(63, 185, 80, 0.1); }
-.label-degraded { color: #e3b341; background: rgba(227, 179, 65, 0.1); }
-.label-down     { color: #f85149; background: rgba(248, 81, 73, 0.1); }
+.label-ok       { color: var(--green); background: rgba(63, 185, 80, 0.1); }
+.label-degraded { color: var(--yellow); background: rgba(227, 179, 65, 0.1); }
+.label-down     { color: var(--red); background: rgba(248, 81, 73, 0.1); }
 
 .card-last-seen {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 10px;
   flex-shrink: 0;
 }
@@ -477,21 +477,21 @@ function sparklineWidth(h: BackendHealth): number {
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
 }
 
 .row-label {
-  color: #484f58;
+  color: var(--text-dim);
   min-width: 52px;
   flex-shrink: 0;
 }
 
 .row-sep {
-  color: #30363d;
+  color: var(--border-2);
 }
 
 .muted {
-  color: #484f58;
+  color: var(--text-dim);
 }
 
 /* ── Hash badge ───────────────────────────────────────────────────────────── */
@@ -499,18 +499,18 @@ function sparklineWidth(h: BackendHealth): number {
 .hash-badge {
   font-family: inherit;
   font-size: 11px;
-  color: #8b949e;
-  background: #161b22;
-  border: 1px solid #30363d;
+  color: var(--text-muted);
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
   border-radius: 3px;
   padding: 1px 5px;
   letter-spacing: 0.04em;
 }
 
 @keyframes hashFlash {
-  0%   { background: rgba(227, 179, 65, 0.4); border-color: #e3b341; color: #e3b341; }
-  60%  { background: rgba(227, 179, 65, 0.15); border-color: #e3b341; color: #e3b341; }
-  100% { background: #161b22; border-color: #30363d; color: #8b949e; }
+  0%   { background: rgba(227, 179, 65, 0.4); border-color: var(--yellow); color: var(--yellow); }
+  60%  { background: rgba(227, 179, 65, 0.15); border-color: var(--yellow); color: var(--yellow); }
+  100% { background: var(--bg-3); border-color: var(--border-2); color: var(--text-muted); }
 }
 
 .hash-badge.hash-flash {
@@ -518,7 +518,7 @@ function sparklineWidth(h: BackendHealth): number {
 }
 
 .hash-changed {
-  color: #8b949e;
+  color: var(--text-muted);
   font-size: 10px;
   display: flex;
   align-items: center;
@@ -526,7 +526,7 @@ function sparklineWidth(h: BackendHealth): number {
 }
 
 .pulse-icon {
-  color: #e3b341;
+  color: var(--yellow);
   animation: pulseIcon 1.5s ease-in-out 3;
 }
 
@@ -538,18 +538,18 @@ function sparklineWidth(h: BackendHealth): number {
 /* ── Latency stats ────────────────────────────────────────────────────────── */
 
 .lat-stat {
-  color: #8b949e;
+  color: var(--text-muted);
   font-size: 11px;
 }
 
 .lat-stat strong {
-  color: #c9d1d9;
+  color: var(--text);
 }
 
 /* ── Error rate ───────────────────────────────────────────────────────────── */
 
 .error-count {
-  color: #f85149;
+  color: var(--red);
 }
 
 /* ── Sparkline ────────────────────────────────────────────────────────────── */
@@ -569,7 +569,7 @@ function sparklineWidth(h: BackendHealth): number {
 /* ── No backends ──────────────────────────────────────────────────────────── */
 
 .no-backends {
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 12px;
   text-align: center;
   padding: 24px;

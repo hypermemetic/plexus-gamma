@@ -161,23 +161,23 @@ class SchemaTypeDisplay {
 .type-text { }
 
 .type-string  { color: #7ee787; }
-.type-number  { color: #79c0ff; }
+.type-number  { color: var(--accent-2); }
 .type-bool    { color: #d2a8ff; }
 .type-enum    { color: #f0c040; }
-.type-array   { color: #79c0ff; }
-.type-object  { color: #8b949e; }
+.type-array   { color: var(--accent-2); }
+.type-object  { color: var(--text-muted); }
 
 .expand-btn {
   background: none;
   border: none;
-  color: #484f58;
+  color: var(--text-dim);
   cursor: pointer;
   font-size: 9px;
   padding: 0 2px;
   line-height: 1;
   vertical-align: middle;
 }
-.expand-btn:hover { color: #8b949e; }
+.expand-btn:hover { color: var(--text-muted); }
 
 .type-expanded {
   display: flex;
@@ -185,8 +185,8 @@ class SchemaTypeDisplay {
   gap: 2px;
   margin-top: 4px;
   padding: 6px 8px;
-  background: #0d1117;
-  border: 1px solid #21262d;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: 4px;
   width: 100%;
 }
@@ -199,7 +199,7 @@ class SchemaTypeDisplay {
 }
 
 .type-prop-key {
-  color: #8b949e;
+  color: var(--text-muted);
   min-width: 80px;
   flex-shrink: 0;
 }

@@ -184,10 +184,10 @@ function branchLabel(s: JsonSchema, i: number): string {
 .schema-field { display: contents; }
 
 .field-input, .field-select {
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 12px;
   padding: 4px 8px;
@@ -195,17 +195,17 @@ function branchLabel(s: JsonSchema, i: number): string {
   width: 100%;
   box-sizing: border-box;
 }
-.field-input:focus, .field-select:focus { border-color: #58a6ff; }
+.field-input:focus, .field-select:focus { border-color: var(--accent); }
 
 .field-select { cursor: pointer; }
-.field-select option { background: #161b22; }
+.field-select option { background: var(--bg-3); }
 
 .field-textarea {
   width: 100%;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 12px;
   padding: 4px 8px;
@@ -214,17 +214,17 @@ function branchLabel(s: JsonSchema, i: number): string {
   outline: none;
   line-height: 1.5;
 }
-.field-textarea:focus { border-color: #58a6ff; }
+.field-textarea:focus { border-color: var(--accent); }
 
 .field-checkbox-label {
   display: flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  color: #c9d1d9;
+  color: var(--text);
   font-size: 12px;
 }
-.field-checkbox { cursor: pointer; accent-color: #58a6ff; }
+.field-checkbox { cursor: pointer; accent-color: var(--accent); }
 .field-checkbox-text { user-select: none; display: none; }
 
 .field-object {
@@ -243,14 +243,14 @@ function branchLabel(s: JsonSchema, i: number): string {
 
 .field-label {
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-muted);
   padding-top: 5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.field-required { color: #f85149; margin-left: 2px; }
+.field-required { color: var(--red); margin-left: 2px; }
 
 .field-union {
   display: flex;

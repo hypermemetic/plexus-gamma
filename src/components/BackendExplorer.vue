@@ -220,15 +220,15 @@ onUnmounted(() => {
   overflow: hidden;
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
   font-size: 13px;
-  background: #0d0d0f;
-  color: #c9d1d9;
+  background: var(--bg-0);
+  color: var(--text);
 }
 
 .sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: #111114;
-  border-right: 1px solid #21262d;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -239,7 +239,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
 }
 
 .backend-label {
@@ -247,7 +247,7 @@ onUnmounted(() => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #58a6ff;
+  color: var(--accent);
 }
 
 .sidebar-actions { display: flex; align-items: center; gap: 6px; }
@@ -255,11 +255,11 @@ onUnmounted(() => {
 .hash-indicator { font-size: 14px; color: #f0c040; cursor: default; }
 
 .refresh-btn {
-  background: none; border: none; color: #8b949e;
+  background: none; border: none; color: var(--text-muted);
   cursor: pointer; font-size: 16px; padding: 2px 4px;
   border-radius: 4px; line-height: 1;
 }
-.refresh-btn:hover:not(:disabled) { color: #c9d1d9; background: #21262d; }
+.refresh-btn:hover:not(:disabled) { color: var(--text); background: var(--border); }
 .refresh-btn:disabled { opacity: 0.4; cursor: default; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -267,15 +267,15 @@ onUnmounted(() => {
 
 .error-banner {
   padding: 8px 14px;
-  background: #2d1117;
-  color: #f85149;
+  background: var(--red-bg);
+  color: var(--red);
   font-size: 11px;
   border-bottom: 1px solid #3d2121;
 }
 
 .loading-state {
   padding: 20px 14px;
-  color: #8b949e;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 6px;

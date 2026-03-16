@@ -169,18 +169,18 @@ function formatCell(v: unknown): string {
 
 .uin-label {
   font-size: 10px;
-  color: #8b949e;
+  color: var(--text-muted);
   letter-spacing: 0.03em;
 }
 
 /* text */
 .uin-text .uin-text-value {
   font-size: 13px;
-  color: #c9d1d9;
+  color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
-  background: #0d1117;
-  border: 1px solid #21262d;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 6px 8px;
   min-width: 100px;
@@ -191,23 +191,23 @@ function formatCell(v: unknown): string {
 /* input */
 .uin-input {
   background: #0a0c10;
-  border: 1px solid #30363d;
+  border: 1px solid var(--border-2);
   border-radius: 4px;
-  color: #c9d1d9;
+  color: var(--text);
   font-family: inherit;
   font-size: 12px;
   padding: 5px 8px;
   outline: none;
   min-width: 140px;
 }
-.uin-input:focus { border-color: #58a6ff; }
+.uin-input:focus { border-color: var(--accent); }
 
 /* button */
 .uin-button {
-  background: #1a2840;
-  border: 1px solid #58a6ff44;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent)44;
   border-radius: 4px;
-  color: #58a6ff;
+  color: var(--accent);
   font-family: inherit;
   font-size: 12px;
   padding: 6px 16px;
@@ -215,19 +215,19 @@ function formatCell(v: unknown): string {
   transition: background 0.12s, border-color 0.12s;
   align-self: flex-start;
 }
-.uin-button:hover { background: #1f3050; border-color: #58a6ff; }
+.uin-button:hover { background: #1f3050; border-color: var(--accent); }
 .uin-button:active { background: #152238; }
 
 /* slider */
 .uin-slider-row { display: flex; align-items: center; gap: 8px; }
-.uin-slider { flex: 1; accent-color: #58a6ff; min-width: 120px; }
-.uin-slider-val { font-size: 11px; color: #8b949e; min-width: 32px; text-align: right; }
+.uin-slider { flex: 1; accent-color: var(--accent); min-width: 120px; }
+.uin-slider-val { font-size: 11px; color: var(--text-muted); min-width: 32px; text-align: right; }
 
 /* table */
 .uin-table-scroll {
   overflow: auto;
   max-height: 240px;
-  border: 1px solid #21262d;
+  border: 1px solid var(--border);
   border-radius: 4px;
 }
 .uin-table {
@@ -237,28 +237,28 @@ function formatCell(v: unknown): string {
   min-width: 200px;
 }
 .uin-table th {
-  background: #161b22;
-  color: #8b949e;
+  background: var(--bg-3);
+  color: var(--text-muted);
   font-weight: 500;
   padding: 4px 8px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
 }
 .uin-table td {
-  color: #c9d1d9;
+  color: var(--text);
   padding: 3px 8px;
-  border-bottom: 1px solid #161b22;
+  border-bottom: 1px solid var(--bg-3);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .uin-table tr:last-child td { border-bottom: none; }
-.uin-table tr:hover td { background: #0d1117; }
+.uin-table tr:hover td { background: var(--bg-2); }
 .uin-table-raw {
   font-size: 10px;
-  color: #8b949e;
+  color: var(--text-muted);
   padding: 6px 8px;
   margin: 0;
   white-space: pre-wrap;

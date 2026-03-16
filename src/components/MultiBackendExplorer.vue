@@ -180,16 +180,16 @@ onUnmounted(() => {
   overflow: hidden;
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
   font-size: 13px;
-  background: #0d0d0f;
-  color: #c9d1d9;
+  background: var(--bg-0);
+  color: var(--text);
 }
 
 /* ── Sidebar ────────────────────────────────────────────────── */
 .sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: #111114;
-  border-right: 1px solid #21262d;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -208,7 +208,7 @@ onUnmounted(() => {
   cursor: pointer;
   user-select: none;
   background: #0d0f14;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
 }
 .group-header:hover { background: #131820; }
 
@@ -217,13 +217,13 @@ onUnmounted(() => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #58a6ff;
+  color: var(--accent);
   flex: 1;
 }
 
 .group-spinner {
   font-size: 12px;
-  color: #484f58;
+  color: var(--text-dim);
 }
 
 @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
@@ -233,7 +233,7 @@ onUnmounted(() => {
 
 .group-loading {
   padding: 8px 14px;
-  color: #484f58;
+  color: var(--text-dim);
   font-size: 11px;
   display: flex;
   align-items: center;
@@ -246,7 +246,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #484f58;
+  color: var(--text-dim);
 }
 
 .no-selection-inner { text-align: center; }

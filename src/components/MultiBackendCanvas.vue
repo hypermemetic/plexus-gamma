@@ -221,7 +221,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
   ctx.lineWidth   = 1
   ctx.stroke()
 
-  ctx.fillStyle    = isHub ? '#7aabff' : '#c9d1d9'
+  ctx.fillStyle    = isHub ? '#7aabff' : 'var(--text)'
   ctx.font         = `600 12px ${FONT_MONO}`
   ctx.textBaseline = 'middle'
   ctx.textAlign    = 'left'
@@ -286,7 +286,7 @@ function drawBackendHeader(ctx: CanvasRenderingContext2D, be: BackendState): voi
   ctx.font = `600 11px ${FONT_MONO}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = '#58a6ff'
+  ctx.fillStyle = 'var(--accent)'
   ctx.fillText(be.name.toUpperCase(), be.root.x, be.root.y - 12)
 }
 
@@ -298,7 +298,7 @@ function render(): void {
 
   const dpr = Number(canvas.dataset.dpr || '1')
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = '#0d0d0f'
+  ctx.fillStyle = 'var(--bg-0)'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
   if (!hasAnyTree.value) return
@@ -474,7 +474,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #0d0d0f;
+  background: var(--bg-0);
   min-width: 0;
 }
 
@@ -483,8 +483,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border-bottom: 1px solid #21262d;
-  background: #0a0a0c;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-0);
   flex-shrink: 0;
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
 }
@@ -499,14 +499,14 @@ onUnmounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.be-chip.loading { background: #161b22; color: #484f58; }
-.be-chip.ok      { background: #172420; color: #3fb950; border: 1px solid #1f4030; }
-.be-chip.error   { background: #2d1117; color: #f85149; border: 1px solid #3d2121; }
+.be-chip.loading { background: var(--bg-3); color: var(--text-dim); }
+.be-chip.ok      { background: #172420; color: var(--green); border: 1px solid #1f4030; }
+.be-chip.error   { background: var(--red-bg); color: var(--red); border: 1px solid #3d2121; }
 
 .tool-btn {
   background: none;
   border: none;
-  color: #8b949e;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 14px;
   padding: 2px 5px;
@@ -514,13 +514,13 @@ onUnmounted(() => {
   line-height: 1;
   font-family: inherit;
 }
-.tool-btn:hover:not(:disabled) { color: #c9d1d9; background: #21262d; }
+.tool-btn:hover:not(:disabled) { color: var(--text); background: var(--border); }
 .tool-btn:disabled { opacity: 0.4; cursor: default; }
-.tool-btn.active { color: #58a6ff; background: #1a2840; }
+.tool-btn.active { color: var(--accent); background: var(--accent-bg); }
 
 .method-mode-btns {
   display: flex;
-  border: 1px solid #30363d;
+  border: 1px solid var(--border-2);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -542,7 +542,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   font-size: 13px;
-  color: #8b949e;
+  color: var(--text-muted);
   pointer-events: none;
   font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
 }

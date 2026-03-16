@@ -14,7 +14,7 @@
       v-for="edge in edges"
       :key="edge.id"
       v-bind="edgeLine(edge)"
-      stroke="#1f3a5f"
+      stroke="var(--accent-bg-2)"
       stroke-width="0.8"
     />
 
@@ -33,7 +33,7 @@
     <rect
       v-bind="viewportRect"
       fill="rgba(88,166,255,0.08)"
-      stroke="#58a6ff"
+      stroke="var(--accent)"
       stroke-width="0.8"
     />
   </svg>
@@ -102,20 +102,20 @@ function nodeRect(node: WireNode) {
 
 function nodeFill(kind: NodeKind): string {
   switch (kind) {
-    case 'extract':  return '#3a2a0a'
-    case 'template': return '#1a2a10'
-    case 'merge':    return '#0a2a2a'
-    case 'script':   return '#2a0a3a'
+    case 'extract':  return 'var(--node-extract-bg)'
+    case 'template': return 'var(--node-template-bg)'
+    case 'merge':    return 'var(--node-merge-bg)'
+    case 'script':   return 'var(--node-script-bg)'
     default:         return '#1a2a40'
   }
 }
 
 function nodeStroke(status: WireNode['status']): string {
   switch (status) {
-    case 'done':    return '#3fb950'
-    case 'error':   return '#f85149'
-    case 'running': return '#58a6ff'
-    default:        return '#21262d'
+    case 'done':    return 'var(--green)'
+    case 'error':   return 'var(--red)'
+    case 'running': return 'var(--accent)'
+    default:        return 'var(--border)'
   }
 }
 
@@ -165,7 +165,7 @@ function onMapClick(e: MouseEvent) {
   position: absolute;
   bottom: 12px;
   right: 12px;
-  border: 1px solid #21262d;
+  border: 1px solid var(--border);
   border-radius: 6px;
   cursor: crosshair;
   pointer-events: all;
