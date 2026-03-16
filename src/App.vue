@@ -44,7 +44,7 @@
         </button>
 
         <!-- Build hash -->
-        <span class="build-hash" title="Build commit">{{ __GIT_HASH__ }}</span>
+        <span class="build-hash" title="Build commit">{{ buildHash }}</span>
 
         <!-- View switcher -->
         <div class="view-tabs">
@@ -105,6 +105,7 @@
 
 <script setup lang="ts">
 declare const __GIT_HASH__: string
+const buildHash = __GIT_HASH__
 import { ref, provide, onMounted, watch } from 'vue'
 import MultiBackendCanvas from './components/MultiBackendCanvas.vue'
 import MultiBackendExplorer from './components/MultiBackendExplorer.vue'
