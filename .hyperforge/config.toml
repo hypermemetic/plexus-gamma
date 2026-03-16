@@ -4,3 +4,4 @@ forges = [
     "github",
 ]
 visibility = "public"
+large_file_threshold_kb = 200
