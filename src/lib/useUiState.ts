@@ -12,7 +12,7 @@ const _savedTheme = typeof localStorage !== 'undefined'
   : null
 
 const currentView  = ref<ViewName>(VALID_VIEWS.includes(_savedView!) ? _savedView! : 'multi-explorer')
-const theme        = ref<'daylight' | 'midnight'>(_savedTheme ?? 'daylight')
+const theme        = ref<'daylight' | 'midnight'>(_savedTheme ?? 'midnight')
 const paletteOpen  = ref(false)
 const navigateTo   = ref<{ backend: string; path: string[] } | null>(null)
 

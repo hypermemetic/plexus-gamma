@@ -1,5 +1,6 @@
 <template>
   <div class="detail">
+  <div class="detail-inner">
     <div v-if="loading && !schema" class="detail-loading">
       <span class="spinner">◌</span> Loading schema…
     </div>
@@ -81,6 +82,7 @@
         <p>Select a plugin from the tree to inspect its schema.</p>
       </div>
     </div>
+  </div><!-- detail-inner -->
   </div>
 </template>
 
@@ -147,8 +149,13 @@ const path = computed(() => props.path ?? [])
 .detail {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 32px;
   background: var(--bg-0);
+}
+
+.detail-inner {
+  max-width: 1050px;
+  margin: 0 auto;
+  padding: 24px 32px;
 }
 
 .detail-loading {
@@ -233,6 +240,7 @@ const path = computed(() => props.path ?? [])
 
 .method-list { display: flex; flex-direction: column; gap: 8px; }
 
+.detail-inner:has(.welcome) { height: 100%; }
 .welcome { display: flex; align-items: center; justify-content: center; height: 100%; }
 .welcome-inner { text-align: center; color: var(--text-dim); }
 .welcome-icon { font-size: 48px; margin-bottom: 12px; }
