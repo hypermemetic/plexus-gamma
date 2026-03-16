@@ -14,7 +14,7 @@
       <!-- RPC params -->
       <template v-if="node.kind === 'rpc'">
         <div v-if="availableRefs.length" class="pf-hint">
-          ref: {{ availableRefs.map(id => '{' + '{' + id + '}' + '}').join(' ') }}
+          ref: <span v-for="id in availableRefs" :key="id" class="pf-hint-ref">&#123;&#123;{{ id }}&#125;&#125;</span>
         </div>
         <SchemaField
           v-if="resolvedSchema"
@@ -478,8 +478,9 @@ function addStoreKey() {
 }
 
 /* ── Form fields ─────────────────────────────────────────────── */
-.pf-hint { font-size: 9px; color: var(--green-bg); font-style: italic; margin-bottom: 2px; }
-.pf-hint-inline { font-size: 9px; color: var(--green-bg); font-style: italic; }
+.pf-hint { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+.pf-hint-ref { color: var(--accent); margin-left: 3px; }
+.pf-hint-inline { font-size: 10px; color: var(--text-muted); }
 
 .pf-section-title {
   font-size: 10px;

@@ -582,6 +582,7 @@ import { DEFAULT_UI } from './wiringTypes'
 import WiringUIPreview from './WiringUIPreview.vue'
 import KeymapHelpPanel from './KeymapHelpPanel.vue'
 import { useKeymap } from './useKeymap'
+import { useLabelNamespace } from './useLabelNamespace'
 import type { ActionDef } from './useKeymap'
 
 const { focus } = useContainedFocus()
@@ -815,6 +816,7 @@ const ROUTE_LABELS: Record<RouteMode, string> = {
 
 const nodes = ref<WireNode[]>([])
 const edges = ref<WireEdge[]>([])
+const { unique: uniqueLabel } = useLabelNamespace(nodes)
 const selectedNodeId = ref<string | null>(null)
 const panelMode = ref<PanelMode>('float')
 const running = ref(false)
@@ -1081,7 +1083,8 @@ function commitNodeLabel(nodeId: string) {
   const node = nodes.value.find(n => n.id === nodeId)
   if (node) {
     const trimmed = editingLabel.value.trim()
-    const newLabel = (trimmed && trimmed !== node.id) ? trimmed : undefined
+    const base = (trimmed && trimmed !== node.id) ? trimmed : undefined
+    const newLabel = base ? uniqueLabel(base, node.id) : undefined
     if (newLabel !== node.label) { pushUndo(); node.label = newLabel }
   }
   editingNodeId.value = null
