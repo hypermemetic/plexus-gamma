@@ -2440,7 +2440,7 @@ function resultPreview(result: unknown): string {
   align-items: center;
   gap: 7px;
   padding: 7px 10px;
-  border-bottom: 1px solid #14171b;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
   user-select: none;
 }
@@ -2787,7 +2787,7 @@ function resultPreview(result: unknown): string {
   border-radius: 5px;
   padding: 3px 0;
   min-width: 150px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-md);
 }
 
 .ctx-item {
@@ -2895,7 +2895,7 @@ function resultPreview(result: unknown): string {
   border: 1px solid var(--border-2);
   border-radius: 6px;
   padding: 7px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  box-shadow: var(--shadow-md);
   min-width: 210px;
 }
 
@@ -2984,7 +2984,7 @@ function resultPreview(result: unknown): string {
   background: var(--bg-3);
   border: 1px solid var(--border-2);
   border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.65);
+  box-shadow: var(--shadow-md);
   width: 240px;
   overflow: hidden;
   transform: translateY(6px);
@@ -3012,7 +3012,7 @@ function resultPreview(result: unknown): string {
   gap: 6px;
   padding: 5px 10px;
   cursor: pointer;
-  border-bottom: 1px solid #14171b;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
   overflow: hidden;
 }

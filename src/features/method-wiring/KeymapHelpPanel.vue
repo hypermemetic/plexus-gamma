@@ -117,7 +117,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
   background: var(--bg-3);
   border: 1px solid var(--border-2);
   border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  box-shadow: var(--shadow-xl);
   width: 100%;
   max-width: 520px;
   display: flex;

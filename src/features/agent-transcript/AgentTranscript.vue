@@ -632,7 +632,7 @@ async function send(): Promise<void> {
   text-align: left;
 }
 .tool-header:hover {
-  background: #111a28;
+  background: var(--bg-3);
 }
 
 .tool-icon {

@@ -369,7 +369,7 @@ function sparklineWidth(h: BackendHealth): number {
   font-family: 'Berkeley Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
   font-size: 12px;
   color: var(--text);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-xl);
 }
 
 .dashboard-header {

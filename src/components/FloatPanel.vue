@@ -160,7 +160,7 @@ onUnmounted(() => {
 .panel-float {
   position: absolute;
   border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  box-shadow: var(--shadow-lg);
   min-width: 260px;
   max-width: 380px;
   overflow: hidden;
@@ -176,7 +176,7 @@ onUnmounted(() => {
   border: none;
   border-left: 1px solid var(--border-2);
   border-radius: 0;
-  box-shadow: -4px 0 24px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-md);
   transform: translateX(100%);
   transition: transform 0.22s ease;
   overflow: hidden;
@@ -193,7 +193,7 @@ onUnmounted(() => {
   border: none;
   border-top: 1px solid var(--border-2);
   border-radius: 0;
-  box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-md);
   transform: translateY(100%);
   transition: transform 0.22s ease;
   overflow: hidden;

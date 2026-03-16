@@ -688,7 +688,7 @@ async function invoke() {
 .result-item.progress .result-type { color: var(--accent); }
 .result-item.error    { background: var(--red-bg); }
 .result-item.error    .result-type { color: var(--red); }
-.result-item.done     { background: #111714; }
+.result-item.done     { background: var(--bg-3); }
 .result-item.done     .result-type { color: var(--green); }
 
 .result-json { margin: 4px 0 0; color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-all; }

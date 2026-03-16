@@ -569,7 +569,7 @@ function addStoreKey() {
   cursor: pointer;
 }
 .pf-kind-btn:hover { border-color: var(--text-muted); color: var(--text-muted); }
-.pf-kind-btn.active { border-color: var(--accent); color: var(--accent); background: #0d1a2a; }
+.pf-kind-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
 /* ── Returns schema ──────────────────────────────────────────── */
 .pf-returns {
@@ -658,8 +658,8 @@ function addStoreKey() {
 .pf-var-type {
   font-size: 9px;
   color: var(--accent);
-  background: #0d1a2d;
-  border: 1px solid #1a3a5a;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-2);
   border-radius: 3px;
   padding: 0 4px;
   flex-shrink: 0;

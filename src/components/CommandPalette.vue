@@ -139,7 +139,7 @@ function select(entry: MethodEntry) {
   border: 1px solid var(--border-2);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8);
+  box-shadow: var(--shadow-xl);
 }
 
 .palette-input {
