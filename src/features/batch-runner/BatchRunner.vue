@@ -439,7 +439,7 @@ async function runBatch(): Promise<void> {
 
 .stop-btn {
   background: var(--red-bg);
-  border: 1px solid #3d2121;
+  border: 1px solid var(--red-bg);
   color: var(--red);
   font-size: 11px;
   font-weight: 600;
@@ -448,7 +448,7 @@ async function runBatch(): Promise<void> {
   cursor: pointer;
   font-family: inherit;
 }
-.stop-btn:hover { background: #3d1a1a; }
+.stop-btn:hover { background: var(--red-bg); }
 
 .close-btn {
   background: none;
@@ -543,7 +543,7 @@ async function runBatch(): Promise<void> {
   transition: background 0.08s;
 }
 .batch-row:last-child { border-bottom: none; }
-.batch-row:hover { background: #111823; }
+.batch-row:hover { background: var(--bg-3); }
 
 .batch-table td {
   padding: 5px 10px;

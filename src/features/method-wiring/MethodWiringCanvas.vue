@@ -2375,7 +2375,7 @@ function resultPreview(result: unknown): string {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
-  background: #0a0c10;
+  background: var(--bg-3);
   overflow: hidden;
 }
 
@@ -2401,7 +2401,7 @@ function resultPreview(result: unknown): string {
   gap: 0;
   padding: 4px 8px;
   border-bottom: 1px solid var(--border);
-  background: #0d0f14;
+  background: var(--bg-3);
   flex-shrink: 0;
   min-height: 26px;
 }
@@ -2447,7 +2447,7 @@ function resultPreview(result: unknown): string {
 .sb-row:hover { background: #0f1318; }
 
 .sb-row-backend { padding: 9px 10px; }
-.sb-row-backend:hover { background: #111419; }
+.sb-row-backend:hover { background: var(--bg-3); }
 
 .sb-row-hub { }
 .sb-row-method { cursor: grab; }
@@ -2526,7 +2526,7 @@ function resultPreview(result: unknown): string {
   flex-shrink: 0;
 }
 .method-tag.stream { background: #0d3350; color: #388bfd; }
-.method-tag.bidir  { background: #2d1f4e; color: var(--purple); }
+.method-tag.bidir  { background: var(--purple-bg); color: var(--purple); }
 
 /* ── Transforms section ──────────────────────────────────────── */
 .transforms-section {
@@ -2682,7 +2682,7 @@ function resultPreview(result: unknown): string {
 .node-title-input {
   display: block;
   width: 100%;
-  background: #0a0c10;
+  background: var(--bg-3);
   border: 1px solid var(--accent);
   border-radius: 3px;
   color: var(--text);
@@ -2804,7 +2804,7 @@ function resultPreview(result: unknown): string {
 }
 .ctx-item:hover { background: var(--border); }
 .ctx-item-danger { color: var(--red); }
-.ctx-item-danger:hover { background: #2a1515; }
+.ctx-item-danger:hover { background: var(--red-bg); }
 .ctx-sep { border-top: 1px solid var(--border); margin: 3px 0; }
 
 .result-copy-btn {
@@ -2864,11 +2864,11 @@ function resultPreview(result: unknown): string {
 
 .edge-badge-bg.route-each    { fill: #0d1f0a; stroke: #2a5a20; }
 .edge-badge-bg.route-collect { fill: var(--node-layout-bg); stroke: #1a3a5a; }
-.edge-badge-bg.route-last    { fill: #16101f; stroke: #4a3070; }
-.edge-badge-bg.route-first   { fill: #16101f; stroke: #4a3070; }
-.edge-badge-bg.route-concat  { fill: #1f1508; stroke: #6a4a10; }
-.edge-badge-bg.route-filter  { fill: #08181f; stroke: #105a5a; }
-.edge-badge-bg.route-reduce  { fill: #1f0a0a; stroke: #6a1515; }
+.edge-badge-bg.route-last    { fill: var(--purple-bg); stroke: var(--purple-bg); }
+.edge-badge-bg.route-first   { fill: var(--purple-bg); stroke: var(--purple-bg); }
+.edge-badge-bg.route-concat  { fill: var(--yellow-bg); stroke: var(--yellow-bg); }
+.edge-badge-bg.route-filter  { fill: var(--bg-3); stroke: #105a5a; }
+.edge-badge-bg.route-reduce  { fill: var(--red-bg); stroke: var(--red-bg); }
 
 .edge-badge-text {
   fill: #6e7681;
@@ -2881,8 +2881,8 @@ function resultPreview(result: unknown): string {
 
 /* ── Multiplier badge ────────────────────────────────────────── */
 .edge-mult-g { cursor: pointer; pointer-events: all; }
-.edge-mult-bg { fill: #2a1a40; stroke: #7c50cc; stroke-width: 1; }
-.edge-mult-g:hover .edge-mult-bg { fill: #3a2050; stroke: #a070f0; }
+.edge-mult-bg { fill: var(--purple-bg); stroke: #7c50cc; stroke-width: 1; }
+.edge-mult-g:hover .edge-mult-bg { fill: var(--purple-bg); stroke: #a070f0; }
 .edge-mult-text { font-family: inherit; font-size: 9px; fill: #a070f0; user-select: none; }
 .edge-mult-g:hover .edge-mult-text { fill: #c9a0ff; }
 
@@ -2917,12 +2917,12 @@ function resultPreview(result: unknown): string {
   cursor: pointer;
 }
 .route-mode-btn:hover { border-color: var(--accent); color: var(--accent); }
-.route-mode-btn.active { border-color: var(--green); color: var(--green); background: #0a1f0a; }
+.route-mode-btn.active { border-color: var(--green); color: var(--green); background: var(--green-bg); }
 
 .routing-config-input {
   display: block;
   width: 100%;
-  background: #0a0c10;
+  background: var(--bg-3);
   border: 1px solid var(--border-2);
   border-radius: 3px;
   color: var(--text);
@@ -2952,7 +2952,7 @@ function resultPreview(result: unknown): string {
   display: block;
   width: 100%;
   background: none;
-  border: 1px solid #3a1515;
+  border: 1px solid var(--red-bg);
   color: var(--red);
   font-family: inherit;
   font-size: 10px;
@@ -2962,7 +2962,7 @@ function resultPreview(result: unknown): string {
   margin-top: 2px;
   text-align: center;
 }
-.routing-del-btn:hover { background: #2a1010; }
+.routing-del-btn:hover { background: var(--red-bg); }
 
 /* ── Port larger hit area ────────────────────────────────────── */
 /* ::before extends OUTWARD only so it never overlaps the node body.

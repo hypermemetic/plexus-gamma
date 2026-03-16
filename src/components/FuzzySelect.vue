@@ -150,5 +150,5 @@ defineExpose({ focus: () => containedFocus(inputEl.value) })
   text-overflow: ellipsis;
 }
 .fuzzy-option:hover,
-.fuzzy-option.active { background: #1f2937; color: var(--accent); }
+.fuzzy-option.active { background: var(--bg-3); color: var(--accent); }
 </style>

@@ -197,7 +197,7 @@ onUnmounted(() => {
 }
 
 .backend-group {
-  border-bottom: 1px solid #1a1f28;
+  border-bottom: 1px solid var(--bg-3);
 }
 
 .group-header {
@@ -207,10 +207,10 @@ onUnmounted(() => {
   padding: 8px 14px;
   cursor: pointer;
   user-select: none;
-  background: #0d0f14;
+  background: var(--bg-3);
   border-bottom: 1px solid var(--border);
 }
-.group-header:hover { background: #131820; }
+.group-header:hover { background: var(--bg-3); }
 
 .backend-label {
   font-size: 11px;

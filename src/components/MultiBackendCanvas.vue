@@ -215,9 +215,9 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
   const md = methodDisplay.value
 
   rrect(ctx, x, y, w, h, 6)
-  ctx.fillStyle   = isHub ? '#14192a' : '#10111a'
+  ctx.fillStyle   = isHub ? 'var(--bg-3)' : 'var(--bg-3)'
   ctx.fill()
-  ctx.strokeStyle = isHub ? '#283660' : '#1e2535'
+  ctx.strokeStyle = isHub ? '#283660' : 'var(--bg-3)'
   ctx.lineWidth   = 1
   ctx.stroke()
 
@@ -242,7 +242,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
       ctx.beginPath()
       ctx.moveTo(x + 1, y + HEADER_H)
       ctx.lineTo(x + w - 1, y + HEADER_H)
-      ctx.strokeStyle = '#1e2535'
+      ctx.strokeStyle = 'var(--bg-3)'
       ctx.lineWidth = 1
       ctx.stroke()
 
@@ -260,7 +260,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
         ctx.restore()
         if (isStream || isBidir) {
           ctx.font = `9px ${FONT_MONO}`
-          ctx.fillStyle = isStream ? '#2a4060' : '#3a2060'
+          ctx.fillStyle = isStream ? '#2a4060' : 'var(--purple-bg)'
           ctx.textAlign = 'right'
           ctx.fillText(isStream ? '↓' : '⇄', x + w - 8, my + METHOD_ROW_H / 2)
         }
@@ -500,8 +500,8 @@ onUnmounted(() => {
   letter-spacing: 0.06em;
 }
 .be-chip.loading { background: var(--bg-3); color: var(--text-dim); }
-.be-chip.ok      { background: #172420; color: var(--green); border: 1px solid #1f4030; }
-.be-chip.error   { background: var(--red-bg); color: var(--red); border: 1px solid #3d2121; }
+.be-chip.ok      { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bg); }
+.be-chip.error   { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bg); }
 
 .tool-btn {
   background: none;

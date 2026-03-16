@@ -190,7 +190,7 @@ watch(() => props.diff, () => { expanded.value = false })
 }
 .banner-btn--close:hover {
   color: var(--red);
-  border-color: #3d2121;
+  border-color: var(--red-bg);
   background: var(--red-bg);
 }
 

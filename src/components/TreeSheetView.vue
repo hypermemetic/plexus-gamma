@@ -550,7 +550,7 @@ onUnmounted(() => {
   letter-spacing: 0.04em;
 }
 .method-row-tag.stream { background: #0d3350; color: #388bfd; }
-.method-row-tag.bidir  { background: #2d1f4e; color: var(--purple); }
+.method-row-tag.bidir  { background: var(--purple-bg); color: var(--purple); }
 
 /* ── Method full-page overlay ────────────────────────────────── */
 .method-page {

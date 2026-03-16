@@ -219,9 +219,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKeyDown, true))
 .km-rebind-btn { color: var(--text-dim); }
 .km-rebind-btn:hover { color: var(--accent); background: var(--accent-bg); }
 .km-cancel-btn { color: var(--red); font-size: 10px; }
-.km-cancel-btn:hover { background: #2a0e0e; }
+.km-cancel-btn:hover { background: var(--red-bg); }
 .km-reset-btn { color: var(--text-dim); }
-.km-reset-btn:hover { color: var(--yellow); background: #2a2000; }
+.km-reset-btn:hover { color: var(--yellow); background: var(--yellow-bg); }
 
 .km-footer {
   padding: 8px 16px;

@@ -515,7 +515,7 @@ function saveManual(): void {
   cursor: pointer;
   user-select: none;
 }
-.record-summary:hover { background: #111823; }
+.record-summary:hover { background: var(--bg-3); }
 
 .record-dot { color: var(--green); font-size: 8px; flex-shrink: 0; }
 .record-method { flex: 1; color: var(--text); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -533,7 +533,7 @@ function saveManual(): void {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: #0a0e15;
+  background: var(--bg-3);
   border-top: 1px solid var(--border);
 }
 
@@ -563,7 +563,7 @@ function saveManual(): void {
   max-height: 120px;
   overflow-y: auto;
 }
-.replay-json { background: #0d1f0d; border-color: #1a3d1a; }
+.replay-json { background: var(--green-bg); border-color: var(--green-bg); }
 
 /* ── Actions ─────────────────────────────────────────────── */
 .record-actions {
@@ -583,9 +583,9 @@ function saveManual(): void {
 .action-btn:disabled { opacity: 0.5; cursor: default; }
 .replay-btn { border-color: var(--accent-bg-2); color: var(--accent); }
 .replay-btn:hover:not(:disabled) { background: var(--accent-bg); }
-.diff-btn { border-color: #3d2a00; color: var(--yellow); }
-.diff-btn:hover { background: #1f1800; }
-.diff-btn.active { background: #1f1800; border-color: var(--yellow); }
+.diff-btn { border-color: var(--yellow-bg); color: var(--yellow); }
+.diff-btn:hover { background: var(--yellow-bg); }
+.diff-btn.active { background: var(--yellow-bg); border-color: var(--yellow); }
 
 /* ── Replay result ───────────────────────────────────────── */
 .replay-result { display: flex; flex-direction: column; gap: 3px; }
@@ -611,8 +611,8 @@ function saveManual(): void {
   padding: 2px 6px;
   font-weight: 600;
 }
-.diff-removed-header { background: #200d0d; color: var(--red); }
-.diff-added-header   { background: #0d2010; color: var(--green); }
+.diff-removed-header { background: var(--red-bg); color: var(--red); }
+.diff-added-header   { background: var(--green-bg); color: var(--green); }
 
 .diff-content {
   font-size: 10px;
@@ -628,6 +628,6 @@ function saveManual(): void {
   word-break: break-all;
 }
 .diff-line.same    { color: var(--text-muted); }
-.diff-line.removed { background: #200d0d; color: var(--red); }
-.diff-line.added   { background: #0d2010; color: var(--green); }
+.diff-line.removed { background: var(--red-bg); color: var(--red); }
+.diff-line.added   { background: var(--green-bg); color: var(--green); }
 </style>

@@ -207,7 +207,7 @@ const path = computed(() => props.path ?? [])
 .version-badge { background: var(--bg-3); color: var(--text-muted); border: 1px solid var(--border-2); }
 .hash-badge    { background: var(--bg-3); color: var(--accent); border: 1px solid #1f3048; cursor: default; }
 .kind-badge.hub  { background: var(--accent-bg); color: var(--accent-2); border: 1px solid var(--accent-bg-2); }
-.kind-badge.leaf { background: #172420; color: var(--green); border: 1px solid #1f4030; }
+.kind-badge.leaf { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bg); }
 
 .description { color: var(--text-muted); margin: 8px 0 0; line-height: 1.5; }
 .long-description { color: var(--text-muted); margin: 6px 0 0; line-height: 1.6; font-size: 12px; }

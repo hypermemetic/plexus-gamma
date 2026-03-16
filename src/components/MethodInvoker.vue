@@ -482,7 +482,7 @@ async function invoke() {
 .method-tags { display: flex; gap: 5px; }
 .tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .tag.stream { background: var(--accent-bg); color: var(--accent); }
-.tag.bidir  { background: #271a3a; color: #bc8cff; }
+.tag.bidir  { background: var(--purple-bg); color: #bc8cff; }
 .method-desc { color: var(--text-muted); margin: 0; line-height: 1.5; font-size: 12px; flex: 1; }
 
 /* Section label */
@@ -563,11 +563,11 @@ async function invoke() {
 .call-btn.running .call-path code { color: var(--text-dim); }
 
 .cancel-btn {
-  background: var(--red-bg); border: 1px solid #3d2121; color: var(--red);
+  background: var(--red-bg); border: 1px solid var(--red-bg); color: var(--red);
   font-size: 12px; padding: 5px 10px; border-radius: 4px;
   cursor: pointer; font-family: inherit; flex-shrink: 0;
 }
-.cancel-btn:hover { background: #3d1a1a; }
+.cancel-btn:hover { background: var(--red-bg); }
 
 .inspect-btn {
   background: none; border: 1px solid var(--border-2); color: var(--text-dim);
@@ -640,7 +640,7 @@ async function invoke() {
   font-family: inherit;
   text-align: left;
 }
-.returns-toggle:hover { background: #111823; }
+.returns-toggle:hover { background: var(--bg-3); }
 
 .returns-count {
   font-size: 10px;
@@ -684,7 +684,7 @@ async function invoke() {
 .result-type { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
 .result-item.data     { background: var(--bg-2); }
 .result-item.data     .result-type { color: var(--green); }
-.result-item.progress { background: #0f1420; }
+.result-item.progress { background: var(--bg-3); }
 .result-item.progress .result-type { color: var(--accent); }
 .result-item.error    { background: var(--red-bg); }
 .result-item.error    .result-type { color: var(--red); }

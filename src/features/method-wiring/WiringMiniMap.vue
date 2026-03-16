@@ -59,7 +59,7 @@ const emit = defineEmits<{
 const MAP_W = 160
 const MAP_H = 120
 const PADDING = 6
-const BG_COLOR = '#0a0c12'
+const BG_COLOR = 'var(--bg-3)'
 
 // Bounding box of all nodes in canvas space
 const bbox = computed(() => {

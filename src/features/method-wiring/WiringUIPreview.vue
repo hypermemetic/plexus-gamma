@@ -147,7 +147,7 @@ const rootNodes = computed(() =>
   flex-shrink: 0;
 }
 .uip-running { color: var(--accent); background: var(--bg-2); border-bottom: 1px solid var(--border); }
-.uip-error   { color: var(--red); background: #160a0a; border-bottom: 1px solid #3a1010; }
+.uip-error   { color: var(--red); background: var(--red-bg); border-bottom: 1px solid var(--red-bg); }
 
 .uip-body {
   padding: 20px;

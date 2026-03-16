@@ -812,7 +812,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   line-height: 1;
 }
-.btn-run-quick:hover { background: #0d2a14; border-color: var(--green); }
+.btn-run-quick:hover { background: var(--green-bg); border-color: var(--green); }
 
 .workflow-item-meta {
   display: flex;
@@ -833,8 +833,8 @@ onBeforeUnmount(() => {
   font-weight: 600;
   letter-spacing: 0.04em;
 }
-.badge-ok  { background: #0d2a14; color: var(--green); border: 1px solid #1a4a22; }
-.badge-err { background: #2a0d0d; color: var(--red); border: 1px solid #4a1a1a; }
+.badge-ok  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bg); }
+.badge-err { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bg); }
 
 .workflow-empty {
   padding: 20px 12px;
@@ -905,11 +905,11 @@ onBeforeUnmount(() => {
 .btn-action:hover { border-color: var(--accent); color: var(--accent); background: #0d1a2e; }
 .btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.btn-run { color: var(--green); border-color: #1a4a22; background: #0d2a14; }
+.btn-run { color: var(--green); border-color: var(--green-bg); background: var(--green-bg); }
 .btn-run:hover { background: #123520; border-color: var(--green); color: var(--green); }
 
-.btn-stop { color: var(--red); border-color: #4a1a1a; background: #2a0d0d; }
-.btn-stop:hover { background: #3a1010; }
+.btn-stop { color: var(--red); border-color: var(--red-bg); background: var(--red-bg); }
+.btn-stop:hover { background: var(--red-bg); }
 
 /* ── Step add dropdown ──────────────────────────────────────────────────────── */
 .step-dropdown-wrap {
@@ -1066,10 +1066,10 @@ onBeforeUnmount(() => {
   letter-spacing: 0.04em;
   flex-shrink: 0;
 }
-.status-pending { background: #1a1a22; color: var(--text-dim); }
+.status-pending { background: var(--bg-3); color: var(--text-dim); }
 .status-running { background: #0d1a2e; color: var(--accent); }
-.status-done    { background: #0d2a14; color: var(--green); }
-.status-error   { background: #2a0d0d; color: var(--red); }
+.status-done    { background: var(--green-bg); color: var(--green); }
+.status-error   { background: var(--red-bg); color: var(--red); }
 
 .btn-remove-step {
   background: none;
@@ -1327,8 +1327,8 @@ details[open] .result-summary::before { transform: rotate(90deg); }
   gap: 8px;
   align-items: flex-start;
   padding: 6px 8px;
-  background: #2a0d0d;
-  border: 1px solid #4a1a1a;
+  background: var(--red-bg);
+  border: 1px solid var(--red-bg);
   border-radius: 4px;
   font-size: 11px;
   color: var(--red);

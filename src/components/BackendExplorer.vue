@@ -270,7 +270,7 @@ onUnmounted(() => {
   background: var(--red-bg);
   color: var(--red);
   font-size: 11px;
-  border-bottom: 1px solid #3d2121;
+  border-bottom: 1px solid var(--red-bg);
 }
 
 .loading-state {

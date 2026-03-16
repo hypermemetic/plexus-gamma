@@ -190,7 +190,7 @@ function formatCell(v: unknown): string {
 
 /* input */
 .uin-input {
-  background: #0a0c10;
+  background: var(--bg-3);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);

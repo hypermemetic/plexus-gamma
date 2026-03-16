@@ -609,7 +609,7 @@ async function send(): Promise<void> {
 
 /* ── Tool-use block ──────────────────────────────────────────────────────── */
 .tool-block {
-  background: #0f1420;
+  background: var(--bg-3);
   border: 1px solid #1f3048;
   border-radius: 6px;
   overflow: hidden;
@@ -622,7 +622,7 @@ async function send(): Promise<void> {
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  background: #0f1420;
+  background: var(--bg-3);
   border: none;
   cursor: pointer;
   font-family: inherit;
@@ -676,7 +676,7 @@ async function send(): Promise<void> {
 /* ── Error bubble ────────────────────────────────────────────────────────── */
 .error-bubble {
   background: var(--red-bg);
-  border: 1px solid #3d2121;
+  border: 1px solid var(--red-bg);
   border-radius: 6px;
   color: var(--red);
   font-size: 12px;
@@ -805,7 +805,7 @@ async function send(): Promise<void> {
 
 .cancel-btn {
   background: var(--red-bg);
-  border: 1px solid #3d2121;
+  border: 1px solid var(--red-bg);
   color: var(--red);
   font-family: inherit;
   font-size: 11px;
@@ -814,7 +814,7 @@ async function send(): Promise<void> {
   cursor: pointer;
 }
 .cancel-btn:hover {
-  background: #3d1a1a;
+  background: var(--red-bg);
 }
 
 .clear-btn {

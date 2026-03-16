@@ -478,8 +478,8 @@ function addStoreKey() {
 }
 
 /* ── Form fields ─────────────────────────────────────────────── */
-.pf-hint { font-size: 9px; color: #3a5a3a; font-style: italic; margin-bottom: 2px; }
-.pf-hint-inline { font-size: 9px; color: #3a5a3a; font-style: italic; }
+.pf-hint { font-size: 9px; color: var(--green-bg); font-style: italic; margin-bottom: 2px; }
+.pf-hint-inline { font-size: 9px; color: var(--green-bg); font-style: italic; }
 
 .pf-section-title {
   font-size: 10px;
@@ -497,7 +497,7 @@ function addStoreKey() {
 
 .pf-input {
   flex: 1;
-  background: #0a0c10;
+  background: var(--bg-3);
   border: 1px solid var(--border-2);
   border-radius: 3px;
   color: var(--text);
@@ -514,7 +514,7 @@ function addStoreKey() {
 
 .pf-textarea {
   width: 100%;
-  background: #0a0c10;
+  background: var(--bg-3);
   border: 1px solid var(--border-2);
   border-radius: 3px;
   color: var(--text);
@@ -575,8 +575,8 @@ function addStoreKey() {
 .pf-returns {
   font-size: 9px;
   color: var(--purple);
-  background: #100d1a;
-  border: 1px solid #2d1f4e;
+  background: var(--purple-bg);
+  border: 1px solid var(--purple-bg);
   border-radius: 3px;
   padding: 4px 6px;
   margin: 0;
@@ -626,7 +626,7 @@ function addStoreKey() {
 
 /* ── Mustache preview ──────────────────────────────────────────── */
 .pf-template-preview {
-  background: #0a0c10;
+  background: var(--bg-3);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);

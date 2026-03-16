@@ -591,7 +591,7 @@ const passCount = computed(() =>
   background: var(--bg-2);
   transition: background 0.08s;
 }
-.test-row:hover { background: #111823; }
+.test-row:hover { background: var(--bg-3); }
 
 .test-expand-btn {
   background: none;
@@ -717,8 +717,8 @@ const passCount = computed(() =>
   transition: background 0.08s;
 }
 .assertion-row:hover { background: var(--bg-3); }
-.assertion-row.a-pass { border-color: #1f4030; }
-.assertion-row.a-fail { border-color: #3d2121; }
+.assertion-row.a-pass { border-color: var(--green-bg); }
+.assertion-row.a-fail { border-color: var(--red-bg); }
 
 .a-field {
   color: var(--accent-2);

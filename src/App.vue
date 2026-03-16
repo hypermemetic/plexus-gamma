@@ -141,7 +141,11 @@ const theme = ref<Theme>(savedTheme ?? 'daylight')
 function applyTheme(t: Theme) { document.documentElement.dataset.theme = t }
 applyTheme(theme.value)
 watch(theme, t => { applyTheme(t); localStorage.setItem('plexus-theme', t) })
-function toggleTheme() { theme.value = theme.value === 'daylight' ? 'midnight' : 'daylight' }
+function toggleTheme() {
+  document.documentElement.classList.add('theme-switching')
+  theme.value = theme.value === 'daylight' ? 'midnight' : 'daylight'
+  setTimeout(() => document.documentElement.classList.remove('theme-switching'), 950)
+}
 
 type ViewName = 'multi-explorer' | 'canvas' | 'sheet' | 'wiring' | 'orchestration'
 const VALID_VIEWS: ViewName[] = ['multi-explorer', 'canvas', 'sheet', 'wiring', 'orchestration']
