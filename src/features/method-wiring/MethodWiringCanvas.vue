@@ -2132,6 +2132,9 @@ async function executeNodeWithRouting(
       for (const s of eachStreams) {
         iterInputs.set(s.param, s.items[i])
         iterResults.set(s.fromNodeId, s.items[i])
+        // Also index by label so {myLabel.field} resolves in downstream params
+        const fromNode = nodes.value.find(n => n.id === s.fromNodeId)
+        if (fromNode?.label) iterResults.set(fromNode.label, s.items[i])
       }
       const emitted = await executeNodeOnce(node, iterInputs, iterResults)
       allEmissions.push(...emitted)
@@ -2143,6 +2146,8 @@ async function executeNodeWithRouting(
                   : allEmissions.length > 1  ? allEmissions
                   : undefined
   nodeResults.set(node.id, collapsed)
+  // Also index by user label so {myLabel.field} refs resolve in downstream params
+  if (node.label) nodeResults.set(node.label, collapsed)
   node.result = collapsed
   node.status = 'done'
 }
@@ -2235,6 +2240,8 @@ async function rerunNode(nodeId: string, includeDownstream: boolean) {
   for (const [id, emissions] of persistedEmissions.value) {
     const collapsed = emissions.length === 1 ? emissions[0] : emissions.length > 1 ? emissions : undefined
     nodeResults.set(id, collapsed)
+    const n = nodes.value.find(n => n.id === id)
+    if (n?.label) nodeResults.set(n.label, collapsed)
   }
 
   const nodesToRun = [node, ...(includeDownstream ? getDownstreamNodes(nodeId) : [])]
