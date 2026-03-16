@@ -405,50 +405,112 @@ const templatePreview = computed((): string | null => {
 
 // ─── Form helpers ─────────────────────────────────────────────
 /** Render a JSON schema as a readable TypeScript-style type signature. */
-function formatReturnSchema(schema: unknown, depth = 0): string {
+type _Defs = Record<string, unknown>
+
+function _getConst(s: unknown): string | undefined {
+  if (!s || typeof s !== 'object') return undefined
+  const v = s as Record<string, unknown>
+  return typeof v['const'] === 'string' ? v['const'] : undefined
+}
+
+function _findDisc(variant: unknown): string | undefined {
+  if (!variant || typeof variant !== 'object') return undefined
+  const props = (variant as Record<string, unknown>)['properties'] as Record<string, unknown> | undefined
+  if (!props) return undefined
+  for (const [, pv] of Object.entries(props)) {
+    const c = _getConst(pv)
+    if (c !== undefined) return c
+  }
+  return undefined
+}
+
+function _fmt(schema: unknown, defs: _Defs, depth: number, max: number): string {
   if (!schema || typeof schema !== 'object') return 'unknown'
   const s = schema as Record<string, unknown>
 
+  const localDefs: _Defs = { ...defs, ...(s['$defs'] && typeof s['$defs'] === 'object' ? s['$defs'] as _Defs : {}) }
+
+  if (s['const'] !== undefined) return JSON.stringify(s['const'])
+
   if (typeof s['$ref'] === 'string') {
-    return s['$ref'].split('/').pop() ?? 'ref'
+    const refName = s['$ref'].split('/').pop() ?? 'ref'
+    const match = s['$ref'].match(/^#\/\$defs\/(.+)$/)
+    if (match) {
+      const resolved = localDefs[match[1]!]
+      if (resolved) {
+        const inner = _fmt(resolved, localDefs, depth, max)
+        if (!inner.includes('\n') && inner !== 'object' && inner !== 'unknown') return inner
+      }
+    }
+    return refName
   }
+
+  const oneOf = (s['oneOf'] ?? s['anyOf']) as unknown[] | undefined
+  if (Array.isArray(oneOf)) {
+    if (oneOf.length === 1) return _fmt(oneOf[0], localDefs, depth, max)
+    const discs = oneOf.map(_findDisc)
+    if (discs.every(d => d !== undefined)) {
+      const parts = oneOf.map((v, i) => {
+        const disc = discs[i]!
+        const vObj = v as Record<string, unknown>
+        const props = vObj['properties'] as Record<string, unknown> | undefined
+        if (!props) return disc
+        const req = Array.isArray(vObj['required']) ? vObj['required'] as string[] : []
+        const fields = Object.entries(props)
+          .filter(([, pv]) => _getConst(pv) === undefined)
+          .map(([k, pv]) => `${k}${req.includes(k) ? '' : '?'}: ${_fmt(pv, localDefs, depth + 1, max)}`)
+        if (fields.length === 0) return disc
+        const inline = `${disc} { ${fields.join(', ')} }`
+        return inline.length <= 72 ? inline : `${disc} { ${fields.slice(0, 2).join(', ')}${fields.length > 2 ? ', …' : ''} }`
+      })
+      const joined = parts.join(' | ')
+      return joined.length <= 100 ? joined : parts.join('\n| ')
+    }
+    return `oneOf[${oneOf.length}]`
+  }
+
   if (Array.isArray(s['enum'])) {
     const vals = (s['enum'] as unknown[]).slice(0, 8).map(v => JSON.stringify(v))
-    const suffix = (s['enum'] as unknown[]).length > 8 ? ` | …` : ''
-    return vals.join(' | ') + suffix
+    return vals.join(' | ') + ((s['enum'] as unknown[]).length > 8 ? ' | …' : '')
   }
 
   const rawType = s['type']
   const types: string[] = Array.isArray(rawType)
-    ? rawType.filter((t): t is string => typeof t === 'string')
-    : typeof rawType === 'string' ? [rawType] : []
-  const nullable = types.includes('null')
-  const nonNull = types.filter(t => t !== 'null')
-  const type = nonNull[0]
+    ? (rawType as string[]).filter(t => t !== 'null')
+    : typeof rawType === 'string' && rawType !== 'null' ? [rawType] : []
+  const nullable = Array.isArray(rawType)
+    ? (rawType as string[]).includes('null')
+    : rawType === 'null'
+  const eff = types[0] ?? (s['properties'] ? 'object' : undefined)
 
   let core: string
-  if (type === 'object') {
+  if (eff === 'object') {
     const props = s['properties'] as Record<string, unknown> | undefined
     if (props && Object.keys(props).length > 0) {
-      const req = Array.isArray(s['required']) ? (s['required'] as string[]) : []
+      if (depth >= max) return `{ ${Object.keys(props).length} fields }`
+      const req = Array.isArray(s['required']) ? s['required'] as string[] : []
       const pad = '  '.repeat(depth + 1)
-      const basePad = '  '.repeat(depth)
-      const entries = Object.entries(props).map(([k, v]) => {
-        const opt = req.includes(k) ? '' : '?'
-        return `${pad}${k}${opt}: ${formatReturnSchema(v, depth + 1)}`
-      })
-      core = `{\n${entries.join('\n')}\n${basePad}}`
+      const base = '  '.repeat(depth)
+      const rows = Object.entries(props).map(([k, v]) =>
+        `${pad}${k}${req.includes(k) ? '' : '?'}: ${_fmt(v, localDefs, depth + 1, max)}`
+      )
+      core = `{\n${rows.join('\n')}\n${base}}`
     } else {
       core = 'object'
     }
-  } else if (type === 'array') {
-    const inner = s['items'] ? formatReturnSchema(s['items'], depth) : 'unknown'
-    core = `${inner}[]`
+  } else if (eff === 'array') {
+    core = `${s['items'] ? _fmt(s['items'], localDefs, depth, max) : 'unknown'}[]`
   } else {
-    core = type ?? 'unknown'
+    core = eff ?? 'unknown'
   }
 
   return nullable && core !== 'null' ? `${core} | null` : core
+}
+
+function formatReturnSchema(schema: unknown): string {
+  if (!schema || typeof schema !== 'object') return 'unknown'
+  const s = schema as Record<string, unknown>
+  return _fmt(schema, (s['$defs'] as _Defs | undefined) ?? {}, 0, 3)
 }
 
 function getParamNames(): string[] {
