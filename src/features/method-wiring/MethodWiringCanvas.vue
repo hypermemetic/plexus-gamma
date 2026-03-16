@@ -366,6 +366,15 @@
         </template>
 
         <template #overlay>
+        <!-- Backdrop: blocks canvas interaction and closes any open popup -->
+        <div
+          v-if="contextMenu || edgeContextMenu || routingPicker"
+          class="popup-backdrop"
+          @mousedown.stop
+          @click.stop="contextMenu = null; edgeContextMenu = null; routingPicker = null"
+          @contextmenu.prevent.stop
+        />
+
         <!-- Context menu (in canvas-wrap space, not transformed) -->
         <div
           v-if="contextMenu"
@@ -2753,6 +2762,13 @@ function resultPreview(result: unknown): string {
   cursor: text;
 }
 .node-result-error .result-value { color: #f85149; }
+
+/* ── Popup backdrop ──────────────────────────────────────────── */
+.popup-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 99;
+}
 
 /* ── Context menu ────────────────────────────────────────────── */
 .ctx-menu {
