@@ -38,6 +38,9 @@
         </form>
         <button v-else class="add-btn" @click="showAdd = true" title="Add backend">+</button>
 
+        <!-- Build hash -->
+        <span class="build-hash" title="Build commit">{{ __GIT_HASH__ }}</span>
+
         <!-- View switcher -->
         <div class="view-tabs">
           <button class="view-tab" :class="{ active: view === 'multi-explorer' }" @click="view = 'multi-explorer'">explore</button>
@@ -96,6 +99,7 @@
 </template>
 
 <script setup lang="ts">
+declare const __GIT_HASH__: string
 import { ref, provide, onMounted, watch } from 'vue'
 import MultiBackendCanvas from './components/MultiBackendCanvas.vue'
 import MultiBackendExplorer from './components/MultiBackendExplorer.vue'
@@ -268,6 +272,7 @@ onMounted(runScan)
 }
 
 .conn-bar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
+.build-hash { font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace; font-size: 10px; color: #484f58; letter-spacing: 0.04em; }
 
 .palette-trigger {
   background: none;
