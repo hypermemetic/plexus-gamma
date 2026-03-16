@@ -366,6 +366,15 @@
         </template>
 
         <template #overlay>
+        <!-- Backdrop: blocks canvas interaction and closes any open popup -->
+        <div
+          v-if="contextMenu || edgeContextMenu || routingPicker"
+          class="popup-backdrop"
+          @mousedown.stop
+          @click.stop="contextMenu = null; edgeContextMenu = null; routingPicker = null"
+          @contextmenu.prevent.stop
+        />
+
         <!-- Context menu (in canvas-wrap space, not transformed) -->
         <div
           v-if="contextMenu"
@@ -1016,13 +1025,31 @@ function nodeBackground(kind: NodeKind): string {
   }
 }
 
-function nodeTitle(node: WireNode): string {
+function nodeBaseTitle(node: WireNode): string {
   if (node.label) return node.label
   if (node.kind === 'rpc') {
     const full = node.method?.fullPath ?? ''
-    return full.split('.').pop() ?? full
+    const parts = full.split('.')
+    if (parts.length >= 2) return parts.slice(-2).join('.')
+    return full
   }
   return nodeCommand(node) || node.id
+}
+
+const nodeTitleMap = computed(() => {
+  const counts = new Map<string, number>()
+  const result = new Map<string, string>()
+  for (const node of nodes.value) {
+    const base = nodeBaseTitle(node)
+    const count = (counts.get(base) ?? 0) + 1
+    counts.set(base, count)
+    result.set(node.id, count === 1 ? base : `${base}${count}`)
+  }
+  return result
+})
+
+function nodeTitle(node: WireNode): string {
+  return nodeTitleMap.value.get(node.id) ?? nodeBaseTitle(node)
 }
 
 function nodeCommand(node: WireNode): string {
@@ -1444,7 +1471,6 @@ function onInputPortClick(toNodeId: string, toParam: string) {
 function onCanvasClick(e: MouseEvent) {
   const hadPending = !!pendingEdge.value || pendingEdgeJustCancelled
   const hadNodeDrag = nodeDragMoved
-  const prevSelectedNode = selectedNodeId.value
   const prevSelectedEdge = selectedEdgeId.value
   const hadMenu = !!contextMenu.value || !!edgeContextMenu.value || !!routingPicker.value
   pendingEdgeJustCancelled = false
@@ -1464,9 +1490,7 @@ function onCanvasClick(e: MouseEvent) {
     const edge = edges.value.find(e => e.id === prevSelectedEdge)
     if (edge) { doSplitEdgeInsert(e.clientX, e.clientY, edge); return }
   }
-  // Node was selected: just deselect, don't open search
-  if (prevSelectedNode) return
-  // Nothing selected: open search
+  // Open search whether or not a node was selected (panel open = still open search)
   const rect = canvasWrap.value?.getBoundingClientRect()
   if (rect) {
     const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
@@ -2738,6 +2762,13 @@ function resultPreview(result: unknown): string {
   cursor: text;
 }
 .node-result-error .result-value { color: #f85149; }
+
+/* ── Popup backdrop ──────────────────────────────────────────── */
+.popup-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 99;
+}
 
 /* ── Context menu ────────────────────────────────────────────── */
 .ctx-menu {
