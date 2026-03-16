@@ -1017,7 +1017,7 @@ function nodeBackground(kind: NodeKind): string {
 }
 
 function nodeTitle(node: WireNode): string {
-  return node.label || node.id
+  return node.label || nodeCommand(node) || node.id
 }
 
 function nodeCommand(node: WireNode): string {
