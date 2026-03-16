@@ -872,7 +872,7 @@ const svgH = ref(600)
 let resizeObserver: ResizeObserver | null = null
 
 // Re-load trees whenever new backends are discovered (port scan runs after mount)
-watch(connections, loadSidebarTrees, { deep: true })
+watch(connections, loadSidebarTrees, { deep: true, immediate: true })
 
 // After each pan/zoom DOM update, re-render edges so getBoundingClientRect reads fresh positions
 watch(transformStyle, () => { layoutTick.value++ }, { flush: 'post' })

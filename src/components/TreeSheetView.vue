@@ -1,26 +1,21 @@
 <template>
   <div class="sheet-view">
-    <!-- Backend selector (shown when multiple connections) -->
-    <div v-if="connections.length > 1" class="sheet-conn-sel">
-      <select v-model="selectedConnName" class="conn-select">
-        <option v-for="c in connections" :key="c.name" :value="c.name">{{ c.name }}</option>
-      </select>
-    </div>
-
-    <!-- Full-width tree -->
+    <!-- Full-width tree — all backends -->
     <div class="tree-area">
-      <div v-if="loading && !tree" class="loading-state">
-        <span class="spinner">◌</span> Connecting…
+      <div v-for="conn in connections" :key="conn.name" class="backend-group">
+        <div v-if="loading[conn.name] && !trees[conn.name]" class="loading-state">
+          <span class="spinner">◌</span> {{ conn.name }}…
+        </div>
+        <div v-if="connectErrors[conn.name]" class="error-banner">{{ connectErrors[conn.name] }}</div>
+        <nav v-if="trees[conn.name]" class="tree" @keydown="onTreeKeydown">
+          <PluginTreeNode
+            :node="trees[conn.name]!"
+            :selected-path="selection?.connName === conn.name ? (selection.path ?? '') : '__none__'"
+            :backend-name="conn.name"
+            @select="onNodeSelect(conn.name, $event)"
+          />
+        </nav>
       </div>
-      <div v-if="connectError" class="error-banner">{{ connectError }}</div>
-      <nav v-if="tree" class="tree" @keydown="onTreeKeydown">
-        <PluginTreeNode
-          :node="tree"
-          :selected-path="sheetPath ?? ''"
-          :backend-name="activeConn?.name ?? ''"
-          @select="onNodeSelect"
-        />
-      </nav>
     </div>
 
     <!-- Bottom sheet -->
@@ -43,9 +38,9 @@
             <div class="method-page-body">
               <!-- BackendDetailProvider keyed by connection so RPC re-provides on switch -->
               <BackendDetailProvider
-                :key="selectedConnName"
+                :key="selection?.connName"
                 :rpc="activeRpc!"
-                :backend-name="selectedConnName"
+                :backend-name="selection?.connName ?? ''"
               >
                 <MethodInvoker
                   :method="selectedMethod"
@@ -120,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useContainedFocus } from '../lib/useContainedFocus'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
@@ -134,45 +129,30 @@ import BackendDetailProvider from './BackendDetailProvider.vue'
 const { focus } = useContainedFocus()
 const { connections, mergeRegistryBackends } = useBackends()
 
-// ─── Active connection selection ──────────────────────────────
-const selectedConnName = ref(connections.value[0]?.name ?? '')
-const activeConn = computed(() => connections.value.find(c => c.name === selectedConnName.value) ?? connections.value[0])
-const activeRpc  = computed(() => {
+// ─── Selection: { connName, path } ────────────────────────────
+const selection = ref<{ connName: string; path: string } | null>(null)
+
+const activeConn = computed(() =>
+  selection.value ? connections.value.find(c => c.name === selection.value!.connName) ?? null : null
+)
+const activeRpc = computed(() => {
   const conn = activeConn.value
   return conn ? getSharedClient(conn.name, conn.url) : null
 })
 
-// When connection changes, reset sheet state and refresh
-watch(activeConn, (conn) => {
-  if (!conn) return
-  sheetPath.value = null
-  selectedMethod.value = null
-  schema.value = null
-  refresh()
-})
+// ─── Per-backend tree state ────────────────────────────────────
+const trees         = reactive<Record<string, PluginNode>>({})
+const loading       = reactive<Record<string, boolean>>({})
+const connectErrors = reactive<Record<string, string>>({})
 
-// When new connections are added, update if first connection
-watch(connections, (conns) => {
-  if (!conns.find(c => c.name === selectedConnName.value)) {
-    selectedConnName.value = conns[0]?.name ?? ''
-  }
-}, { deep: true })
-
-// ─── Tree state ───────────────────────────────────────────────
-const tree         = ref<PluginNode | null>(null)
-const loading      = ref(false)
-const connectError = ref('')
-
-async function refresh() {
-  const conn = activeConn.value
-  const rpc  = activeRpc.value
-  if (!conn || !rpc) return
-  loading.value = true
-  connectError.value = ''
+async function loadTree(conn: { name: string; url: string }) {
+  loading[conn.name] = true
+  connectErrors[conn.name] = ''
   try {
+    const rpc = getSharedClient(conn.name, conn.url)
     await rpc.connect()
-    tree.value = await getCachedTree(rpc, conn.name)
-    if (tree.value.children.some(c => c.schema.namespace === 'registry')) {
+    trees[conn.name] = await getCachedTree(rpc, conn.name)
+    if (trees[conn.name]!.children.some(c => c.schema.namespace === 'registry')) {
       try {
         const result = await collectOne<{ backends: { name: string; host: string; port: number; protocol: string }[] }>(
           rpc.call('registry.list', { active_only: true })
@@ -181,14 +161,27 @@ async function refresh() {
       } catch { /* ignore */ }
     }
   } catch (e) {
-    connectError.value = e instanceof Error ? e.message : String(e)
+    connectErrors[conn.name] = e instanceof Error ? e.message : String(e)
   } finally {
-    loading.value = false
+    loading[conn.name] = false
   }
 }
 
+// Load trees for all connections; pick up new ones as they arrive
+watch(connections, (conns) => {
+  for (const conn of conns) {
+    if (!(conn.name in loading)) void loadTree(conn)
+  }
+}, { immediate: true, deep: true })
+
 // ─── Sheet state ──────────────────────────────────────────────
-const sheetPath      = ref<string | null>(null)
+const sheetPath = computed({
+  get: () => selection.value?.path ?? null,
+  set: (path: string | null) => {
+    if (path === null) selection.value = null
+    else if (selection.value) selection.value = { ...selection.value, path }
+  },
+})
 const selectedMethod = ref<MethodSchema | null>(null)
 const schema         = ref<PluginSchema | null>(null)
 const schemaLoading  = ref(false)
@@ -208,9 +201,8 @@ const selectedMethodPath = computed(() =>
   selectedMethod.value ? `${sheetNamespace.value}.${selectedMethod.value.name}` : ''
 )
 
-function onNodeSelect(node: PluginNode) {
-  const path = node.path.join('.')
-  sheetPath.value = path
+function onNodeSelect(connName: string, node: PluginNode) {
+  selection.value = { connName, path: node.path.join('.') }
   selectedMethod.value = null
 }
 
@@ -286,7 +278,6 @@ function onTreeKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
-  refresh()
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)

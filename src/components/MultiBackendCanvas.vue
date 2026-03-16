@@ -39,13 +39,21 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { getCachedTree } from '../lib/plexus/schemaCache'
 import { useBackends } from '../lib/useBackends'
+import { useUiState } from '../lib/useUiState'
 import type { PluginNode, MethodSchema } from '../plexus-schema'
+
+// Canvas 2D doesn't resolve CSS custom properties — read them at draw time.
+function getCssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
 
 const emit = defineEmits<{
   select: [backend: string, path: string[]]
 }>()
 
 const { connections } = useBackends()
+const { theme } = useUiState()
+watch(theme, () => render())
 
 const wrapRef   = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -201,7 +209,7 @@ function drawEdge(ctx: CanvasRenderingContext2D, from: CNode, to: CNode): void {
   ctx.beginPath()
   ctx.moveTo(x1, y1)
   ctx.bezierCurveTo(cx, y1, cx, y2, x2, y2)
-  ctx.strokeStyle = '#252b35'
+  ctx.strokeStyle = getCssVar('--border')
   ctx.lineWidth = 1
   ctx.stroke()
 }
@@ -212,13 +220,13 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
   const md = methodDisplay.value
 
   rrect(ctx, x, y, w, h, 6)
-  ctx.fillStyle   = isHub ? 'var(--bg-3)' : 'var(--bg-3)'
+  ctx.fillStyle   = getCssVar('--bg-3')
   ctx.fill()
-  ctx.strokeStyle = isHub ? '#283660' : 'var(--bg-3)'
+  ctx.strokeStyle = getCssVar(isHub ? '--accent-bg-2' : '--bg-3')
   ctx.lineWidth   = 1
   ctx.stroke()
 
-  ctx.fillStyle    = isHub ? '#7aabff' : 'var(--text)'
+  ctx.fillStyle    = getCssVar(isHub ? '--accent' : '--text')
   ctx.font         = `600 12px ${FONT_MONO}`
   ctx.textBaseline = 'middle'
   ctx.textAlign    = 'left'
@@ -229,7 +237,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
 
   if (isHub && node.children.length > 0) {
     ctx.font      = `10px ${FONT_MONO}`
-    ctx.fillStyle = '#3a4a6b'
+    ctx.fillStyle = getCssVar('--text-dim')
     ctx.textAlign = 'right'
     ctx.fillText(`${node.children.length}`, x + w - 10, y + HEADER_H / 2)
   }
@@ -246,7 +254,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
       methods.forEach((m, i) => {
         const my = y + HEADER_H + 1 + i * METHOD_ROW_H
         const isStream = m.streaming, isBidir = m.bidirectional
-        const nameColor = isStream ? '#4e9eff' : isBidir ? '#a070ef' : '#4ab060'
+        const nameColor = getCssVar(isStream ? '--accent' : isBidir ? '--purple' : '--green')
         ctx.font = `11px ${FONT_MONO}`
         ctx.textBaseline = 'middle'
         ctx.fillStyle = nameColor
@@ -257,7 +265,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
         ctx.restore()
         if (isStream || isBidir) {
           ctx.font = `9px ${FONT_MONO}`
-          ctx.fillStyle = isStream ? '#2a4060' : 'var(--purple-bg)'
+          ctx.fillStyle = getCssVar(isStream ? '--accent-bg' : '--purple-bg')
           ctx.textAlign = 'right'
           ctx.fillText(isStream ? '↓' : '⇄', x + w - 8, my + METHOD_ROW_H / 2)
         }
@@ -266,7 +274,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
       let dx = x + 12, dy = y + HEADER_H + METHOD_DOT_GAP / 2 + 2
       for (const m of methods) {
         const isStream = m.streaming, isBidir = m.bidirectional
-        const color = isStream ? '#4e9eff' : isBidir ? '#a070ef' : '#4ab060'
+        const color = getCssVar(isStream ? '--accent' : isBidir ? '--purple' : '--green')
         ctx.beginPath()
         ctx.arc(dx, dy, METHOD_DOT_R, 0, Math.PI * 2)
         ctx.fillStyle = color
@@ -283,7 +291,7 @@ function drawBackendHeader(ctx: CanvasRenderingContext2D, be: BackendState): voi
   ctx.font = `600 11px ${FONT_MONO}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = 'var(--accent)'
+  ctx.fillStyle = getCssVar('--accent')
   ctx.fillText(be.name.toUpperCase(), be.root.x, be.root.y - 12)
 }
 
@@ -295,7 +303,7 @@ function render(): void {
 
   const dpr = Number(canvas.dataset.dpr || '1')
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = 'var(--bg-0)'
+  ctx.fillStyle = getCssVar('--bg-0')
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
   if (!hasAnyTree.value) return

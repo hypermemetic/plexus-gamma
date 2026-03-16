@@ -2,7 +2,7 @@
   <div class="node">
     <button
       class="node-row"
-      :class="{ selected: isSelected, hub: hasChildren, leaf: !hasChildren }"
+      :class="{ selected: isSelected, hub: hasChildren, leaf: !hasChildren, root: isRoot }"
       @click="toggle"
     >
       <span class="node-toggle">
@@ -45,6 +45,7 @@ const open = ref(props.node.path.length === 0) // root starts open
 const label       = computed(() =>
   props.node.path.length === 0 ? props.backendName : props.node.path[props.node.path.length - 1]
 )
+const isRoot      = computed(() => props.node.path.length === 0)
 const hasChildren = computed(() => props.node.children.length > 0)
 const isSelected  = computed(() => props.node.path.join('.') === props.selectedPath)
 
@@ -79,6 +80,18 @@ function toggle() {
 .node-row:hover { background: var(--bg-3); color: var(--text); }
 .node-row.selected { background: var(--accent-bg); color: var(--accent); }
 .node-row.hub { color: var(--text); }
+.node-row.root {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-left: 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-bg);
+}
+.node-row.root:hover { background: var(--accent-bg-2); color: var(--accent); }
+.node-row.root.selected { background: var(--accent-bg-2); }
 .node-row.leaf { padding-left: 22px; }
 .node-row.selected.leaf { color: var(--accent); }
 

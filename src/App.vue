@@ -46,7 +46,7 @@
         <!-- View switcher -->
         <div class="view-tabs">
           <button class="view-tab" :class="{ active: view === 'multi-explorer' }" @click="view = 'multi-explorer'">explore</button>
-          <button class="view-tab" :class="{ active: view === 'canvas' }"         @click="view = 'canvas'">canvas</button>
+          <button class="view-tab" :class="{ active: view === 'canvas' }"         @click="view = 'canvas'">topology</button>
           <button class="view-tab" :class="{ active: view === 'sheet' }"          @click="view = 'sheet'">sheet</button>
           <button class="view-tab" :class="{ active: view === 'wiring' }"         @click="view = 'wiring'">wiring</button>
           <button class="view-tab" :class="{ active: view === 'orchestration' }"  @click="view = 'orchestration'">orchestrate</button>

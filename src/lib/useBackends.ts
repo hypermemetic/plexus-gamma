@@ -8,6 +8,7 @@ import { ref, reactive, readonly, computed, watch } from 'vue'
 import { getSharedClient, releaseSharedClient } from './plexus/clientRegistry'
 import { getCachedTree, invalidateTree } from './plexus/schemaCache'
 import { scanPortRange } from './plexus/discover'
+import { collectOne } from './plexus/rpc'
 import { flattenTree } from '../schema-walker'
 import type { MethodEntry } from '../components/CommandPalette.vue'
 
@@ -107,6 +108,16 @@ async function refreshTree(conn: BackendConnection): Promise<void> {
       ...methodIndex.value.filter(e => e.backend !== conn.name),
       ...entries,
     ]
+
+    // Auto-discover registry backends (same logic as MultiBackendExplorer)
+    if (tree.children.some(c => c.schema.namespace === 'registry')) {
+      try {
+        const result = await collectOne<{ backends: RegistryBackend[] }>(
+          rpc.call('registry.list', { active_only: true })
+        )
+        if (result.backends?.length) mergeRegistryBackends(result.backends)
+      } catch { /* registry not available */ }
+    }
   } catch { /* connection error — skip */ }
 }
 
@@ -235,7 +246,9 @@ function mergeRegistryBackends(backends: RegistryBackend[]): void {
   for (const b of backends) {
     const url = `${b.protocol}://${b.host}:${b.port}`
     if (!connections.value.find(c => c.name === b.name || c.url === url)) {
-      connections.value.push({ name: b.name, url })
+      const conn: BackendConnection = { name: b.name, url }
+      connections.value.push(conn)
+      void refreshTree(conn)
     }
   }
 }
