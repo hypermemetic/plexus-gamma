@@ -59,7 +59,6 @@
       <!-- All backends view (default) -->
       <template v-if="view === 'multi-explorer'">
         <MultiBackendExplorer
-          :navigate-to="navigateTo"
           @open-health="healthOpen = true"
         />
       </template>
@@ -102,6 +101,8 @@ import CommandPalette from './components/CommandPalette.vue'
 import type { MethodEntry } from './components/CommandPalette.vue'
 import { useKeymap } from './lib/useKeymap'
 import { useBackends } from './lib/useBackends'
+import { useUiState } from './lib/useUiState'
+import { useBridge } from './lib/useBridge'
 // ─── Features (remove any import + usage to disable) ─────────
 import MethodWiringCanvas from './features/method-wiring/MethodWiringCanvas.vue'
 import OrchestrationCanvas from './features/orchestration/OrchestrationCanvas.vue'
@@ -116,31 +117,26 @@ const {
   scan,
 } = useBackends()
 
-// ─── Theme ────────────────────────────────────────────────────
-type Theme = 'daylight' | 'midnight'
-const savedTheme = localStorage.getItem('plexus-theme') as Theme | null
-const theme = ref<Theme>(savedTheme ?? 'daylight')
-function applyTheme(t: Theme) { document.documentElement.dataset.theme = t }
+// ─── Shared UI state ─────────────────────────────────────────
+const { currentView: view, theme, paletteOpen, navigateTo } = useUiState()
+
+// DOM side-effects for theme (stay in App.vue)
+function applyTheme(t: 'daylight' | 'midnight') { document.documentElement.dataset.theme = t }
 applyTheme(theme.value)
 watch(theme, t => { applyTheme(t); localStorage.setItem('plexus-theme', t) })
+
+// Persist view to localStorage
+watch(view, v => localStorage.setItem('plexus-active-view', v))
 function toggleTheme() {
   document.documentElement.classList.add('theme-switching')
   theme.value = theme.value === 'daylight' ? 'midnight' : 'daylight'
   setTimeout(() => document.documentElement.classList.remove('theme-switching'), 950)
 }
 
-type ViewName = 'multi-explorer' | 'canvas' | 'sheet' | 'wiring' | 'orchestration'
-const VALID_VIEWS: ViewName[] = ['multi-explorer', 'canvas', 'sheet', 'wiring', 'orchestration']
-const savedView = localStorage.getItem('plexus-active-view') as ViewName | null
-const view = ref<ViewName>(VALID_VIEWS.includes(savedView!) ? savedView! : 'multi-explorer')
-watch(view, v => localStorage.setItem('plexus-active-view', v))
 const healthOpen = ref(false)
 const showAdd    = ref(false)
 const newName    = ref('')
 const newUrl     = ref('ws://127.0.0.1:')
-
-// ─── Command palette ─────────────────────────────────────────
-const paletteOpen = ref(false)
 
 useKeymap({
   'ctrl+k': () => { paletteOpen.value = true },
@@ -148,7 +144,6 @@ useKeymap({
 })
 
 // ─── Navigate-to (palette → explorer) ───────────────────────
-const navigateTo    = ref<{ backend: string; path: string[] } | null>(null)
 const pendingMethod = ref<string | null>(null)
 
 provide('pendingMethod', pendingMethod)
@@ -157,6 +152,8 @@ provide('pendingMethod', pendingMethod)
 const invocationHistory = useInvocationHistory()
 provide('invocationHistory', invocationHistory)
 const replayOpen = ref(false)
+
+useBridge()
 
 function onPaletteSelect(entry: MethodEntry) {
   view.value = 'multi-explorer'

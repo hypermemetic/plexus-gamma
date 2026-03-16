@@ -140,11 +140,11 @@
 <script setup lang="ts">
 import { ref, computed, inject, watch, nextTick, type Ref } from 'vue'
 import { useContainedFocus } from '../lib/useContainedFocus'
-import type { PlexusRpcClient } from '../lib/plexus/transport'
 import type { MethodSchema } from '../plexus-schema'
 import SchemaField from './SchemaField.vue'
 import type { JsonSchema } from './SchemaField.vue'
 import { useFormEnterNav } from '../lib/useFormEnterNav'
+import { useDispatch } from '../lib/useDispatch'
 
 const props = defineProps<{
   method: MethodSchema
@@ -153,7 +153,7 @@ const props = defineProps<{
 }>()
 
 const { focus } = useContainedFocus()
-const rpc           = inject<PlexusRpcClient>('rpc')!
+const dispatch = useDispatch()
 const pendingMethod = inject<Ref<string | null>>('pendingMethod', ref(null))
 
 const jsonMode     = ref(false)
@@ -436,7 +436,7 @@ async function invoke() {
   cancelFlag.value = false
   returnsOpen.value = true
   try {
-    for await (const item of rpc.call(fullPath.value, params)) {
+    for await (const item of dispatch.invokeMethod(props.backendName, fullPath.value, params, false)) {
       if (cancelFlag.value) break
       if (item.type === 'data') {
         results.value.push({ type: 'data', content: item.content, raw: false })

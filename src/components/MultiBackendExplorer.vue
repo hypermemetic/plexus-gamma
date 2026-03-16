@@ -54,14 +54,13 @@ import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
 import { getCachedTree } from '../lib/plexus/schemaCache'
 import { useBackends } from '../lib/useBackends'
+import { useUiState } from '../lib/useUiState'
 import type { PluginNode } from '../plexus-schema'
 import PluginTreeNode from './PluginTreeNode.vue'
 import PluginDetail from './PluginDetail.vue'
 import BackendDetailProvider from './BackendDetailProvider.vue'
 
-const props = defineProps<{
-  navigateTo?: { backend: string; path: string[] } | null
-}>()
+const { navigateTo } = useUiState()
 
 const emit = defineEmits<{
   'open-health': [name: string]
@@ -118,7 +117,7 @@ function onSelect(backendName: string, node: PluginNode): void {
 }
 
 // ─── External navigation (palette, canvas click) ─────────────
-watch(() => props.navigateTo, (nav) => {
+watch(navigateTo, (nav) => {
   if (!nav) return
   selectedBackend.value = nav.backend
   selectedPath.value = nav.path
