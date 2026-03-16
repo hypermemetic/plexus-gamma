@@ -182,7 +182,7 @@ test('04 — wiring: bash → mustache template → bash', async ({ page }) => {
   }, { timeout: 5_000 })
 
   // Inject edges, params, and mustache template directly into the wiring state.
-  // Pipeline: bash "printf 'hello plexus'" → template → bash (runs the rendered command)
+  // Pipeline: bash "printf hello" → template(mustache) → bash runs rendered cmd
   await page.evaluate(() => {
     const raw = localStorage.getItem('plexus-wiring-v1')!
     const state = JSON.parse(raw)
@@ -192,21 +192,29 @@ test('04 — wiring: bash → mustache template → bash', async ({ page }) => {
     const bashProps = n1?.method?.method?.params?.properties ?? {}
     const bashParam = Object.keys(bashProps)[0] ?? 'command'
 
-    // n1: run a simple command to produce input text
+    // n1: run a simple command (printf = no trailing newline)
     n1.params = { [bashParam]: "printf 'hello plexus'" }
 
-    // n2: mustache template — wraps the input in an uppercase bash command
-    n2.transform.template = 'echo "{{slot0}}" | tr a-z A-Z'
+    // n2: mustache template — accesses slot0.line (first stdout line from n1)
+    // {{slot0.line}} resolves because we use routing:'first' on n1→n2
+    n2.transform.template = 'echo "{{slot0.line}}" | tr a-z A-Z'
     n2.transform.inputNames = ['slot0']
 
-    // n3: command is wired from n2's rendered output
+    // n3: command driven entirely by wired input from n2
     n3.params = {}
 
-    // Wire n1 → n2(slot0) → n3(bash command param)
+    // Space nodes far apart so the bezier curves are visible
+    n1.pos = { x: 60,  y: 100 }
+    n2.pos = { x: 380, y: 100 }
+    n3.pos = { x: 700, y: 100 }
+
+    // Wire n1 → n2(slot0): routing 'first' extracts the first stream item
+    // ({"line":"hello plexus","type":"stdout"}) so {{slot0.line}} resolves
+    // Wire n2 → n3(command): routing 'auto' passes the rendered string directly
     state.edges = [
       {
         id: 'e1', fromNodeId: n1.id, toNodeId: n2.id, toParam: 'slot0',
-        routing: 'auto',
+        routing: 'first',
         routeConfig: { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [] },
       },
       {
@@ -233,6 +241,16 @@ test('04 — wiring: bash → mustache template → bash', async ({ page }) => {
 
   // Wait for all 3 nodes to complete (last node result appears last)
   await expect(page.locator('.node-result').nth(2)).toBeVisible({ timeout: 20_000 })
+
+  // Log the execution results for debugging
+  const nodeResults = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.wire-node')).map(node => ({
+      id: (node as HTMLElement).dataset.id,
+      status: [...node.classList].find(c => c.startsWith('status-'))?.replace('status-', ''),
+      result: node.querySelector('.result-value')?.textContent?.trim(),
+    }))
+  )
+  console.log('Wiring execution results:', JSON.stringify(nodeResults, null, 2))
 
   // Hide minimap overlay before capture
   await page.addStyleTag({ content: '.wiring-minimap { display: none !important; }' })

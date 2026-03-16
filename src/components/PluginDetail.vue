@@ -148,6 +148,7 @@ const path = computed(() => props.path ?? [])
 <style scoped>
 .detail {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   background: var(--bg-0);
 }

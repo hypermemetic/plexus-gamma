@@ -1999,8 +1999,15 @@ function executeTransform(node: WireNode, inputs: Map<string, unknown>, nodeResu
           if (n) byTitle.set(nodeTitle(n), result)
         }
       }
-      return node.transform.template.replace(/\{\{(\w+)\}\}/g,
-        (_, k: string) => String(inputs.has(k) ? inputs.get(k) : (byTitle.get(k) ?? '')))
+      // Support {{name}} and {{name.field}} / {{name[0].field}} dot/bracket notation
+      return node.transform.template.replace(/\{\{([\w.[\]'"]+)\}\}/g,
+        (_, k: string) => {
+          const dotIdx = k.search(/[.[]/)
+          const base = dotIdx === -1 ? k : k.slice(0, dotIdx)
+          const rest = dotIdx === -1 ? '' : k.slice(dotIdx).replace(/^\./, '')
+          const baseVal = inputs.has(base) ? inputs.get(base) : (byTitle.get(base) ?? '')
+          return String(rest ? (getPath(baseVal, rest) ?? '') : (baseVal ?? ''))
+        })
     }
     case 'merge':    return Object.assign({}, ...node.transform.inputNames
                        .map(n => (inputs.get(n) ?? {}) as object))
