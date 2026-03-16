@@ -1017,7 +1017,12 @@ function nodeBackground(kind: NodeKind): string {
 }
 
 function nodeTitle(node: WireNode): string {
-  return node.label || nodeCommand(node) || node.id
+  if (node.label) return node.label
+  if (node.kind === 'rpc') {
+    const full = node.method?.fullPath ?? ''
+    return full.split('.').pop() ?? full
+  }
+  return nodeCommand(node) || node.id
 }
 
 function nodeCommand(node: WireNode): string {
