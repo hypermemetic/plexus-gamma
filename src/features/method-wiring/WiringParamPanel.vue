@@ -40,7 +40,7 @@
         <!-- Returns schema -->
         <template v-if="node.method?.method.returns">
           <div class="pf-section-title" style="margin-top:8px">returns</div>
-          <pre class="pf-returns">{{ formatSchema(node.method.method.returns) }}</pre>
+          <pre class="pf-returns">{{ formatReturnSchema(node.method.method.returns) }}</pre>
         </template>
       </template>
 
@@ -404,8 +404,51 @@ const templatePreview = computed((): string | null => {
 })
 
 // ─── Form helpers ─────────────────────────────────────────────
-function formatSchema(s: unknown): string {
-  return JSON.stringify(s, null, 2)
+/** Render a JSON schema as a readable TypeScript-style type signature. */
+function formatReturnSchema(schema: unknown, depth = 0): string {
+  if (!schema || typeof schema !== 'object') return 'unknown'
+  const s = schema as Record<string, unknown>
+
+  if (typeof s['$ref'] === 'string') {
+    return s['$ref'].split('/').pop() ?? 'ref'
+  }
+  if (Array.isArray(s['enum'])) {
+    const vals = (s['enum'] as unknown[]).slice(0, 8).map(v => JSON.stringify(v))
+    const suffix = (s['enum'] as unknown[]).length > 8 ? ` | …` : ''
+    return vals.join(' | ') + suffix
+  }
+
+  const rawType = s['type']
+  const types: string[] = Array.isArray(rawType)
+    ? rawType.filter((t): t is string => typeof t === 'string')
+    : typeof rawType === 'string' ? [rawType] : []
+  const nullable = types.includes('null')
+  const nonNull = types.filter(t => t !== 'null')
+  const type = nonNull[0]
+
+  let core: string
+  if (type === 'object') {
+    const props = s['properties'] as Record<string, unknown> | undefined
+    if (props && Object.keys(props).length > 0) {
+      const req = Array.isArray(s['required']) ? (s['required'] as string[]) : []
+      const pad = '  '.repeat(depth + 1)
+      const basePad = '  '.repeat(depth)
+      const entries = Object.entries(props).map(([k, v]) => {
+        const opt = req.includes(k) ? '' : '?'
+        return `${pad}${k}${opt}: ${formatReturnSchema(v, depth + 1)}`
+      })
+      core = `{\n${entries.join('\n')}\n${basePad}}`
+    } else {
+      core = 'object'
+    }
+  } else if (type === 'array') {
+    const inner = s['items'] ? formatReturnSchema(s['items'], depth) : 'unknown'
+    core = `${inner}[]`
+  } else {
+    core = type ?? 'unknown'
+  }
+
+  return nullable && core !== 'null' ? `${core} | null` : core
 }
 
 function getParamNames(): string[] {

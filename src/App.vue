@@ -12,11 +12,8 @@
     <header class="conn-bar">
       <!-- Backend selector (health chips) -->
       <HealthDashboard
-        :connections="connections"
-        :active-backend="activeConn?.name"
-        :scanning="scanning"
         :open="healthOpen"
-        @select="onHealthSelect"
+        @select="setActive"
         @close="healthOpen = false"
       />
 
@@ -30,7 +27,7 @@
         <button class="palette-trigger" @click="replayOpen = !replayOpen" title="Invocation history">⏱</button>
 
         <!-- Add connection form -->
-        <form v-if="showAdd" class="add-form" @submit.prevent="addConnection">
+        <form v-if="showAdd" class="add-form" @submit.prevent="submitAddConnection">
           <input v-model="newName" class="add-input" placeholder="backend name" required />
           <input v-model="newUrl"  class="add-input" placeholder="ws://127.0.0.1:4444" required />
           <button type="submit" class="add-submit">connect</button>
@@ -62,10 +59,7 @@
       <!-- All backends view (default) -->
       <template v-if="view === 'multi-explorer'">
         <MultiBackendExplorer
-          :connections="connections"
           :navigate-to="navigateTo"
-          @tree-ready="onTreeReady"
-          @registry-backends="onRegistryBackends"
           @open-health="healthOpen = true"
         />
       </template>
@@ -73,28 +67,23 @@
       <!-- Multi-backend canvas view -->
       <template v-else-if="view === 'canvas'">
         <MultiBackendCanvas
-          :connections="connections"
           @select="onCanvasSelect"
         />
       </template>
 
       <!-- Tree + sheet view (multi-backend) -->
       <template v-else-if="view === 'sheet'">
-        <TreeSheetView
-          :connections="connections"
-          @tree-ready="onTreeReady"
-          @registry-backends="onRegistryBackends"
-        />
+        <TreeSheetView />
       </template>
 
       <!-- Method wiring view (feature: method-wiring) -->
       <template v-else-if="view === 'wiring'">
-        <MethodWiringCanvas :connections="connections" :method-index="methodIndex" />
+        <MethodWiringCanvas />
       </template>
 
       <!-- Orchestration view (feature: orchestration) -->
       <template v-else-if="view === 'orchestration'">
-        <OrchestrationCanvas :connections="connections" :method-index="methodIndex" />
+        <OrchestrationCanvas />
       </template>
     </main>
 
@@ -111,10 +100,8 @@ import MultiBackendExplorer from './components/MultiBackendExplorer.vue'
 import TreeSheetView from './components/TreeSheetView.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import type { MethodEntry } from './components/CommandPalette.vue'
-import { scanPortRange } from './lib/plexus/discover'
 import { useKeymap } from './lib/useKeymap'
-import { flattenTree } from './schema-walker'
-import type { PluginNode } from './plexus-schema'
+import { useBackends } from './lib/useBackends'
 // ─── Features (remove any import + usage to disable) ─────────
 import MethodWiringCanvas from './features/method-wiring/MethodWiringCanvas.vue'
 import OrchestrationCanvas from './features/orchestration/OrchestrationCanvas.vue'
@@ -122,16 +109,12 @@ import HealthDashboard from './features/health/HealthDashboard.vue'
 import ReplayPanel from './features/replay/ReplayPanel.vue'
 import { useInvocationHistory } from './features/replay/useInvocationHistory'
 
-interface BackendConnection {
-  name: string
-  url: string
-}
-
-const connections = ref<BackendConnection[]>([
-  { name: 'substrate', url: 'ws://127.0.0.1:4444' },
-])
-
-const activeConn = ref<BackendConnection | null>(connections.value[0] ?? null)
+const {
+  methodIndex,
+  addConnection: storeAddConnection,
+  setActive,
+  scan,
+} = useBackends()
 
 // ─── Theme ────────────────────────────────────────────────────
 type Theme = 'daylight' | 'midnight'
@@ -156,56 +139,6 @@ const showAdd    = ref(false)
 const newName    = ref('')
 const newUrl     = ref('ws://127.0.0.1:')
 
-// ─── Registry auto-discovery ─────────────────────────────────
-function onRegistryBackends(backends: { name: string; host: string; port: number; protocol: string }[]) {
-  for (const b of backends) {
-    const url = `${b.protocol}://${b.host}:${b.port}`
-    if (!connections.value.find(c => c.name === b.name || c.url === url)) {
-      connections.value.push({ name: b.name, url })
-    }
-  }
-}
-
-// ─── Port-scan discovery ──────────────────────────────────────
-const scanning   = ref(false)
-
-async function runScan() {
-  scanning.value = true
-  try {
-    for await (const b of scanPortRange(4440, 4450)) {
-      if (!connections.value.find(c => c.name === b.name || c.url === b.url)) {
-        connections.value.push({ name: b.name, url: b.url })
-        if (!activeConn.value) activeConn.value = connections.value[0] ?? null
-      }
-    }
-  } finally {
-    scanning.value = false
-  }
-}
-
-// ─── Method index ────────────────────────────────────────────
-const methodIndex = ref<MethodEntry[]>([])
-
-function onTreeReady(node: PluginNode, backendName: string) {
-  const allNodes = flattenTree(node)
-  const entries: MethodEntry[] = []
-  for (const n of allNodes) {
-    const ns = n.path.length === 0 ? backendName : n.path.join('.')
-    for (const m of n.schema.methods) {
-      entries.push({
-        backend: backendName,
-        fullPath: `${ns}.${m.name}`,
-        path: n.path,
-        method: m,
-      })
-    }
-  }
-  methodIndex.value = [
-    ...methodIndex.value.filter(e => e.backend !== backendName),
-    ...entries,
-  ]
-}
-
 // ─── Command palette ─────────────────────────────────────────
 const paletteOpen = ref(false)
 
@@ -215,7 +148,7 @@ useKeymap({
 })
 
 // ─── Navigate-to (palette → explorer) ───────────────────────
-const navigateTo   = ref<{ backend: string; path: string[] } | null>(null)
+const navigateTo    = ref<{ backend: string; path: string[] } | null>(null)
 const pendingMethod = ref<string | null>(null)
 
 provide('pendingMethod', pendingMethod)
@@ -227,42 +160,29 @@ const replayOpen = ref(false)
 
 function onPaletteSelect(entry: MethodEntry) {
   view.value = 'multi-explorer'
-  const conn = connections.value.find(c => c.name === entry.backend)
-  if (conn) activeConn.value = conn
-  navigateTo.value   = { backend: entry.backend, path: entry.path }
+  setActive(entry.backend)
+  navigateTo.value    = { backend: entry.backend, path: entry.path }
   pendingMethod.value = entry.fullPath
-  // Clear navigateTo after it has been consumed
   setTimeout(() => { navigateTo.value = null }, 3000)
 }
 
 // ─── Canvas select → multi-explorer navigate ─────────────────
 function onCanvasSelect(backend: string, path: string[]) {
   view.value = 'multi-explorer'
-  const conn = connections.value.find(c => c.name === backend)
-  if (conn) activeConn.value = conn
+  setActive(backend)
   navigateTo.value = { backend, path }
 }
 
-// ─── Add connection ──────────────────────────────────────────
-function addConnection() {
-  const conn: BackendConnection = { name: newName.value.trim(), url: newUrl.value.trim() }
-  if (!connections.value.find(c => c.name === conn.name)) {
-    connections.value.push(conn)
-  }
-  activeConn.value = conn
+// ─── Add connection form ──────────────────────────────────────
+function submitAddConnection() {
+  storeAddConnection(newName.value.trim(), newUrl.value.trim())
   showAdd.value = false
   newName.value = ''
   newUrl.value = 'ws://127.0.0.1:'
 }
 
-// ─── Backend select (from health chips) ──────────────────────
-function onHealthSelect(name: string) {
-  const conn = connections.value.find(c => c.name === name)
-  if (conn) activeConn.value = conn
-}
-
 // ─── Lifecycle ───────────────────────────────────────────────
-onMounted(runScan)
+onMounted(scan)
 </script>
 
 <style scoped>

@@ -567,6 +567,7 @@ import type { MethodEntry } from '../../components/CommandPalette.vue'
 import { useContainedFocus } from '../../lib/useContainedFocus'
 import { getSharedClient } from '../../lib/plexus/clientRegistry'
 import { getCachedTree } from '../../lib/plexus/schemaCache'
+import { useBackends } from '../../lib/useBackends'
 import { flattenTree } from '../../schema-walker'
 import type { PluginNode, MethodSchema } from '../../plexus-schema'
 import type { JsonSchema } from '../../components/SchemaField.vue'
@@ -586,12 +587,7 @@ import { useLabelNamespace } from './useLabelNamespace'
 import type { ActionDef } from './useKeymap'
 
 const { focus } = useContainedFocus()
-
-// ─── Props ────────────────────────────────────────────────────
-const props = defineProps<{
-  connections: { name: string; url: string }[]
-  methodIndex: MethodEntry[]
-}>()
+const { connections } = useBackends()
 
 // ─── Sidebar: drill-down state ────────────────────────────────
 const sidebarTrees   = reactive<Record<string, PluginNode>>({})
@@ -613,7 +609,7 @@ const drillMethods = computed((): MethodSchema[] =>
 )
 
 async function loadSidebarTrees(): Promise<void> {
-  for (const conn of props.connections) {
+  for (const conn of connections.value) {
     if (!(conn.name in sidebarLoading)) {
       sidebarLoading[conn.name] = true
       const rpc = getSharedClient(conn.name, conn.url)
@@ -639,7 +635,7 @@ async function drillIntoBackend(name: string): Promise<void> {
     return
   }
   sidebarLoading[name] = true
-  const conn = props.connections.find(c => c.name === name)
+  const conn = connections.value.find(c => c.name === name)
   if (!conn) return
   try {
     const rpc = getSharedClient(conn.name, conn.url)
@@ -796,7 +792,7 @@ function addMethodEntry(item: { backendName: string; fullPath: string; path: str
 
 // ─── RPC clients (shared registry) ───────────────────────────
 function getClient(backend: string) {
-  const conn = props.connections.find(c => c.name === backend)
+  const conn = connections.value.find(c => c.name === backend)
   if (!conn) throw new Error(`No connection for backend "${backend}"`)
   return getSharedClient(backend, conn.url)
 }
@@ -876,7 +872,7 @@ const svgH = ref(600)
 let resizeObserver: ResizeObserver | null = null
 
 // Re-load trees whenever new backends are discovered (port scan runs after mount)
-watch(() => props.connections, loadSidebarTrees, { deep: true })
+watch(connections, loadSidebarTrees, { deep: true })
 
 // After each pan/zoom DOM update, re-render edges so getBoundingClientRect reads fresh positions
 watch(transformStyle, () => { layoutTick.value++ }, { flush: 'post' })
@@ -2454,7 +2450,7 @@ function resultPreview(result: unknown): string {
   cursor: pointer;
   user-select: none;
 }
-.sb-row:hover { background: #0f1318; }
+.sb-row:hover { background: var(--bg-3); }
 
 .sb-row-backend { padding: 9px 10px; }
 .sb-row-backend:hover { background: var(--bg-3); }
@@ -2569,14 +2565,14 @@ function resultPreview(result: unknown): string {
   border-radius: 3px;
   cursor: pointer;
 }
-.transform-btn:hover { border-color: var(--accent); color: var(--accent); background: #0d1a2a; }
+.transform-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
 .ui-btn-vars   { border-color: #3d1a5f44; color: var(--purple); }
 .ui-btn-vars:hover   { border-color: var(--purple); background: var(--node-vars-bg); }
 .ui-btn-layout { border-color: #1a3a5f44; color: var(--accent); }
 .ui-btn-layout:hover { border-color: var(--accent); background: var(--node-widget-bg); }
 .ui-btn-widget { border-color: #1a3a2a44; color: var(--green); }
-.ui-btn-widget:hover { border-color: var(--green); background: #0a1a0a; }
+.ui-btn-widget:hover { border-color: var(--green); background: var(--green-bg); }
 
 /* ── Canvas ──────────────────────────────────────────────────── */
 .canvas-wrap {

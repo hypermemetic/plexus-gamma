@@ -125,25 +125,18 @@ import { useContainedFocus } from '../lib/useContainedFocus'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
 import { getCachedTree } from '../lib/plexus/schemaCache'
+import { useBackends } from '../lib/useBackends'
 import type { PluginNode, PluginSchema, MethodSchema } from '../plexus-schema'
 import PluginTreeNode from './PluginTreeNode.vue'
 import MethodInvoker from './MethodInvoker.vue'
 import BackendDetailProvider from './BackendDetailProvider.vue'
 
-const props = defineProps<{
-  connections: { name: string; url: string }[]
-}>()
-
-const emit = defineEmits<{
-  'tree-ready': [node: PluginNode, backendName: string]
-  'registry-backends': [backends: { name: string; host: string; port: number; protocol: string }[]]
-}>()
-
 const { focus } = useContainedFocus()
+const { connections, mergeRegistryBackends } = useBackends()
 
 // ─── Active connection selection ──────────────────────────────
-const selectedConnName = ref(props.connections[0]?.name ?? '')
-const activeConn = computed(() => props.connections.find(c => c.name === selectedConnName.value) ?? props.connections[0])
+const selectedConnName = ref(connections.value[0]?.name ?? '')
+const activeConn = computed(() => connections.value.find(c => c.name === selectedConnName.value) ?? connections.value[0])
 const activeRpc  = computed(() => {
   const conn = activeConn.value
   return conn ? getSharedClient(conn.name, conn.url) : null
@@ -159,7 +152,7 @@ watch(activeConn, (conn) => {
 })
 
 // When new connections are added, update if first connection
-watch(() => props.connections, (conns) => {
+watch(connections, (conns) => {
   if (!conns.find(c => c.name === selectedConnName.value)) {
     selectedConnName.value = conns[0]?.name ?? ''
   }
@@ -179,13 +172,12 @@ async function refresh() {
   try {
     await rpc.connect()
     tree.value = await getCachedTree(rpc, conn.name)
-    emit('tree-ready', tree.value, conn.name)
     if (tree.value.children.some(c => c.schema.namespace === 'registry')) {
       try {
         const result = await collectOne<{ backends: { name: string; host: string; port: number; protocol: string }[] }>(
           rpc.call('registry.list', { active_only: true })
         )
-        if (result.backends?.length) emit('registry-backends', result.backends)
+        if (result.backends?.length) mergeRegistryBackends(result.backends)
       } catch { /* ignore */ }
     }
   } catch (e) {

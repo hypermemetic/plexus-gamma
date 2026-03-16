@@ -254,13 +254,9 @@ import type { JsonSchema } from '../../components/SchemaField.vue'
 import { getCachedTreeSync } from '../../lib/plexus/schemaCache'
 import { flattenTree } from '../../schema-walker'
 import type { MethodSchema } from '../../plexus-schema'
+import { useBackends } from '../../lib/useBackends'
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
-const props = defineProps<{
-  connections: { name: string; url: string }[]
-  methodIndex: MethodEntry[]
-}>()
+const { connections, methodIndex } = useBackends()
 
 // ─── Data model ───────────────────────────────────────────────────────────────
 
@@ -398,7 +394,7 @@ function resolvedStepSchema(step: WorkflowStep): JsonSchema | null {
 // ─── RPC client pool ──────────────────────────────────────────────────────────
 
 function getClient(backendName: string) {
-  const conn = props.connections.find(c => c.name === backendName)
+  const conn = connections.value.find(c => c.name === backendName)
   const url = conn?.url ?? `ws://127.0.0.1:4444`
   return getSharedClient(backendName, url)
 }
@@ -440,8 +436,8 @@ function selectWorkflow(id: string) {
 
 const filteredMethods = computed(() => {
   const q = stepSearchQuery.value.toLowerCase()
-  if (!q) return props.methodIndex.slice(0, 50)
-  return props.methodIndex
+  if (!q) return methodIndex.value.slice(0, 50)
+  return methodIndex.value
     .filter(e => e.fullPath.toLowerCase().includes(q))
     .sort((a, b) => {
       const ai = a.fullPath.toLowerCase().indexOf(q)

@@ -5,7 +5,7 @@
       v-for="h in health"
       :key="h.name"
       class="health-chip"
-      :class="[`status-${h.status}`, { 'hash-pulsed': isHashRecent(h), active: h.name === activeBackend }]"
+      :class="[`status-${h.status}`, { 'hash-pulsed': isHashRecent(h), active: h.name === activeConn?.name }]"
       :title="`${h.url} — ${h.status.toUpperCase()}${h.lastSeenAt ? ` • last seen ${formatAgo(h.lastSeenAt)}` : ''}`"
       @click="$emit('select', h.name)"
     >
@@ -126,21 +126,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, provide, watch } from 'vue'
-import type { Ref } from 'vue'
-import { useBackendHealth, computeLatencyStats } from './useBackendHealth'
-import type { BackendHealth } from './useBackendHealth'
-
-// ─── Props ────────────────────────────────────────────────────────────────────
+import { ref, watch } from 'vue'
+import { useBackends, computeLatencyStats } from '../../lib/useBackends'
+import type { BackendHealth } from '../../lib/useBackends'
 
 const props = defineProps<{
-  connections: { name: string; url: string }[]
-  activeBackend?: string
-  scanning?: boolean
   open?: boolean
 }>()
 
 const emit = defineEmits<{ select: [name: string]; close: [] }>()
+
+const { health, scanning, activeConn } = useBackends()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -152,14 +148,6 @@ function closePanel() {
   panelOpen.value = false
   emit('close')
 }
-
-// Cast computed to Ref so useBackendHealth receives a reactive Ref<...[]>
-const connectionsRef = computed(() => props.connections) as unknown as Ref<{ name: string; url: string }[]>
-
-const { health, recordCall } = useBackendHealth(connectionsRef)
-
-// Expose recordCall via provide so MethodInvoker can use it
-provide('recordCall', recordCall)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

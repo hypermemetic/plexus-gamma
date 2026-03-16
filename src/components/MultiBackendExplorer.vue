@@ -49,45 +49,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
 import { collectOne } from '../lib/plexus/rpc'
-import { getCachedTree, invalidateTree } from '../lib/plexus/schemaCache'
+import { getCachedTree } from '../lib/plexus/schemaCache'
+import { useBackends } from '../lib/useBackends'
 import type { PluginNode } from '../plexus-schema'
 import PluginTreeNode from './PluginTreeNode.vue'
 import PluginDetail from './PluginDetail.vue'
 import BackendDetailProvider from './BackendDetailProvider.vue'
 
-interface RegistryBackend {
-  name: string
-  host: string
-  port: number
-  protocol: string
-}
-
 const props = defineProps<{
-  connections: { name: string; url: string }[]
   navigateTo?: { backend: string; path: string[] } | null
 }>()
 
 const emit = defineEmits<{
-  'tree-ready': [node: PluginNode, backendName: string]
-  'registry-backends': [backends: RegistryBackend[]]
   'open-health': [name: string]
 }>()
+
+const { connections, hashSeq, mergeRegistryBackends } = useBackends()
 
 // ─── Tree state ───────────────────────────────────────────────
 const trees      = reactive<Record<string, PluginNode>>({})
 const loading    = reactive<Record<string, boolean>>({})
 const hashChanged = reactive<Record<string, boolean>>({})
-const lastHashes: Record<string, string> = {}
 
 // ─── Selection ────────────────────────────────────────────────
 const selectedBackend = ref<string | null>(null)
 const selectedPath    = ref<string[]>([])
 
 const selectedUrl = computed(() =>
-  props.connections.find(c => c.name === selectedBackend.value)?.url ?? ''
+  connections.value.find(c => c.name === selectedBackend.value)?.url ?? ''
 )
 
 // ─── Load tree for a connection ───────────────────────────────
@@ -98,15 +90,14 @@ async function loadTree(conn: { name: string; url: string }): Promise<void> {
     await rpc.connect()
     const tree = await getCachedTree(rpc, conn.name)
     trees[conn.name] = tree
-    emit('tree-ready', tree, conn.name)
 
     // Auto-discover backends if this hub has a registry plugin
     if (tree.children.some(c => c.schema.namespace === 'registry')) {
       try {
-        const result = await collectOne<{ backends: RegistryBackend[] }>(
+        const result = await collectOne<{ backends: { name: string; host: string; port: number; protocol: string }[] }>(
           rpc.call('registry.list', { active_only: true })
         )
-        if (result.backends?.length) emit('registry-backends', result.backends)
+        if (result.backends?.length) mergeRegistryBackends(result.backends)
       } catch { /* registry not available */ }
     }
 
@@ -118,30 +109,6 @@ async function loadTree(conn: { name: string; url: string }): Promise<void> {
   } catch { /* connection error — skip */ } finally {
     loading[conn.name] = false
   }
-}
-
-// ─── Hash polling per backend ─────────────────────────────────
-const hashTimers: Record<string, ReturnType<typeof setInterval>> = {}
-
-async function pollHash(conn: { name: string; url: string }): Promise<void> {
-  const rpc = getSharedClient(conn.name, conn.url)
-  try {
-    const result = await collectOne<Record<string, string>>(
-      rpc.call(`${conn.name}.hash`, {})
-    )
-    const h = result['value'] ?? ''
-    if (h && lastHashes[conn.name] && h !== lastHashes[conn.name]) {
-      hashChanged[conn.name] = true
-      invalidateTree(conn.name)
-      await loadTree(conn)
-    }
-    if (h) lastHashes[conn.name] = h
-  } catch { /* hash not supported */ }
-}
-
-function startPolling(conn: { name: string; url: string }): void {
-  if (hashTimers[conn.name]) return
-  hashTimers[conn.name] = setInterval(() => pollHash(conn), 2000)
 }
 
 // ─── Selection handler ────────────────────────────────────────
@@ -158,18 +125,24 @@ watch(() => props.navigateTo, (nav) => {
 })
 
 // ─── Watch for new connections ────────────────────────────────
-watch(() => props.connections, (conns) => {
+watch(connections, (conns) => {
   for (const conn of conns) {
     if (!(conn.name in loading)) {
       loading[conn.name] = false
-      loadTree(conn).then(() => startPolling(conn))
+      void loadTree(conn)
     }
   }
 }, { immediate: true, deep: true })
 
-// ─── Lifecycle ────────────────────────────────────────────────
-onUnmounted(() => {
-  for (const timer of Object.values(hashTimers)) clearInterval(timer)
+// ─── React to hash changes (centralized polling in useBackends) ───────────────
+watch(() => ({ ...hashSeq }), (newSeq, oldSeq) => {
+  for (const [name, seq] of Object.entries(newSeq)) {
+    if (seq !== oldSeq?.[name]) {
+      hashChanged[name] = true
+      const conn = connections.value.find(c => c.name === name)
+      if (conn) void loadTree(conn)
+    }
+  }
 })
 </script>
 

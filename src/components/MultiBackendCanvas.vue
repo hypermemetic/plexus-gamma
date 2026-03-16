@@ -37,17 +37,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { getSharedClient } from '../lib/plexus/clientRegistry'
-import type { PlexusRpcClient } from '../lib/plexus/transport'
 import { getCachedTree } from '../lib/plexus/schemaCache'
+import { useBackends } from '../lib/useBackends'
 import type { PluginNode, MethodSchema } from '../plexus-schema'
-
-const props = defineProps<{
-  connections: { name: string; url: string }[]
-}>()
 
 const emit = defineEmits<{
   select: [backend: string, path: string[]]
 }>()
+
+const { connections } = useBackends()
 
 const wrapRef   = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -103,7 +101,6 @@ interface BackendState {
 }
 
 const backends = ref<BackendState[]>([])
-const rpcs = new Map<string, PlexusRpcClient>()
 
 const anyLoading    = computed(() => backends.value.some(b => b.status === 'loading'))
 const hasAnyTree    = computed(() => backends.value.some(b => b.root !== null))
@@ -415,11 +412,7 @@ function onWheel(e: WheelEvent): void {
 // ─── Data loading ────────────────────────────────────────────
 async function loadBackend(be: BackendState): Promise<void> {
   be.status = 'loading'
-  let rpc = rpcs.get(be.name)
-  if (!rpc) {
-    rpc = getSharedClient(be.name, be.url)
-    rpcs.set(be.name, rpc)
-  }
+  const rpc = getSharedClient(be.name, be.url)
   try {
     await rpc.connect()
     const pluginTree = await getCachedTree(rpc, be.name)
@@ -438,7 +431,7 @@ async function refreshAll(): Promise<void> {
 }
 
 // ─── Watch connections ───────────────────────────────────────
-watch(() => props.connections, (conns) => {
+watch(connections, (conns) => {
   for (const conn of conns) {
     if (!backends.value.find(b => b.name === conn.name)) {
       backends.value.push({
