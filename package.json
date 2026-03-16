@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "codegen": "synapse-cc build --no-install",
     "test": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "screenshots": "playwright test --config playwright.screenshots.config.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
