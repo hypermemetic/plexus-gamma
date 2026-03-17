@@ -74,14 +74,14 @@ let isPanning = false, lastMX = 0, lastMY = 0, mouseMoved = 0
 
 // ─── Layout constants ────────────────────────────────────────
 const NODE_W         = 180
-const HEADER_H       = 32
+const HEADER_H       = 24
 const METHOD_ROW_H   = 20
-const METHOD_PAD_B   = 8
+const METHOD_PAD_B   = 6
 const METHOD_DOT_R   = 3
 const METHOD_DOT_GAP = 8
-const H_GAP          = 52
-const V_GAP          = 10
-const BACKEND_GAP    = 80
+const H_GAP          = 40
+const V_GAP          = 3
+const BACKEND_GAP    = 56
 const FONT_MONO = 'ui-monospace, "Cascadia Code", "Fira Code", monospace'
 
 // ─── Node type ───────────────────────────────────────────────
@@ -173,15 +173,24 @@ function collectAll(node: CNode, nodes: CNode[], edges: [CNode, CNode][]): void 
 
 function rebuildAllLayouts(): void {
   let offsetX = 0
-  for (const be of backends.value) {
+  let prevHeight = 0
+  for (let i = 0; i < backends.value.length; i++) {
+    const be = backends.value[i]!
     if (!be.root) continue
     rebuildHeights(be.root)
-    const yRef = { v: 0 }
+    // Stagger each backend down by 35% of the previous backend's height
+    // so sibling trees interleave rather than sitting flush at y=0
+    const startY = i === 0 ? 0 : Math.round(prevHeight * 0.35)
+    const yRef = { v: startY }
     layoutNode(be.root, offsetX, yRef)
     be.nodes = []; be.edges = []
     collectAll(be.root, be.nodes, be.edges)
-    let maxX = 0
-    for (const n of be.nodes) maxX = Math.max(maxX, n.x + n.w)
+    let maxX = 0, maxY = -Infinity
+    for (const n of be.nodes) {
+      maxX = Math.max(maxX, n.x + n.w)
+      maxY = Math.max(maxY, n.y + n.h)
+    }
+    prevHeight = maxY - startY
     be.groupOffsetX = offsetX
     offsetX = maxX + BACKEND_GAP
   }
@@ -227,7 +236,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
   ctx.stroke()
 
   ctx.fillStyle    = getCssVar(isHub ? '--accent' : '--text')
-  ctx.font         = `600 12px ${FONT_MONO}`
+  ctx.font         = `600 14px ${FONT_MONO}`
   ctx.textBaseline = 'middle'
   ctx.textAlign    = 'left'
   ctx.save()
@@ -236,7 +245,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
   ctx.restore()
 
   if (isHub && node.children.length > 0) {
-    ctx.font      = `10px ${FONT_MONO}`
+    ctx.font      = `12px ${FONT_MONO}`
     ctx.fillStyle = getCssVar('--text-dim')
     ctx.textAlign = 'right'
     ctx.fillText(`${node.children.length}`, x + w - 10, y + HEADER_H / 2)
@@ -255,7 +264,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
         const my = y + HEADER_H + 1 + i * METHOD_ROW_H
         const isStream = m.streaming, isBidir = m.bidirectional
         const nameColor = getCssVar(isStream ? '--accent' : isBidir ? '--purple' : '--green')
-        ctx.font = `11px ${FONT_MONO}`
+        ctx.font = `13px ${FONT_MONO}`
         ctx.textBaseline = 'middle'
         ctx.fillStyle = nameColor
         ctx.textAlign = 'left'
@@ -264,7 +273,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
         ctx.fillText(m.name, x + 14, my + METHOD_ROW_H / 2)
         ctx.restore()
         if (isStream || isBidir) {
-          ctx.font = `9px ${FONT_MONO}`
+          ctx.font = `11px ${FONT_MONO}`
           ctx.fillStyle = getCssVar(isStream ? '--accent-bg' : '--purple-bg')
           ctx.textAlign = 'right'
           ctx.fillText(isStream ? '↓' : '⇄', x + w - 8, my + METHOD_ROW_H / 2)
@@ -288,7 +297,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: CNode): void {
 
 function drawBackendHeader(ctx: CanvasRenderingContext2D, be: BackendState): void {
   if (!be.root) return
-  ctx.font = `600 11px ${FONT_MONO}`
+  ctx.font = `600 13px ${FONT_MONO}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = getCssVar('--accent')
@@ -340,7 +349,7 @@ function fitView(): void {
   const cH = (canvas.height || 720) / dpr
   const s = Math.min((cW - pad * 2) / (maxX - minX), (cH - pad * 2) / (maxY - minY))
   scale = Math.min(Math.max(s, 0.04), 1)
-  panX = pad - minX * scale
+  panX = (cW - (maxX - minX) * scale) / 2 - minX * scale
   panY = (cH - (maxY - minY) * scale) / 2 - minY * scale
   render()
 }
