@@ -3,12 +3,12 @@
 **Swagger UI for your microservices — but generated at runtime from live schema, not a YAML file.**
 
 <p align="center">
-  <img src="docs/screenshots/01-explorer.png" width="49%" alt="Explorer: browse plugins and invoke methods live" />
-  <img src="docs/screenshots/02-topology.png" width="49%" alt="Topology: visualize backend relationships as a canvas graph" />
+  <img src="docs/screenshots/01-explorer.png" width="49%" alt="Explorer view: sidebar tree showing SUBSTRATE (12 plugins including solar system hierarchy) and FIDGET-SPINNER backends; detail pane for the echo plugin displaying live-invokable method forms with params and returns schema" />
+  <img src="docs/screenshots/02-topology.png" width="49%" alt="Topology view: canvas graph with SUBSTRATE node on the left showing its full plugin tree (cone, arbor, bash, solar with planets earth/mars/jupiter/saturn/uranus/neptune) and FIDGET-SPINNER node on the right; nodes rendered as compact method-dot cards after fit-to-view" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/03-sheet.png" width="49%" alt="Sheet: multi-backend overview with slide-up detail panel" />
-  <img src="docs/screenshots/04-wiring.png" width="49%" alt="Wiring: compose and run multi-step RPC pipelines" />
+  <img src="docs/screenshots/03-sheet.png" width="49%" alt="Sheet view: full-width tree listing all backends side by side; bottom slide-up panel open on the cone plugin (LLM agent with persistent conversation context) showing its methods: create, get, list, delete, chat (streaming), set_head" />
+  <img src="docs/screenshots/04-wiring.png" width="49%" alt="Wiring view: three-node pipeline — bash.execute runs 'printf hello plexus', a template transform renders 'echo hello plexus | tr a-z A-Z' via {{slot0.line}} interpolation, a second bash.execute runs the rendered command and returns HELLO PLEXUS; bezier edges connect the nodes" />
 </p>
 
 ---

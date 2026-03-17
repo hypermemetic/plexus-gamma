@@ -147,6 +147,7 @@ watch(() => ({ ...hashSeq }), (newSeq, oldSeq) => {
 
 <style scoped>
 .multi-explorer {
+  flex: 1;
   display: flex;
   height: 100%;
   overflow: hidden;
