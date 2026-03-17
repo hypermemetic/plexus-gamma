@@ -2,14 +2,49 @@
 
 **Swagger UI for your microservices — but generated at runtime from live schema, not a YAML file.**
 
-<p align="center">
-  <img src="docs/screenshots/01-explorer.png" width="49%" alt="Explorer view: sidebar tree showing SUBSTRATE (12 plugins including solar system hierarchy) and FIDGET-SPINNER backends; detail pane for the echo plugin displaying live-invokable method forms with params and returns schema" />
-  <img src="docs/screenshots/02-topology.png" width="49%" alt="Topology view: canvas graph with SUBSTRATE node on the left showing its full plugin tree (cone, arbor, bash, solar with planets earth/mars/jupiter/saturn/uranus/neptune) and FIDGET-SPINNER node on the right; nodes rendered as compact method-dot cards after fit-to-view" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/03-sheet.png" width="49%" alt="Sheet view: full-width tree listing all backends side by side; bottom slide-up panel open on the cone plugin (LLM agent with persistent conversation context) showing its methods: create, get, list, delete, chat (streaming), set_head" />
-  <img src="docs/screenshots/04-wiring.png" width="49%" alt="Wiring view: three-node pipeline — bash.execute runs 'printf hello plexus', a template transform renders 'echo hello plexus | tr a-z A-Z' via {{slot0.line}} interpolation, a second bash.execute runs the rendered command and returns HELLO PLEXUS; bezier edges connect the nodes" />
-</p>
+### explore — live schema browser
+
+![Explorer view](docs/screenshots/01-explorer.png)
+
+**Header bar** — connected backends appear as pill badges with live latency readouts (`substrate 77ms`, `fidget-spinner 74ms`). The `+` button adds a new WebSocket connection. The schema hash (`4693a5d`) reflects the current content fingerprint of the connected service; it changes automatically when any plugin or method changes. View tabs on the right switch between all five views.
+
+**Left sidebar** — a collapsible tree of every plugin on every connected backend. `SUBSTRATE` is expanded, showing 12 plugins: top-level leaves (`cone`, `arbor`, `bash`, `changelog`) and the `solar` hub (8 planet sub-plugins). `FIDGET-SPINNER` is a second backend with one plugin. Clicking any node selects it and loads its detail on the right.
+
+**Detail pane** — the selected `echo` plugin. The header shows its version (`v1.0.0`), short hash (`15cc3045`), and whether it is a `leaf` (no children) or a `hub`. The description is rendered directly from the live schema — no separate docs file. Each method (`echo`, `once`, `ping`, …) gets its own invocation card: a schema-driven param form, a `▶ invoke` button that streams results back in real time, a collapsible `RETURNS` schema block, and optional `Batch` and `Tests` panels for running the method at scale or asserting on its output.
+
+---
+
+### topology — visual backend graph
+
+![Topology view](docs/screenshots/02-topology.png)
+
+**Canvas** — each backend is laid out as a tree of plugin nodes. Dots inside each node represent methods — the more dots, the richer the plugin. Hub nodes (like `solar`, `earth`, `jupiter`) branch outward to their children, so the full namespace hierarchy is visible at a glance without clicking into anything.
+
+**SUBSTRATE** (left) shows the complete plugin tree: top-level plugins along the left column, `solar` branching right into the planetary plugins, and those branching further into moons (`luna`, `phobos`, `deimos` under `earth`; `io`, `europa`, `ganymede`, `callisto` under `jupiter`; etc.). **FIDGET-SPINNER** (right) is a separate backend with a single `fidget` plugin.
+
+**Interaction** — drag to pan, scroll to zoom, click a node to navigate to it in the explorer. The toolbar (top-right) offers fit-to-view, reset, and a toggle between node-card and dot-only rendering.
+
+---
+
+### sheet — full-width overview
+
+![Sheet view](docs/screenshots/03-sheet.png)
+
+**Tree** — all backends are listed full-width as an indented outline. This gives the fastest overview of everything connected: `SUBSTRATE` with 12 plugins (including the `solar` hub and its 8 children), and `FIDGET-SPINNER` with 1. No columns to scroll past, no sidebar to juggle.
+
+**Slide-up panel** — clicking any plugin slides a detail sheet up from the bottom. Here the `cone` plugin is open (`substrate › cone`). The panel shows the plugin description ("LLM cone with persistent conversation context") and a compact method list: `create`, `get`, `list`, `delete`, `chat` (marked `STREAM` — it yields tokens incrementally), and `set_head`. Clicking a method expands an inline invocation form. The panel can be dragged to any height or dismissed with `×`.
+
+---
+
+### wiring — visual pipeline builder
+
+![Wiring view](docs/screenshots/04-wiring.png)
+
+**Toolbar** — `+ Method` drags a new method node onto the canvas. `▶ Run` executes the entire pipeline left-to-right in one click. Additional controls: `Export JSON` / `Import` for saving and loading pipelines, `Auto Layout` to re-arrange nodes, `Snapshot` and `Preview` for output inspection, and full undo/redo.
+
+**Left sidebar** — a search box filters methods across all connected backends. Below it, collapsible backend trees (`substrate ›`, `fidget-spinner ›`) let you browse and drag methods directly onto the canvas. The `TRANSFORMS` palette adds data-manipulation nodes (`Extract`, `Template`, `Merge`, `Script`) that are not RPC calls but operate on the pipeline's in-flight data. The `UI` palette adds layout primitives (`Row`, `Col`, `Text`, `Input`, `Btn`, `Slider`, `Table`) for building interactive output panels.
+
+**Canvas** — this pipeline runs a shell command, transforms its output, then runs a second command with the result. Node 1 (`bash.execute`) runs `printf 'hello plexus'` and produces `[{line:"hello plexus",type:"stdout"},{code:0,type:"exit"}]`. A bezier edge labelled `1st` wires its output into Node 2 (`template`), which uses `{{slot0.line}}` interpolation to construct `echo "hello plexus" | tr a-z A-Z`. That output is wired through a transform node into Node 3 (`bash.execute`), which runs the rendered command and returns `HELLO PLEXUS`. Each node shows its live result inline after execution.
 
 ---
 
@@ -40,10 +75,10 @@ restarts.
 
 | Tab | What it does |
 |-----|--------------|
-| **explore** | Tree of all connected backends. Click a plugin → see its schema and methods. Click a method → fill params and invoke live. Results stream in real time. |
-| **topology** | Canvas graph — backends as nodes, plugins as children. Drag, zoom, compare backend structures visually. |
-| **sheet** | All backends side by side. Click any leaf node to slide up a detail sheet with the full method list. |
-| **wiring** | Visual pipeline builder. Drag methods onto a canvas, wire outputs to inputs, run the whole pipeline in one click. |
+| **explore** | Schema browser — sidebar tree of all plugins, detail pane with live-invokable method forms and streaming results. |
+| **topology** | Canvas graph of every plugin and its methods as dots; drag/zoom to compare backend structures. |
+| **sheet** | Full-width plugin outline; click any node to slide up a detail sheet with the method list. |
+| **wiring** | Visual pipeline builder — connect method outputs to inputs, add transform nodes, run the whole pipeline in one click. |
 | **orchestrate** | Workflow editor for sequencing steps with branching logic and reusable workflow definitions. |
 
 ---
@@ -113,7 +148,7 @@ Connect a backend from the `+` button in the header bar, or set the `VITE_DEFAUL
 env var. The default config connects to `ws://127.0.0.1:4444` (substrate).
 
 ```bash
-bun run test         # 155 Playwright functional tests
+bun run test         # 153 Playwright functional tests
 bun run screenshots  # re-capture docs/screenshots/ and update README images
 ```
 

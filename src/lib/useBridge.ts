@@ -125,6 +125,10 @@ export function useBridge() {
       try {
         const msg = JSON.parse(e.data as string) as BridgeCall
         if (msg.type === 'call') void handleCall(msg)
+        else if (msg.type === 'cancel') {
+          const ac = activeStreams.get(msg.callId)
+          if (ac) { ac.abort(); activeStreams.delete(msg.callId) }
+        }
       } catch { /* ignore parse errors */ }
     }
 

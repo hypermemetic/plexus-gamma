@@ -14,6 +14,8 @@
     "screenshots": "playwright test --config playwright.screenshots.config.ts"
   },
   "dependencies": {
+    "@plexus/rpc": "workspace:*",
+    "@sinclair/typebox": "^0.34.48",
     "@tauri-apps/api": "^2.10.1",
     "vue": "^3.5.25"
   },
