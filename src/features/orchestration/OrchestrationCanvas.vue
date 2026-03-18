@@ -245,7 +245,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import type { MethodEntry } from '../../components/CommandPalette.vue'
 import { useContainedFocus } from '../../lib/useContainedFocus'
 import { getSharedClient } from '../../lib/plexus/clientRegistry'
@@ -255,6 +255,7 @@ import { getCachedTreeSync } from '../../lib/plexus/schemaCache'
 import { flattenTree } from '../../schema-walker'
 import type { MethodSchema } from '../../plexus-schema'
 import { useBackends } from '../../lib/useBackends'
+import { registerAction } from '../../lib/useActionRegistry'
 
 const { connections, methodIndex } = useBackends()
 
@@ -706,6 +707,143 @@ watch(showStepDropdown, (v) => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick, { capture: true })
+})
+
+// ─── Action registry (RPC-dispatchable actions) ───────────────
+onMounted(() => {
+  const cleanups = [
+    registerAction('orchestration.create', () => {
+      createWorkflow()
+      return { ok: true, id: selectedWorkflowId.value }
+    }),
+
+    registerAction('orchestration.list', () => ({
+      workflows: workflows.value.map(w => ({
+        id: w.id,
+        name: w.name,
+        stepCount: w.steps.length,
+        createdAt: w.createdAt,
+        lastResult: lastRunResults.value[w.id] ?? null,
+      })),
+    })),
+
+    registerAction('orchestration.select', (params) => {
+      const id = params['id'] as string
+      const wf = workflows.value.find(w => w.id === id)
+      if (!wf) throw new Error(`Workflow not found: ${id}`)
+      selectWorkflow(id)
+      return { ok: true }
+    }),
+
+    registerAction('orchestration.addStep', (params) => {
+      if (!selectedWorkflow.value) throw new Error('No workflow selected')
+      const backendName = params['backend'] as string
+      const methodPath = params['method'] as string
+      const entry = methodIndex.value.find(e => e.backend === backendName && e.fullPath === methodPath)
+      // Fall back to a stub when the method isn't in the current index (backend not yet connected).
+      const resolved = entry ?? {
+        backend: backendName,
+        fullPath: methodPath,
+        path: methodPath.split('.'),
+        method: { name: methodPath, description: '', hash: '', params: {}, returns: {}, streaming: false, bidirectional: false },
+      }
+      appendStep(resolved)
+      const step = selectedWorkflow.value.steps[selectedWorkflow.value.steps.length - 1]
+      return { ok: true, stepId: step?.id }
+    }),
+
+    registerAction('orchestration.removeStep', (params) => {
+      const stepId = params['stepId'] as string
+      removeStep(stepId)
+      return { ok: true }
+    }),
+
+    registerAction('orchestration.run', async (params) => {
+      const id = (params['id'] as string | undefined) ?? selectedWorkflowId.value
+      if (!id) throw new Error('No workflow ID provided and none selected')
+      await runWorkflow(id)
+      const wfStates = runStates.value[id]
+      return {
+        ok: lastRunResults.value[id] === 'ok',
+        steps: wfStates
+          ? Object.values(wfStates).map(s => ({ stepId: s.stepId, status: s.status, durationMs: s.durationMs, error: s.error || undefined }))
+          : [],
+      }
+    }),
+
+    registerAction('orchestration.stop', () => {
+      stopRun()
+      return { ok: true }
+    }),
+
+    registerAction('orchestration.rename', (params) => {
+      if (!selectedWorkflow.value) throw new Error('No workflow selected')
+      selectedWorkflow.value.name = params['name'] as string
+      persistWorkflows()
+      return { ok: true }
+    }),
+
+    registerAction('orchestration.getState', () => ({
+      selectedWorkflowId: selectedWorkflowId.value,
+      isRunning: isRunning.value,
+      workflows: workflows.value.map(w => ({
+        id: w.id,
+        name: w.name,
+        steps: w.steps.map(s => ({ id: s.id, method: s.method, backend: s.backend })),
+        lastResult: lastRunResults.value[w.id] ?? null,
+      })),
+    })),
+
+    registerAction('orchestration.setStepParams', (params) => {
+      if (!selectedWorkflow.value) throw new Error('No workflow selected')
+      const stepId = params['stepId'] as string
+      const stepParams = params['params'] as Record<string, unknown>
+      const step = selectedWorkflow.value.steps.find(s => s.id === stepId)
+      if (!step) throw new Error(`Step not found: ${stepId}`)
+      step.params = { ...step.params, ...stepParams }
+      persistWorkflows()
+      return { ok: true }
+    }),
+
+    registerAction('orchestration.wireSteps', (params) => {
+      if (!selectedWorkflow.value) throw new Error('No workflow selected')
+      const fromStepId = params['fromStepId'] as string
+      const fromPath   = params['fromPath'] as string
+      const toStepId   = params['toStepId'] as string
+      const toParam    = params['toParam'] as string
+      const toStep = selectedWorkflow.value.steps.find(s => s.id === toStepId)
+      if (!toStep) throw new Error(`Step not found: ${toStepId}`)
+      if (!selectedWorkflow.value.steps.find(s => s.id === fromStepId))
+        throw new Error(`Step not found: ${fromStepId}`)
+      toStep.wires.push({ fromStepId, fromPath, toParam })
+      persistWorkflows()
+      return { ok: true }
+    }),
+
+    registerAction('orchestration.removeWire', (params) => {
+      if (!selectedWorkflow.value) throw new Error('No workflow selected')
+      const stepId    = params['stepId'] as string
+      const wireIndex = params['wireIndex'] as number
+      const step      = selectedWorkflow.value.steps.find(s => s.id === stepId)
+      if (!step) throw new Error(`Step not found: ${stepId}`)
+      if (wireIndex < 0 || wireIndex >= step.wires.length) throw new Error(`Wire index out of range: ${wireIndex}`)
+      step.wires.splice(wireIndex, 1)
+      persistWorkflows()
+      return { ok: true }
+    }),
+
+    registerAction('orchestration.delete', (params) => {
+      const id  = params['id'] as string
+      const idx = workflows.value.findIndex(w => w.id === id)
+      if (idx === -1) throw new Error(`Workflow not found: ${id}`)
+      workflows.value.splice(idx, 1)
+      if (selectedWorkflowId.value === id)
+        selectedWorkflowId.value = workflows.value[0]?.id ?? null
+      persistWorkflows()
+      return { ok: true }
+    }),
+  ]
+  onBeforeUnmount(() => cleanups.forEach(fn => fn()))
 })
 </script>
 

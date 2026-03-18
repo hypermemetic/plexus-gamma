@@ -150,10 +150,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject } from 'vue'
+import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
 import type { PlexusRpcClient } from '../../lib/plexus/transport'
 import { useInvocationHistory } from './useInvocationHistory'
 import type { InvocationRecord } from './useInvocationHistory'
+import { registerAction } from '../../lib/useActionRegistry'
+import { useBackends } from '../../lib/useBackends'
+import { getSharedClient } from '../../lib/plexus/clientRegistry'
 
 const props = defineProps<{
   open: boolean
@@ -167,6 +170,39 @@ const emit = defineEmits<{
 // module-level singleton so the panel works even without the provider.
 const injected = inject<ReturnType<typeof useInvocationHistory> | null>('invocationHistory', null)
 const { history, clear, remove } = injected ?? useInvocationHistory()
+
+onMounted(() => {
+  const { connections } = useBackends()
+  const cleanups = [
+    registerAction('replay.list', () => [...history.value]),
+
+    registerAction('replay.clear', () => { clear(); return { ok: true } }),
+
+    registerAction('replay.remove', (params) => {
+      const id = params['id'] as string
+      if (!history.value.find(r => r.id === id)) throw new Error(`Record not found: ${id}`)
+      remove(id)
+      return { ok: true }
+    }),
+
+    registerAction('replay.invoke', async (params) => {
+      const id = params['id'] as string
+      const record = history.value.find(r => r.id === id)
+      if (!record) throw new Error(`Record not found: ${id}`)
+      const conn = connections.value.find(c => c.name === record.backend)
+      if (!conn) throw new Error(`Backend not found: ${record.backend}`)
+      const client = getSharedClient(record.backend, conn.url)
+      const results: unknown[] = []
+      for await (const item of client.call(record.method, record.params)) {
+        if (item.type === 'data')  results.push(item.content)
+        if (item.type === 'error') throw new Error(item.message)
+        if (item.type === 'done')  break
+      }
+      return { ok: true, results }
+    }),
+  ]
+  onUnmounted(() => cleanups.forEach(f => f()))
+})
 
 // rpc is optional: panel still works without it (replay just shows error)
 const rpc = inject<PlexusRpcClient | null>('rpc', null)

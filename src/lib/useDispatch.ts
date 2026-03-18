@@ -2,6 +2,7 @@ import { watch } from 'vue'
 import { useUiState, type ViewName } from './useUiState'
 import { useBackends, type BackendConnection, type BackendHealth } from './useBackends'
 import { getSharedClient } from './plexus/clientRegistry'
+import { callRegisteredAction } from './useActionRegistry'
 import type { PlexusStreamItem } from './plexus/types'
 import type { MethodEntry } from '../components/CommandPalette.vue'
 
@@ -65,7 +66,7 @@ function makeStateWatcher(): AsyncGenerator<StateEvent> {
 // ─── useDispatch ──────────────────────────────────────────────────────────────
 
 export function useDispatch() {
-  const { currentView, theme, navigateTo } = useUiState()
+  const { currentView, theme, paletteOpen, navigateTo } = useUiState()
   const { connections, addConnection, removeConnection, setActive, methodIndex, health } = useBackends()
 
   return {
@@ -73,6 +74,12 @@ export function useDispatch() {
     getView(): ViewName                          { return currentView.value },
     setTheme(t: 'daylight' | 'midnight'): void  { theme.value = t },
     getTheme(): string                           { return theme.value },
+
+    openPalette(): void                          { paletteOpen.value = true },
+    closePalette(): void                         { paletteOpen.value = false },
+    focusPath(backend: string, path: string[]): void {
+      navigateTo.value = { backend, path }
+    },
 
     addBackend(name: string, url: string): void  { addConnection(name, url) },
     removeBackend(name: string): void            { removeConnection(name) },
@@ -96,6 +103,44 @@ export function useDispatch() {
       if (!conn) throw new Error(`Backend not found: ${backend}`)
       const rpc = getSharedClient(backend, conn.url)
       yield* rpc.call(method, params)
+    },
+
+    async dispatchAction(key: string, params: Record<string, unknown>): Promise<unknown> {
+      return callRegisteredAction(key, params)
+    },
+
+    async batchInvoke(
+      backend: string,
+      method: string,
+      items: unknown[],
+      concurrency: number,
+    ): Promise<{ index: number; params: unknown; result: unknown; error?: string; durationMs: number }[]> {
+      const conn = connections.value.find(c => c.name === backend)
+      if (!conn) throw new Error(`Backend not found: ${backend}`)
+      const rpc = getSharedClient(backend, conn.url)
+      const results: { index: number; params: unknown; result: unknown; error?: string; durationMs: number }[]
+        = new Array(items.length)
+      let nextIndex = 0
+      async function worker() {
+        while (nextIndex < items.length) {
+          const i = nextIndex++
+          const p = items[i]
+          const t0 = Date.now()
+          try {
+            let result: unknown = undefined
+            for await (const item of rpc.call(method, p)) {
+              if (item.type === 'data') { result = item.content; break }
+              if (item.type === 'error') throw new Error(item.message)
+              if (item.type === 'done') break
+            }
+            results[i] = { index: i, params: p, result, durationMs: Date.now() - t0 }
+          } catch (err) {
+            results[i] = { index: i, params: p, result: undefined, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - t0 }
+          }
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(Math.max(1, concurrency), items.length || 1) }, () => worker()))
+      return results
     },
 
     watchState(): AsyncGenerator<StateEvent> {

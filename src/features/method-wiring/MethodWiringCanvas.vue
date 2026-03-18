@@ -567,6 +567,7 @@ import type { MethodEntry } from '../../components/CommandPalette.vue'
 import { useContainedFocus } from '../../lib/useContainedFocus'
 import { getSharedClient } from '../../lib/plexus/clientRegistry'
 import { getCachedTree } from '../../lib/plexus/schemaCache'
+import { registerAction } from '../../lib/useActionRegistry'
 import { useBackends } from '../../lib/useBackends'
 import { flattenTree } from '../../schema-walker'
 import type { PluginNode, MethodSchema } from '../../plexus-schema'
@@ -920,6 +921,169 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
   edgeDragCleanup?.()
   document.removeEventListener('mousedown', onGlobalPendingEdgeCancel, true)
+})
+
+// ─── Action registry (RPC-dispatchable actions) ───────────────
+onMounted(() => {
+  const cleanups = [
+    registerAction('wiring.addMethod', (params) => {
+      const backendName = params['backend'] as string
+      const methodPath = params['method'] as string
+      const pos = params['x'] !== undefined
+        ? { x: params['x'] as number, y: (params['y'] as number | undefined) ?? 100 }
+        : undefined
+      // Strip backend prefix if caller included it
+      const prefix = backendName + '.'
+      const normalized = methodPath.startsWith(prefix) ? methodPath.slice(prefix.length) : methodPath
+      const entry = allTreeMethods.value.find(m =>
+        m.backendName === backendName && (m.fullPath === normalized || m.fullPath === methodPath),
+      )
+      // If the method isn't in the current index (backend not yet connected), create a stub node.
+      // It will fail at run-time if the method doesn't exist, but the canvas can be pre-configured.
+      const resolved = entry ?? {
+        backendName,
+        fullPath: normalized,
+        path: normalized.split('.'),
+        method: { name: normalized, description: '', hash: '', params: {}, returns: {}, streaming: false, bidirectional: false },
+      }
+      addMethodEntry(resolved, pos)
+      return { ok: true, nodeId: nodes.value[nodes.value.length - 1]?.id }
+    }),
+
+    registerAction('wiring.run', async () => {
+      await runPipeline()
+      return {
+        ok: true,
+        nodes: nodes.value.map(n => ({ id: n.id, label: nodeTitle(n), status: n.status })),
+      }
+    }),
+
+    registerAction('wiring.clear', () => {
+      pushUndo()
+      nodes.value = []
+      edges.value = []
+      selectedNodeId.value = null
+      pendingEdge.value = null
+      runError.value = null
+      return { ok: true }
+    }),
+
+    registerAction('wiring.getJson', () => {
+      const state = {
+        nodes: nodes.value.map(({ status: _s, result: _r, ...rest }) => rest),
+        edges: edges.value,
+      }
+      return { json: JSON.stringify(state, null, 2) }
+    }),
+
+    registerAction('wiring.importJson', (params) => {
+      const ok = importJson(params['json'] as string)
+      return { ok }
+    }),
+
+    registerAction('wiring.getState', () => ({
+      nodeCount: nodes.value.length,
+      edgeCount: edges.value.length,
+      running: running.value,
+      nodes: nodes.value.map(n => ({ id: n.id, kind: n.kind, label: nodeTitle(n), status: n.status })),
+    })),
+
+    registerAction('wiring.undo', () => { undo(); return { ok: true } }),
+    registerAction('wiring.redo', () => { redo(); return { ok: true } }),
+    registerAction('wiring.autoLayout', () => { autoLayout(); return { ok: true } }),
+
+    registerAction('wiring.connectNodes', (params) => {
+      const fromNodeId = params['fromNodeId'] as string
+      const toNodeId   = params['toNodeId'] as string
+      const toParam    = (params['toParam'] as string | undefined) ?? ''
+      if (!nodes.value.find(n => n.id === fromNodeId)) throw new Error(`Node not found: ${fromNodeId}`)
+      if (!nodes.value.find(n => n.id === toNodeId))   throw new Error(`Node not found: ${toNodeId}`)
+      pushUndo()
+      const rc = { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [] as string[] }
+      const edgeId = makeEdgeId()
+      edges.value.push({ id: edgeId, fromNodeId, toNodeId, toParam, routing: 'auto', routeConfig: rc })
+      return { ok: true, edgeId }
+    }),
+
+    registerAction('wiring.removeEdge', (params) => {
+      const edgeId = params['edgeId'] as string
+      if (!edges.value.find(e => e.id === edgeId)) throw new Error(`Edge not found: ${edgeId}`)
+      pushUndo()
+      removeEdge(edgeId)
+      return { ok: true }
+    }),
+
+    registerAction('wiring.deleteNode', (params) => {
+      const nodeId = params['nodeId'] as string
+      if (!nodes.value.find(n => n.id === nodeId)) throw new Error(`Node not found: ${nodeId}`)
+      pushUndo()
+      deleteNode(nodeId)
+      return { ok: true }
+    }),
+
+    registerAction('wiring.setNodeParams', (params) => {
+      const nodeId = params['nodeId'] as string
+      const nodeParams = params['params'] as Record<string, unknown>
+      const node = nodes.value.find(n => n.id === nodeId)
+      if (!node) throw new Error(`Node not found: ${nodeId}`)
+      node.params = { ...node.params, ...nodeParams }
+      return { ok: true }
+    }),
+
+    registerAction('wiring.setNodeLabel', (params) => {
+      const nodeId = params['nodeId'] as string
+      const label  = params['label'] as string
+      const node   = nodes.value.find(n => n.id === nodeId)
+      if (!node) throw new Error(`Node not found: ${nodeId}`)
+      node.label = label
+      return { ok: true }
+    }),
+
+    registerAction('wiring.setEdgeRouting', (params) => {
+      const edgeId = params['edgeId'] as string
+      const mode   = params['mode'] as RouteMode
+      setEdgeRouting(edgeId, mode)
+      return { ok: true }
+    }),
+
+    registerAction('wiring.selectNode', (params) => {
+      const nodeId = params['nodeId'] as string
+      if (!nodes.value.find(n => n.id === nodeId)) throw new Error(`Node not found: ${nodeId}`)
+      selectedNodeId.value = nodeId
+      return { ok: true }
+    }),
+
+    registerAction('wiring.addTransform', (params) => {
+      const kind        = params['kind'] as Exclude<NodeKind, 'rpc'>
+      const subkind     = params['subkind'] as string | undefined
+      const orientation = params['orientation'] as string | undefined
+      const pos         = params['x'] !== undefined
+        ? { x: params['x'] as number, y: (params['y'] as number | undefined) ?? 100 }
+        : undefined
+      if (kind === 'widget' || kind === 'layout' || kind === 'vars') {
+        addUiNode(kind, subkind as WidgetKind | undefined, orientation as LayoutDir | undefined, pos)
+      } else {
+        addTransformNode(kind, pos)
+      }
+      return { ok: true, nodeId: nodes.value[nodes.value.length - 1]?.id }
+    }),
+
+    registerAction('wiring.runNode', async (params) => {
+      const nodeId     = params['nodeId'] as string
+      const downstream = (params['downstream'] as boolean | undefined) ?? true
+      if (!nodes.value.find(n => n.id === nodeId)) throw new Error(`Node not found: ${nodeId}`)
+      await rerunNode(nodeId, downstream)
+      const node = nodes.value.find(n => n.id === nodeId)
+      return { ok: true, status: node?.status, result: node?.result }
+    }),
+
+    registerAction('wiring.getResults', () => ({
+      nodes: nodes.value.map(n => ({
+        id: n.id, kind: n.kind, label: nodeTitle(n), status: n.status, result: n.result,
+      })),
+    })),
+  ]
+  onUnmounted(() => cleanups.forEach(fn => fn()))
 })
 
 // ─── Node IDs ─────────────────────────────────────────────────

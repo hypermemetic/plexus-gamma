@@ -72,6 +72,104 @@ async function* routeToDispatch(
       }
       yield { type: 'done', metadata: meta() }
       return
+
+    // ── Command palette ────────────────────────────────────────
+    case 'ui.palette.open':
+      dispatch.openPalette()
+      yield* yieldResult({ ok: true })
+      return
+    case 'ui.palette.close':
+      dispatch.closePalette()
+      yield* yieldResult({ ok: true })
+      return
+
+    // ── Explorer path focus ────────────────────────────────────
+    case 'ui.focusPath':
+      dispatch.navigate('multi-explorer')
+      dispatch.focusPath(
+        params['backend'] as string,
+        (params['path'] as string[] | undefined) ?? [],
+      )
+      yield* yieldResult({ ok: true })
+      return
+
+    // ── Invoke batch ──────────────────────────────────────────
+    case 'invoke.batch': {
+      const results = await dispatch.batchInvoke(
+        params['backend'] as string,
+        params['method'] as string,
+        (params['items'] as unknown[]) ?? [],
+        (params['concurrency'] as number | undefined) ?? 4,
+      )
+      yield* yieldResult({ results, total: results.length, errors: results.filter(r => r.error !== undefined).length })
+      return
+    }
+
+    // ── Wiring canvas actions ──────────────────────────────────
+    case 'wiring.addMethod':
+    case 'wiring.run':
+    case 'wiring.clear':
+    case 'wiring.getJson':
+    case 'wiring.importJson':
+    case 'wiring.getState':
+    case 'wiring.undo':
+    case 'wiring.redo':
+    case 'wiring.autoLayout':
+    case 'wiring.connectNodes':
+    case 'wiring.removeEdge':
+    case 'wiring.deleteNode':
+    case 'wiring.setNodeParams':
+    case 'wiring.setNodeLabel':
+    case 'wiring.setEdgeRouting':
+    case 'wiring.selectNode':
+    case 'wiring.addTransform':
+    case 'wiring.runNode':
+    case 'wiring.getResults': {
+      const result = await dispatch.dispatchAction(method, params)
+      yield* yieldResult(result)
+      return
+    }
+
+    // ── Orchestration actions ──────────────────────────────────
+    case 'orchestration.create':
+    case 'orchestration.list':
+    case 'orchestration.select':
+    case 'orchestration.addStep':
+    case 'orchestration.removeStep':
+    case 'orchestration.run':
+    case 'orchestration.stop':
+    case 'orchestration.rename':
+    case 'orchestration.getState':
+    case 'orchestration.setStepParams':
+    case 'orchestration.wireSteps':
+    case 'orchestration.removeWire':
+    case 'orchestration.delete': {
+      const result = await dispatch.dispatchAction(method, params)
+      yield* yieldResult(result)
+      return
+    }
+
+    // ── Replay actions ─────────────────────────────────────────────
+    case 'replay.list':
+    case 'replay.clear':
+    case 'replay.remove':
+    case 'replay.invoke': {
+      const result = await dispatch.dispatchAction(method, params)
+      yield* yieldResult(result)
+      return
+    }
+
+    // ── Assertion actions ───────────────────────────────────────────
+    case 'assertion.list':
+    case 'assertion.addTest':
+    case 'assertion.removeTest':
+    case 'assertion.runTest':
+    case 'assertion.runAll': {
+      const result = await dispatch.dispatchAction(method, params)
+      yield* yieldResult(result)
+      return
+    }
+
     default:
       yield { type: 'error', metadata: meta(), message: `Unknown method: ${method}`, recoverable: false }
       return
@@ -91,7 +189,7 @@ export function useBridge() {
     }
   }
 
-  async function handleCall(msg: BridgeCall) {
+  async function handleCall(msg: Extract<BridgeCall, { type: 'call' }>) {
     const { callId, method, params } = msg
     const p = (params ?? {}) as Record<string, unknown>
     const ac = new AbortController()

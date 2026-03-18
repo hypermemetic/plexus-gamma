@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import type { WebSocket } from '@plexus/rpc'
 import type { PlexusStreamItem } from '../lib/plexus/types'
 import type { BridgeCall, BridgeMessage } from './bridge'
 
@@ -63,15 +64,13 @@ function makeChannel<T>(): Channel<T> {
 
 // ── Bridge state ──────────────────────────────────────────────────────────────
 
-type BridgeWs = import('bun').ServerWebSocket<{ role: 'bridge' | 'client'; id?: string }>
-
-let bridgeWs: BridgeWs | null = null
+let bridgeWs: WebSocket | null = null
 
 // Channel yields the plain content of data items (not full PlexusStreamItem).
 // done/error items from the bridge terminate the channel via end()/error().
 const pendingCalls = new Map<string, Channel<unknown>>()
 
-export function setBridgeWs(ws: BridgeWs): void {
+export function setBridgeWs(ws: WebSocket): void {
   bridgeWs = ws
   console.log('[plexus-gamma] bridge connected')
 }

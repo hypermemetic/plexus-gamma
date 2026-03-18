@@ -1,22 +1,20 @@
 import { serve } from '@plexus/rpc'
 import { setBridgeWs, clearBridgeWs, handleBridgeMessage } from './bridge-connection'
 import { plexusGammaPlugin } from './plugins'
+import { startHeadless } from './headless'
 import type { BridgeMessage } from './bridge'
 
-type BridgeWs = import('bun').ServerWebSocket<{ role: 'bridge' | 'client'; id?: string }>
-
-serve('plexus-gamma', {
+await serve('plexus-gamma', {
   port: 44707,
 
   // Intercept /bridge path — tag the socket so open/message/close route to bridge handlers
-  onUpgrade(req, upgrade) {
-    const url = new URL(req.url)
-    if (url.pathname !== '/bridge') return false
+  onUpgrade(pathname, upgrade) {
+    if (pathname !== '/bridge') return false
     return upgrade('bridge')
   },
 
   onCustomOpen(ws) {
-    setBridgeWs(ws as BridgeWs)
+    setBridgeWs(ws)
   },
 
   onCustomMessage(_, raw) {
@@ -30,3 +28,13 @@ serve('plexus-gamma', {
     clearBridgeWs()
   },
 }, plexusGammaPlugin)
+
+// Start headless browser only when opted-in via HEADLESS=1.
+// This keeps `bun run dev` (and Playwright tests) bridge-clean:
+// the test browser or any manually-opened tab becomes the bridge client.
+if (process.env['HEADLESS']) {
+  const headlessUrl = process.env['HEADLESS_URL'] ?? 'http://localhost:8080'
+  startHeadless(headlessUrl).catch(err => {
+    console.log(`[headless] could not start browser (${headlessUrl}): ${err.message}`)
+  })
+}

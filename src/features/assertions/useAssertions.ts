@@ -174,37 +174,38 @@ function newId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
+// ── Module-level singletons ───────────────────────────────────────────────
+
+const stored = (() => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as TestCase[]) : []
+  } catch {
+    return []
+  }
+})()
+
+const tests = ref<TestCase[]>(stored)
+const runs  = ref<Map<string, TestRun>>(new Map())
+
+// Persist to localStorage on every change
+watch(
+  tests,
+  (value) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
+    } catch {
+      // quota exceeded or private browsing — ignore
+    }
+  },
+  { deep: true },
+)
+
 // ── Composable ───────────────────────────────────────────────────────────
 
 export function useAssertionSuite() {
-  // Load persisted tests
-  const stored = (() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? (parsed as TestCase[]) : []
-    } catch {
-      return []
-    }
-  })()
-
-  const tests = ref<TestCase[]>(stored)
-  const runs  = ref<Map<string, TestRun>>(new Map())
-
-  // Persist to localStorage on every change
-  watch(
-    tests,
-    (value) => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-      } catch {
-        // quota exceeded or private browsing — ignore
-      }
-    },
-    { deep: true },
-  )
-
   // ── Mutations ───────────────────────────────────────────────────────────
 
   function addTest(t: Omit<TestCase, 'id'>): string {

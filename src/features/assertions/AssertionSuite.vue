@@ -194,12 +194,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, nextTick } from 'vue'
+import { ref, computed, inject, nextTick, onMounted, onUnmounted } from 'vue'
 import { useContainedFocus } from '../../lib/useContainedFocus'
 import type { PlexusRpcClient } from '../../lib/plexus/transport'
 import type { MethodSchema } from '../../plexus-schema'
 import { useAssertionSuite } from './useAssertions'
-import type { AssertionOp } from './useAssertions'
+import type { AssertionOp, Assertion } from './useAssertions'
+import { registerAction } from '../../lib/useActionRegistry'
+import { useBackends } from '../../lib/useBackends'
+import { getSharedClient } from '../../lib/plexus/clientRegistry'
 
 // ── Props & inject ────────────────────────────────────────────────────────
 
@@ -216,6 +219,61 @@ const rpc = inject<PlexusRpcClient>('rpc')!
 
 const suite = useAssertionSuite()
 const { tests, runs } = suite
+
+onMounted(() => {
+  const { connections } = useBackends()
+  const cleanups = [
+    registerAction('assertion.list', (params) => {
+      const method = params['method'] as string | undefined
+      return method ? suite.tests.value.filter(t => t.method === method) : [...suite.tests.value]
+    }),
+
+    registerAction('assertion.addTest', (params) => {
+      const rawAssertions = (params['assertions'] as Array<{ field?: string; op?: string; value?: string }> | undefined) ?? []
+      const assertions: Assertion[] = rawAssertions.map(a => ({
+        id: Math.random().toString(36).slice(2, 10),
+        field: a.field ?? '',
+        op: (a.op ?? 'equals') as AssertionOp,
+        value: a.value ?? '',
+      }))
+      const id = suite.addTest({
+        name: params['name'] as string,
+        method: params['method'] as string,
+        params: params['params'] ?? {},
+        assertions,
+      })
+      return { ok: true, id }
+    }),
+
+    registerAction('assertion.removeTest', (params) => {
+      suite.removeTest(params['id'] as string)
+      return { ok: true }
+    }),
+
+    registerAction('assertion.runTest', async (params) => {
+      const testId = params['id'] as string
+      const test = suite.tests.value.find(t => t.id === testId)
+      if (!test) throw new Error(`Test not found: ${testId}`)
+      const bkName = (params['backend'] as string | undefined) ?? test.method.split('.')[0]!
+      const conn = connections.value.find(c => c.name === bkName)
+      if (!conn) throw new Error(`Backend not found: ${bkName}`)
+      return suite.runTest(testId, getSharedClient(bkName, conn.url))
+    }),
+
+    registerAction('assertion.runAll', async (params) => {
+      const method = params['method'] as string | undefined
+      const toRun = method ? suite.tests.value.filter(t => t.method === method) : [...suite.tests.value]
+      for (const test of toRun) {
+        const bkName = (params['backend'] as string | undefined) ?? test.method.split('.')[0]!
+        const conn = connections.value.find(c => c.name === bkName)
+        if (!conn) continue
+        await suite.runTest(test.id, getSharedClient(bkName, conn.url))
+      }
+      return { ok: true, count: toRun.length }
+    }),
+  ]
+  onUnmounted(() => cleanups.forEach(f => f()))
+})
 
 // ── Computed: full method path ─────────────────────────────────────────────
 

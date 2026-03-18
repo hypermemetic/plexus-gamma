@@ -5,13 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"bun --watch src/server/index.ts\"",
+    "dev:headed": "concurrently \"vite\" \"HEADLESS=1 bun --watch src/server/index.ts\"",
     "server": "bun src/server/index.ts",
+    "server:headed": "HEADLESS=1 bun src/server/index.ts",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "codegen": "synapse-cc build --no-install",
     "test": "playwright test",
+    "test:rpc": "playwright test --config playwright.rpc.config.ts",
     "test:ui": "playwright test --ui",
-    "screenshots": "playwright test --config playwright.screenshots.config.ts"
+    "screenshots": "playwright test --config playwright.screenshots.config.ts",
+    "docs:rpc": "playwright test --config playwright.rpc-features.config.ts"
   },
   "dependencies": {
     "@plexus/rpc": "workspace:*",
@@ -23,11 +27,13 @@
     "@playwright/test": "^1.58.2",
     "@tauri-apps/cli": "^2.10.0",
     "@types/node": "^25.3.5",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "^6.0.2",
     "@vue/tsconfig": "^0.8.1",
     "concurrently": "^9.2.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vue-tsc": "^3.1.5"
+    "vue-tsc": "^3.1.5",
+    "ws": "^8.19.0"
   }
 }
