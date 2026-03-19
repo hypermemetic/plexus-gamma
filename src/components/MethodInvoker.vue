@@ -145,6 +145,7 @@ import SchemaField from './SchemaField.vue'
 import type { JsonSchema } from './SchemaField.vue'
 import { useFormEnterNav } from '../lib/useFormEnterNav'
 import { useDispatch } from '../lib/useDispatch'
+import { useInvocationHistory } from '../features/replay/useInvocationHistory'
 
 const props = defineProps<{
   method: MethodSchema
@@ -435,6 +436,7 @@ async function invoke() {
   running.value = true
   cancelFlag.value = false
   returnsOpen.value = true
+  const startMs = Date.now()
   try {
     for await (const item of dispatch.invokeMethod(props.backendName, fullPath.value, params, false)) {
       if (cancelFlag.value) break
@@ -455,6 +457,14 @@ async function invoke() {
   } finally {
     running.value = false
     cancelFlag.value = false
+    useInvocationHistory().record({
+      timestamp: Date.now(),
+      backend: props.backendName,
+      method: fullPath.value,
+      params,
+      results: results.value.filter(r => r.type === 'data').map(r => r.content),
+      durationMs: Date.now() - startMs,
+    })
   }
 }
 </script>

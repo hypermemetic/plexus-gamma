@@ -15,10 +15,11 @@
     "test:rpc": "playwright test --config playwright.rpc.config.ts",
     "test:ui": "playwright test --ui",
     "screenshots": "playwright test --config playwright.screenshots.config.ts",
-    "docs:rpc": "playwright test --config playwright.rpc-features.config.ts"
+    "docs:rpc": "playwright test --config playwright.rpc-features.config.ts",
+    "screenshots:rpc": "REGEN_ONLY=true playwright test --config playwright.rpc-features.config.ts"
   },
   "dependencies": {
-    "@plexus/rpc": "workspace:*",
+    "@plexus/rpc": "file:../plexus-rpc-ts",
     "@sinclair/typebox": "^0.34.48",
     "@tauri-apps/api": "^2.10.1",
     "vue": "^3.5.25"

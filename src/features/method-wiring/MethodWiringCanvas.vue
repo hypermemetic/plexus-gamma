@@ -990,7 +990,11 @@ onMounted(() => {
 
     registerAction('wiring.undo', () => { undo(); return { ok: true } }),
     registerAction('wiring.redo', () => { redo(); return { ok: true } }),
-    registerAction('wiring.autoLayout', () => { autoLayout(); return { ok: true } }),
+    registerAction('wiring.autoLayout', () => {
+      autoLayout()
+      nextTick(() => { layoutTick.value++ })
+      return { ok: true }
+    }),
 
     registerAction('wiring.connectNodes', (params) => {
       const fromNodeId = params['fromNodeId'] as string
@@ -1002,6 +1006,7 @@ onMounted(() => {
       const rc = { separator: '\n', predicate: '', reducer: '', initial: '', typeFilter: [] as string[] }
       const edgeId = makeEdgeId()
       edges.value.push({ id: edgeId, fromNodeId, toNodeId, toParam, routing: 'auto', routeConfig: rc })
+      nextTick(() => { layoutTick.value++ })
       return { ok: true, edgeId }
     }),
 

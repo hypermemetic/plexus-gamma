@@ -233,12 +233,12 @@ test.describe('RPC Feature Showcase', () => {
 
     // Add two method nodes
     const n1 = await capture(page, 'wiring-add-node-1', 'Add first method node',
-      'wiring.addMethod', { backend: 'substrate', method: 'substrate.echo.say', x: 80, y: 160 },
+      'wiring.addMethod', { backend: 'substrate', method: 'substrate.echo.once', x: 80, y: 160 },
       'wiring.addMethod places a method node on the canvas at the given coordinates', 400)
     const node1Id = (n1.items[0] as { nodeId: string }).nodeId
 
     const n2 = await capture(page, 'wiring-add-node-2', 'Add second method node',
-      'wiring.addMethod', { backend: 'substrate', method: 'substrate.echo.say', x: 500, y: 160 },
+      'wiring.addMethod', { backend: 'substrate', method: 'substrate.echo.once', x: 500, y: 160 },
       'Adding a second node — both are now visible on the canvas', 400)
     const node2Id = (n2.items[0] as { nodeId: string }).nodeId
 
@@ -360,12 +360,12 @@ test.describe('RPC Feature Showcase', () => {
       'orchestration.rename gives the selected workflow a human-readable name', 400)
 
     const s1 = await capture(page, 'orch-add-step-1', 'Add first step',
-      'orchestration.addStep', { backend: 'substrate', method: 'substrate.echo.say' },
+      'orchestration.addStep', { backend: 'substrate', method: 'substrate.echo.once' },
       'orchestration.addStep appends a method step to the selected workflow', 400)
     const stepId1 = (s1.items[0] as { stepId: string }).stepId!
 
     const s2 = await capture(page, 'orch-add-step-2', 'Add second step',
-      'orchestration.addStep', { backend: 'substrate', method: 'substrate.echo.say' },
+      'orchestration.addStep', { backend: 'substrate', method: 'substrate.echo.once' },
       'A second step is added — the workflow now has two echo.say steps in sequence', 400)
     const stepId2 = (s2.items[0] as { stepId: string }).stepId!
 
@@ -396,20 +396,26 @@ test.describe('RPC Feature Showcase', () => {
   test('§8 replay — seed history, then replay via RPC', async ({ page }) => {
     section('Replay Panel')
 
-    // Clear stale history
+    // Inject a seed entry directly into localStorage, then reload so the singleton picks it up
     await page.evaluate(() => localStorage.removeItem('plexus-gamma:history'))
-
-    // Seed the history by running a method via the method invoker UI
+    await page.evaluate(() => {
+      const entry = {
+        id: 'seed-' + Date.now(),
+        timestamp: Date.now(),
+        backend: 'substrate',
+        method: 'substrate.echo.once',
+        params: { message: 'seeded' },
+        results: [{ type: 'echo', message: 'seeded', count: 1 }],
+        durationMs: 42,
+      }
+      localStorage.setItem('plexus-gamma:history', JSON.stringify([entry]))
+    })
+    await page.reload()
+    await page.waitForSelector('.view-tabs', { timeout: 12_000 })
+    await setDaylight(page)
+    await waitForBridge()
     await rpcCall('ui.navigate', { view: 'multi-explorer' })
     await page.waitForTimeout(300)
-    await page.locator('.node-row', { hasText: 'echo' }).first().click()
-    await expect(page.locator('.method-card').first()).toBeVisible({ timeout: 10_000 })
-    // Click run on the first method card to generate a history entry
-    const runBtn = page.locator('.invoke-btn').first()
-    if (await runBtn.isVisible()) {
-      await runBtn.click()
-      await page.waitForTimeout(600)
-    }
 
     // Open replay panel
     await page.locator('[title="Invocation history"]').click()
@@ -457,22 +463,22 @@ test.describe('RPC Feature Showcase', () => {
 
     const added = await capture(page, 'assertion-add', 'Add test case',
       'assertion.addTest',
-      { name: 'echo roundtrip', method: 'substrate.echo.say', params: { message: 'ping' } },
+      { name: 'echo roundtrip', method: 'substrate.echo.once', params: { message: 'ping' } },
       'assertion.addTest creates a test case. The invoker panel must be visible for the action handler to be registered.', 400)
     const addedResult = added.items[0] as { ok: boolean; id: string }
 
     await capture(page, 'assertion-list', 'List test cases',
-      'assertion.list', { method: 'substrate.echo.say' },
+      'assertion.list', { method: 'substrate.echo.once' },
       'assertion.list returns all test cases, optionally filtered by method name', 400)
 
     if (addedResult?.id) {
       await capture(page, 'assertion-run', 'Run single test',
         'assertion.runTest', { id: addedResult.id, backend: 'substrate' },
-        'assertion.runTest executes one test case against a backend and returns the assertion results', 800)
+        'assertion.runTest executes one test case against a backend and returns the assertion results', 1500)
 
       await capture(page, 'assertion-runall', 'Run all tests',
         'assertion.runAll', { backend: 'substrate' },
-        'assertion.runAll runs every test case and returns a summary of passes and failures', 800)
+        'assertion.runAll runs every test case and returns a summary of passes and failures', 1500)
 
       // Cleanup
       await rpcCall('assertion.removeTest', { id: addedResult.id })
@@ -512,7 +518,7 @@ test.describe('RPC Feature Showcase', () => {
   // ── Doc writer ────────────────────────────────────────────────────────────────
 
   test.afterAll(async () => {
-    writeDoc()
+    if (!process.env['REGEN_ONLY']) writeDoc()
   })
 })
 
