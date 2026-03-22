@@ -50,6 +50,7 @@
           <button class="view-tab" :class="{ active: view === 'sheet' }"          @click="view = 'sheet'">sheet</button>
           <button class="view-tab" :class="{ active: view === 'wiring' }"         @click="view = 'wiring'">wiring</button>
           <button class="view-tab" :class="{ active: view === 'orchestration' }"  @click="view = 'orchestration'">orchestrate</button>
+          <button class="view-tab" :class="{ active: view === 'site-builder' }"   @click="view = 'site-builder'">builder</button>
         </div>
       </div>
     </header>
@@ -84,6 +85,11 @@
       <template v-else-if="view === 'orchestration'">
         <OrchestrationCanvas />
       </template>
+
+      <!-- Site builder (feature: site-builder) -->
+      <template v-else-if="view === 'site-builder'">
+        <SiteBuilder />
+      </template>
     </main>
 
     <!-- Replay panel (feature: replay) -->
@@ -108,6 +114,7 @@ import MethodWiringCanvas from './features/method-wiring/MethodWiringCanvas.vue'
 import OrchestrationCanvas from './features/orchestration/OrchestrationCanvas.vue'
 import HealthDashboard from './features/health/HealthDashboard.vue'
 import ReplayPanel from './features/replay/ReplayPanel.vue'
+import SiteBuilder from './features/site-builder/SiteBuilder.vue'
 import { useInvocationHistory } from './features/replay/useInvocationHistory'
 
 const {

@@ -117,6 +117,7 @@ import FuzzySelect from './FuzzySelect.vue'
 
 export interface JsonSchema {
   type?: string | string[]
+  title?: string
   properties?: Record<string, JsonSchema>
   required?: string[]
   enum?: unknown[]
@@ -174,9 +175,18 @@ function onTextareaUpdate(text: string) {
 }
 
 function branchLabel(s: JsonSchema, i: number): string {
-  if (s.type) return `Option ${i + 1} (${s.type})`
-  if (s.enum) return `Option ${i + 1} (enum)`
-  return `Option ${i + 1}`
+  if (s.title) return s.title
+  if (s.enum && s.enum.length > 0) return String(s.enum[0])
+  // schemars 1.x / Draft 2020-12: internally-tagged enums encode variant name
+  // as properties.<tag_field>.const — e.g. { properties: { type: { const: "by_name" } } }
+  if (s.properties) {
+    for (const prop of Object.values(s.properties)) {
+      if (prop && typeof prop === 'object' && 'const' in prop && prop.const !== undefined)
+        return String(prop.const)
+    }
+  }
+  if (s.type) return Array.isArray(s.type) ? s.type.filter(t => t !== 'null').join(' | ') : s.type
+  return `option ${i + 1}`
 }
 </script>
 

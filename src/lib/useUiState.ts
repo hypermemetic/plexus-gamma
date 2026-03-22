@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
-export type ViewName = 'multi-explorer' | 'canvas' | 'sheet' | 'wiring' | 'orchestration'
-export const VALID_VIEWS: ViewName[] = ['multi-explorer', 'canvas', 'sheet', 'wiring', 'orchestration']
+export type ViewName = 'multi-explorer' | 'canvas' | 'sheet' | 'wiring' | 'orchestration' | 'site-builder'
+export const VALID_VIEWS: ViewName[] = ['multi-explorer', 'canvas', 'sheet', 'wiring', 'orchestration', 'site-builder']
 
 // Restore from localStorage if available (SSR-safe guard)
 const _savedView = typeof localStorage !== 'undefined'
