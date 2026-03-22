@@ -8,50 +8,53 @@
       @select="onPaletteSelect"
     />
 
-    <!-- Connection bar -->
+    <!-- Top bar -->
     <header class="conn-bar">
-      <!-- Backend selector (health chips) -->
-      <HealthDashboard
-        :open="healthOpen"
-        @select="setActive"
-        @close="healthOpen = false"
-      />
+      <!-- View tabs — primary nav, left-anchored -->
+      <nav class="view-tabs">
+        <button class="view-tab" :class="{ active: view === 'multi-explorer' }" @click="view = 'multi-explorer'" title="Explorer">explore</button>
+        <button class="view-tab" :class="{ active: view === 'canvas' }"         @click="view = 'canvas'"         title="Topology canvas">canvas</button>
+        <button class="view-tab" :class="{ active: view === 'sheet' }"          @click="view = 'sheet'"          title="Schema sheet">sheet</button>
+        <button class="view-tab" :class="{ active: view === 'wiring' }"         @click="view = 'wiring'"         title="Method wiring">wiring</button>
+        <button class="view-tab" :class="{ active: view === 'orchestration' }"  @click="view = 'orchestration'"  title="Orchestration">orcha</button>
+        <button class="view-tab" :class="{ active: view === 'site-builder' }"   @click="view = 'site-builder'"   title="Site builder">build</button>
+      </nav>
 
+      <!-- Right utility cluster -->
       <div class="conn-bar-right">
-        <!-- Ctrl+K hint -->
-        <button class="palette-trigger" @click="paletteOpen = true" title="Search methods (Ctrl+K)">
-          ⌘K
-        </button>
+        <!-- Backend selector -->
+        <HealthDashboard
+          :open="healthOpen"
+          @select="setActive"
+          @close="healthOpen = false"
+        />
 
-        <!-- Replay history (feature: replay) -->
-        <button class="palette-trigger" @click="replayOpen = !replayOpen" title="Invocation history">⏱</button>
+        <div class="conn-bar-sep" />
 
-        <!-- Add connection form -->
-        <form v-if="showAdd" class="add-form" @submit.prevent="submitAddConnection">
-          <input v-model="newName" class="add-input" placeholder="backend name" required />
-          <input v-model="newUrl"  class="add-input" placeholder="ws://127.0.0.1:4444" required />
-          <button type="submit" class="add-submit">connect</button>
-          <button type="button" class="add-cancel" @click="showAdd = false">✕</button>
-        </form>
-        <button v-else class="add-btn" @click="showAdd = true" title="Add backend">+</button>
+        <!-- Search -->
+        <button class="icon-btn" @click="paletteOpen = true" title="Search methods (Ctrl+K)">⌘K</button>
 
-        <!-- Theme toggle -->
-        <button class="theme-toggle" @click="toggleTheme" :title="theme === 'daylight' ? 'Switch to midnight' : 'Switch to daylight'">
+        <!-- Replay history -->
+        <button class="icon-btn" @click="replayOpen = !replayOpen" title="Invocation history">⏱</button>
+
+        <!-- Add connection -->
+        <template v-if="showAdd">
+          <form class="add-form" @submit.prevent="submitAddConnection">
+            <input v-model="newName" class="add-input" placeholder="name" required />
+            <input v-model="newUrl"  class="add-input" placeholder="ws://…" required />
+            <button type="submit" class="add-submit">connect</button>
+            <button type="button" class="add-cancel" @click="showAdd = false">✕</button>
+          </form>
+        </template>
+        <button v-else class="icon-btn" @click="showAdd = true" title="Add backend">+</button>
+
+        <!-- Theme -->
+        <button class="icon-btn" @click="toggleTheme" :title="theme === 'daylight' ? 'Switch to midnight' : 'Switch to daylight'">
           {{ theme === 'daylight' ? '☾' : '☀' }}
         </button>
 
-        <!-- Build hash -->
-        <span class="build-hash" title="Build commit">{{ gitHash }}</span>
-
-        <!-- View switcher -->
-        <div class="view-tabs">
-          <button class="view-tab" :class="{ active: view === 'multi-explorer' }" @click="view = 'multi-explorer'">explore</button>
-          <button class="view-tab" :class="{ active: view === 'canvas' }"         @click="view = 'canvas'">topology</button>
-          <button class="view-tab" :class="{ active: view === 'sheet' }"          @click="view = 'sheet'">sheet</button>
-          <button class="view-tab" :class="{ active: view === 'wiring' }"         @click="view = 'wiring'">wiring</button>
-          <button class="view-tab" :class="{ active: view === 'orchestration' }"  @click="view = 'orchestration'">orchestrate</button>
-          <button class="view-tab" :class="{ active: view === 'site-builder' }"   @click="view = 'site-builder'">builder</button>
-        </div>
+        <!-- Build hash (tooltip only) -->
+        <span class="build-hash" :title="'Build: ' + gitHash">{{ gitHash }}</span>
       </div>
     </header>
 
@@ -201,80 +204,102 @@ onMounted(scan)
   color: var(--text);
 }
 
-/* ── Connection bar ─────────────────────────────────────────── */
+/* ── Top bar ────────────────────────────────────────────────── */
 .conn-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
   height: 36px;
   background: var(--bg-0);
   border-bottom: 1px solid var(--border);
-  padding: 0 10px;
   flex-shrink: 0;
-  gap: 8px;
+  overflow: hidden;
 }
 
-.conn-bar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
-.build-hash { font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace; font-size: 10px; color: var(--text-dim); letter-spacing: 0.04em; }
-.theme-toggle {
-  background: none; border: 1px solid var(--border-2); color: var(--text-muted);
-  font-size: 12px; width: 22px; height: 22px; border-radius: 4px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;
+/* ── View tabs — left side, underline style ─────────────────── */
+.view-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding-left: 4px;
+  flex-shrink: 0;
 }
-.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
-.palette-trigger {
+.view-tab {
   background: none;
-  border: 1px solid var(--border-2);
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-dim);
   font-family: inherit;
-  font-size: 10px;
-  padding: 2px 7px;
+  font-size: 11px;
+  padding: 0 14px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: color 0.1s, border-color 0.1s;
+}
+.view-tab:hover { color: var(--text-muted); border-bottom-color: var(--border-2); }
+.view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Right cluster ──────────────────────────────────────────── */
+.conn-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.conn-bar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+/* Unified icon button — all utility actions use this */
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 0 6px;
+  height: 24px;
   border-radius: 4px;
   cursor: pointer;
-  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  transition: background 0.08s, color 0.08s;
 }
-.palette-trigger:hover { border-color: var(--accent); color: var(--accent); }
+.icon-btn:hover { background: var(--bg-3); color: var(--text); }
 
-.add-btn {
-  background: none; border: 1px solid var(--border-2); color: var(--text-muted);
-  font-size: 14px; width: 22px; height: 22px; border-radius: 4px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  line-height: 1;
+.build-hash {
+  font-family: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+  cursor: default;
 }
-.add-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+/* Add connection inline form */
 .add-form { display: flex; align-items: center; gap: 4px; }
 .add-input {
   background: var(--bg-3); border: 1px solid var(--border-2); color: var(--text);
-  font-family: inherit; font-size: 11px; padding: 3px 8px; border-radius: 4px;
-  outline: none; height: 22px;
+  font-family: inherit; font-size: 11px; padding: 2px 7px; border-radius: 4px;
+  outline: none; height: 22px; width: 110px;
 }
 .add-input:focus { border-color: var(--accent); }
 .add-submit {
   background: var(--accent-bg); border: 1px solid var(--accent-bg-2); color: var(--accent);
-  font-family: inherit; font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+  font-family: inherit; font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; height: 22px;
 }
 .add-cancel {
   background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 2px 4px;
 }
-
-/* ── View tabs ──────────────────────────────────────────────── */
-.view-tabs { display: flex; gap: 3px; }
-
-.view-tab {
-  background: none;
-  border: 1px solid var(--border-2);
-  color: var(--text-dim);
-  font-family: inherit;
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 4px;
-  cursor: pointer;
-  letter-spacing: 0.03em;
-}
-.view-tab:hover { border-color: var(--text-muted); color: var(--text-muted); }
-.view-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
 /* ── Main area ──────────────────────────────────────────────── */
 .main { flex: 1; overflow: hidden; display: flex; }
