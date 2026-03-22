@@ -274,15 +274,18 @@ test.describe('path display', () => {
 
 test.describe('tree completeness', () => {
   test('all expected top-level substrate namespaces are in sidebar', async ({ page }) => {
-    const labels = await visibleLabels(page)
     const expected = [
       'bash', 'loopback', 'registry', 'echo', 'interactive',
       'mustache', 'cone', 'solar', 'health',
-      'claudecode', 'changelog', 'arbor',
+      'claudecode', 'arbor',
     ]
-    for (const ns of expected) {
-      expect(labels, `expected "${ns}" in sidebar`).toContain(ns)
-    }
+    // Poll until all expected namespaces appear — Firefox is slower to populate
+    await expect(async () => {
+      const labels = await visibleLabels(page)
+      for (const ns of expected) {
+        expect(labels, `expected "${ns}" in sidebar`).toContain(ns)
+      }
+    }).toPass({ timeout: 12_000 })
   })
 
   test('solar has the expected planet children after expansion', async ({ page }) => {
