@@ -129,7 +129,7 @@ export function newSite(): Site {
       id:         crypto.randomUUID(),
       slug:       '/',
       title:      'Home',
-      background: 'var(--bg)',
+      background: '#ffffff',
       components: [],
     }],
   }

@@ -100,7 +100,7 @@ function addPage(): void {
     id:         crypto.randomUUID(),
     slug:       '/page-' + (site.pages.length + 1),
     title:      'New Page',
-    background: 'var(--bg)',
+    background: '#ffffff',
     components: [],
   }
   site.pages.push(page)

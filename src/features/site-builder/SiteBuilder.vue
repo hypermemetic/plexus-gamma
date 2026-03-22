@@ -72,7 +72,7 @@
         <!-- Page surface — looks like a real webpage -->
         <div
           class="sb-page-surface"
-          :style="{ background: activePage?.background ?? '#ffffff' }"
+          :style="{ background: (activePage?.background && !activePage.background.startsWith('var(')) ? activePage.background : '#ffffff' }"
           @click.self="selectedId = null"
         >
           <BuilderNode
