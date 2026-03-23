@@ -1,42 +1,76 @@
 /**
  * Export a Site to a deployable single-file HTML artifact.
  *
- * Output: one self-contained index.html that:
- *   1. Embeds the site definition as JSON
- *   2. Includes the plexus runtime (minimal WS client + component renderer)
- *   3. Connects to the configured backendUrl on load
- *   4. Renders all components with live data from their bindings
+ * Section → Column (CSS grid) → Element layout.
+ * Embeds a minimal plexus-rpc WebSocket client + component renderer.
  */
 
-import type { Site, Page } from './types'
+import type { Site, Page, SiteSection, SiteColumn, SiteElement } from './types'
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 
 function buildCSS(site: Site): string {
   return `
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3; }
-.site-page { position: relative; min-height: 100vh; }
-.site-component { position: absolute; overflow: hidden; }
-.plx-text { font-size: 14px; line-height: 1.6; }
-.plx-heading-1 { font-size: 2rem; font-weight: 700; margin: 0; }
-.plx-heading-2 { font-size: 1.5rem; font-weight: 600; margin: 0; }
-.plx-heading-3 { font-size: 1.25rem; font-weight: 500; margin: 0; }
-.plx-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; height: 100%; }
-.plx-list-item { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 13px; }
-.plx-button { cursor: pointer; border: none; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; transition: opacity 0.15s; }
-.plx-button:hover { opacity: 0.85; }
-.plx-button.primary { background: #2f81f7; color: #fff; }
-.plx-button.secondary { background: rgba(255,255,255,0.1); color: #e6edf3; }
-.plx-button.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #e6edf3; }
-.plx-form { display: flex; flex-direction: column; gap: 10px; height: 100%; }
-.plx-form label { font-size: 12px; color: rgba(255,255,255,0.6); display: flex; flex-direction: column; gap: 4px; }
-.plx-form input, .plx-form textarea { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #e6edf3; font-size: 13px; padding: 6px 10px; outline: none; }
-.plx-form input:focus, .plx-form textarea:focus { border-color: #2f81f7; }
-.plx-stream { font-size: 13px; line-height: 1.7; overflow-y: auto; height: 100%; white-space: pre-wrap; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
-.plx-json { font-family: monospace; font-size: 12px; overflow: auto; height: 100%; white-space: pre; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
-.plx-result { margin-top: 8px; font-size: 12px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; white-space: pre-wrap; font-family: monospace; overflow: auto; }
-.plx-loading { opacity: 0.5; font-size: 12px; }
+html, body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+a { color: inherit; }
+
+/* Layout */
+.plx-section { width: 100%; }
+.plx-section-inner { max-width: 1024px; margin: 0 auto; padding: 0 24px; }
+.plx-columns { display: grid; gap: 24px; }
+.plx-col { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+/* Text & Heading */
+.plx-text { margin: 0; font-size: 16px; line-height: 1.65; color: #374151; }
+.plx-h1   { margin: 0; font-size: 2.25rem; font-weight: 700; line-height: 1.2; color: #111; }
+.plx-h2   { margin: 0; font-size: 1.6rem;  font-weight: 700; line-height: 1.2; color: #111; }
+.plx-h3   { margin: 0; font-size: 1.25rem; font-weight: 600; line-height: 1.3; color: #111; }
+
+/* List */
+.plx-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.plx-list-item { padding: 10px 14px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; color: #374151; }
+
+/* Button */
+.plx-btn-wrap { display: flex; }
+.plx-btn {
+  cursor: pointer; border: none; border-radius: 6px; padding: 10px 22px;
+  font-size: 14px; font-weight: 600; transition: opacity 0.15s; font-family: inherit;
+}
+.plx-btn:hover { opacity: 0.85; }
+.plx-btn.primary   { background: #2563eb; color: #fff; }
+.plx-btn.secondary { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.plx-btn.ghost     { background: transparent; color: #2563eb; border: 1px solid #2563eb; }
+
+/* Form */
+.plx-form { display: flex; flex-direction: column; gap: 10px; }
+.plx-form-label { font-size: 12px; font-weight: 500; color: #6b7280; display: flex; flex-direction: column; gap: 4px; }
+.plx-form input, .plx-form textarea {
+  background: #fff; border: 1px solid #d1d5db; border-radius: 6px;
+  color: #111; font-size: 14px; padding: 8px 12px; outline: none; font-family: inherit;
+}
+.plx-form input:focus, .plx-form textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+
+/* Stream */
+.plx-stream {
+  font-size: 14px; line-height: 1.7; white-space: pre-wrap;
+  padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+  min-height: 80px;
+}
+
+/* JSON */
+.plx-json {
+  font-family: monospace; font-size: 13px; overflow: auto; white-space: pre;
+  padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+}
+
+/* Divider */
+.plx-divider { border: none; border-top-style: solid; }
+
+/* Result / loading */
+.plx-result { margin-top: 8px; font-size: 13px; padding: 10px 14px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; white-space: pre-wrap; font-family: monospace; }
+.plx-loading { opacity: 0.5; }
+
 ${site.globalStyles}
 `.trim()
 }
@@ -44,9 +78,6 @@ ${site.globalStyles}
 // ─── Runtime JS ──────────────────────────────────────────────────────────────
 
 const RUNTIME_JS = `
-// plexus-gamma site runtime
-// Minimal plexus-rpc client + component renderer
-
 let ws, msgId = 1;
 const pending = new Map();
 
@@ -54,17 +85,16 @@ function connect(url) {
   return new Promise((resolve, reject) => {
     ws = new WebSocket(url);
     ws.onopen = () => resolve();
-    ws.onerror = (e) => reject(new Error('WebSocket error'));
+    ws.onerror = () => reject(new Error('WebSocket error'));
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-        const id = msg.id;
-        if (!id || !pending.has(id)) return;
+        const id = msg.id; if (!id || !pending.has(id)) return;
         const { resolve: res, reject: rej, stream } = pending.get(id);
         if (msg.error) { pending.delete(id); rej(new Error(msg.error.message || 'RPC error')); return; }
         if (msg.result) {
           const item = msg.result;
-          if (item.type === 'data')       { if (stream) { stream(item.content); } else { pending.delete(id); res(item.content); } }
+          if (item.type === 'data')       { if (stream) stream(item.content); else { pending.delete(id); res(item.content); } }
           else if (item.type === 'end')   { pending.delete(id); res(null); }
           else if (item.type === 'error') { pending.delete(id); rej(new Error(JSON.stringify(item.content))); }
         }
@@ -89,217 +119,139 @@ function callStream(method, params, onData) {
   });
 }
 
-async function renderComponent(el, comp) {
-  const b = comp.binding;
-  switch (comp.type) {
-    case 'text': {
-      const div = document.createElement('div');
-      div.className = 'plx-text';
-      div.style.fontSize = (comp.props.fontSize || 14) + 'px';
-      div.style.textAlign = comp.props.align || 'left';
-      div.style.color = comp.props.color || 'inherit';
-      if (b) {
-        div.textContent = 'Loading…';
-        div.classList.add('plx-loading');
-        try {
-          const result = await call(b.method, b.staticParams || {});
-          div.classList.remove('plx-loading');
-          div.textContent = typeof result === 'string' ? result : JSON.stringify(result);
-        } catch (e) { div.textContent = 'Error: ' + e.message; }
-      } else {
-        div.textContent = comp.props.content || '';
-      }
-      el.appendChild(div);
-      break;
-    }
+async function renderElement(el, elem) {
+  const b = elem.binding;
+  switch (elem.type) {
     case 'heading': {
-      const level = comp.props.level || 1;
+      const level = elem.props.level || 2;
       const h = document.createElement('h' + level);
-      h.className = 'plx-heading-' + level;
-      h.style.textAlign = comp.props.align || 'left';
-      h.style.color = comp.props.color || 'inherit';
-      if (b) {
-        h.textContent = 'Loading…';
-        try {
-          const result = await call(b.method, b.staticParams || {});
-          h.textContent = typeof result === 'string' ? result : JSON.stringify(result);
-        } catch (e) { h.textContent = 'Error: ' + e.message; }
-      } else {
-        h.textContent = comp.props.content || 'Heading';
-      }
-      el.appendChild(h);
-      break;
+      h.className = 'plx-h' + level;
+      h.style.textAlign = elem.props.align || 'left';
+      h.style.color     = (elem.props.color && elem.props.color !== 'inherit') ? elem.props.color : '';
+      if (b) { try { h.textContent = String(await call(b.method, b.staticParams||{})); } catch(e){ h.textContent='Error: '+e.message; } }
+      else h.textContent = elem.props.content || 'Heading';
+      el.appendChild(h); break;
+    }
+    case 'text': {
+      const p = document.createElement('p');
+      p.className = 'plx-text';
+      p.style.fontSize  = (elem.props.fontSize || 16) + 'px';
+      p.style.textAlign = elem.props.align || 'left';
+      p.style.color     = (elem.props.color && elem.props.color !== 'inherit') ? elem.props.color : '';
+      if (b) { try { p.textContent = String(await call(b.method, b.staticParams||{})); } catch(e){ p.textContent='Error: '+e.message; } }
+      else p.textContent = elem.props.content || '';
+      el.appendChild(p); break;
     }
     case 'list': {
-      const ul = document.createElement('ul');
-      ul.className = 'plx-list';
-      el.appendChild(ul);
+      const ul = document.createElement('ul'); ul.className = 'plx-list'; el.appendChild(ul);
       if (b) {
         ul.innerHTML = '<li class="plx-list-item plx-loading">Loading…</li>';
         try {
-          const result = await call(b.method, b.staticParams || {});
+          const result = await call(b.method, b.staticParams||{});
           ul.innerHTML = '';
           const items = Array.isArray(result) ? result : (result?.items ?? result?.data ?? []);
-          const labelField = comp.props.labelField || 'name';
-          if (items.length === 0) {
-            const li = document.createElement('li');
-            li.className = 'plx-list-item';
-            li.textContent = comp.props.emptyText || 'No items';
-            ul.appendChild(li);
-          }
-          for (const item of items) {
-            const li = document.createElement('li');
-            li.className = 'plx-list-item';
-            li.textContent = typeof item === 'object' ? (item[labelField] ?? JSON.stringify(item)) : String(item);
-            ul.appendChild(li);
-          }
-        } catch (e) {
-          ul.innerHTML = '<li class="plx-list-item">Error: ' + e.message + '</li>';
-        }
-      }
-      break;
+          const lf = elem.props.labelField || 'name';
+          if (!items.length) { const li = document.createElement('li'); li.className='plx-list-item'; li.textContent=elem.props.emptyText||'No items'; ul.appendChild(li); }
+          for (const item of items) { const li = document.createElement('li'); li.className='plx-list-item'; li.textContent=typeof item==='object'?(item[lf]??JSON.stringify(item)):String(item); ul.appendChild(li); }
+        } catch(e) { ul.innerHTML='<li class="plx-list-item">Error: '+e.message+'</li>'; }
+      } break;
     }
     case 'button': {
+      const wrap = document.createElement('div'); wrap.className = 'plx-btn-wrap'; el.appendChild(wrap);
       const btn = document.createElement('button');
-      btn.className = 'plx-button ' + (comp.props.variant || 'primary');
-      btn.textContent = comp.props.label || 'Click me';
-      const resultDiv = document.createElement('div');
-      resultDiv.className = 'plx-result';
-      resultDiv.style.display = 'none';
-      el.appendChild(btn);
-      el.appendChild(resultDiv);
+      btn.className = 'plx-btn ' + (elem.props.variant || 'primary');
+      btn.textContent = elem.props.label || 'Click me';
+      wrap.appendChild(btn);
+      const resultDiv = document.createElement('div'); resultDiv.className='plx-result'; resultDiv.style.display='none'; el.appendChild(resultDiv);
+      if (b) btn.onclick = async () => {
+        btn.disabled=true; btn.textContent='Running…';
+        try { const r=await call(b.method,b.staticParams||{}); resultDiv.style.display='block'; resultDiv.textContent=JSON.stringify(r,null,2); }
+        catch(e){ resultDiv.style.display='block'; resultDiv.textContent='Error: '+e.message; }
+        finally { btn.disabled=false; btn.textContent=elem.props.label||'Click me'; }
+      }; break;
+    }
+    case 'form': {
+      const form = document.createElement('form'); form.className='plx-form'; el.appendChild(form);
       if (b) {
-        btn.onclick = async () => {
-          btn.disabled = true;
-          btn.textContent = 'Running…';
-          try {
-            const result = await call(b.method, b.staticParams || {});
-            resultDiv.style.display = 'block';
-            resultDiv.textContent = JSON.stringify(result, null, 2);
-          } catch (e) {
-            resultDiv.style.display = 'block';
-            resultDiv.textContent = 'Error: ' + e.message;
-          } finally {
-            btn.disabled = false;
-            btn.textContent = comp.props.label || 'Click me';
-          }
-        };
-      }
-      break;
+        const ta = document.createElement('textarea'); ta.className='plx-form-textarea'; ta.placeholder='JSON params'; ta.rows=3; form.appendChild(ta);
+        const btn = document.createElement('button'); btn.type='submit'; btn.className='plx-btn primary'; btn.textContent=elem.props.submitLabel||'Submit'; form.appendChild(btn);
+        const result = document.createElement('div'); result.className='plx-result'; result.style.display='none'; form.appendChild(result);
+        form.onsubmit = async (e) => { e.preventDefault(); btn.disabled=true; let p=b.staticParams||{}; try{p={...p,...JSON.parse(ta.value||'{}')};}catch{} try{const r=await call(b.method,p); if(elem.props.showResult!==false){result.style.display='block';result.textContent=JSON.stringify(r,null,2);}}catch(err){result.style.display='block';result.textContent='Error: '+err.message;}finally{btn.disabled=false;} };
+      } break;
     }
     case 'stream': {
-      const pre = document.createElement('div');
-      pre.className = 'plx-stream';
-      pre.textContent = comp.props.placeholder || '';
-      el.appendChild(pre);
-      if (b) {
-        pre.textContent = '';
-        callStream(b.method, b.staticParams || {}, (chunk) => {
-          const text = typeof chunk === 'string' ? chunk : (chunk.content || chunk.message || JSON.stringify(chunk));
-          pre.textContent += text;
-          pre.scrollTop = pre.scrollHeight;
-        }).catch(e => { pre.textContent += '\\nError: ' + e.message; });
-      }
+      const pre = document.createElement('div'); pre.className='plx-stream'; pre.textContent=elem.props.placeholder||''; el.appendChild(pre);
+      if (b) { pre.textContent=''; callStream(b.method,b.staticParams||{},(chunk)=>{ const t=typeof chunk==='string'?chunk:(chunk.content||chunk.message||JSON.stringify(chunk)); pre.textContent+=t; pre.scrollTop=pre.scrollHeight; }).catch(e=>{ pre.textContent+='\\nError: '+e.message; }); }
       break;
     }
     case 'json': {
-      const pre = document.createElement('pre');
-      pre.className = 'plx-json';
-      el.appendChild(pre);
-      if (b) {
-        pre.textContent = 'Loading…';
-        try {
-          const result = await call(b.method, b.staticParams || {});
-          pre.textContent = JSON.stringify(result, null, 2);
-        } catch (e) { pre.textContent = 'Error: ' + e.message; }
-      } else {
-        pre.textContent = '{}';
-      }
+      const pre = document.createElement('pre'); pre.className='plx-json'; el.appendChild(pre);
+      if (b) { pre.textContent='Loading…'; try{pre.textContent=JSON.stringify(await call(b.method,b.staticParams||{}),null,2);}catch(e){pre.textContent='Error: '+e.message;} }
+      else pre.textContent='{}';
       break;
     }
-    case 'form': {
-      const form = document.createElement('form');
-      form.className = 'plx-form';
-      el.appendChild(form);
-      if (b) {
-        // TODO: introspect method schema to render param fields
-        const textarea = document.createElement('textarea');
-        textarea.placeholder = 'JSON params (e.g. {"message":"hello"})';
-        textarea.rows = 3;
-        form.appendChild(textarea);
-        const btn = document.createElement('button');
-        btn.type = 'submit';
-        btn.className = 'plx-button primary';
-        btn.textContent = comp.props.submitLabel || 'Submit';
-        form.appendChild(btn);
-        const result = document.createElement('div');
-        result.className = 'plx-result';
-        form.appendChild(result);
-        form.onsubmit = async (e) => {
-          e.preventDefault();
-          let params = b.staticParams || {};
-          try { params = { ...params, ...JSON.parse(textarea.value || '{}') }; } catch {}
-          btn.disabled = true;
-          try {
-            const res = await call(b.method, params);
-            if (comp.props.showResult !== false) {
-              result.textContent = JSON.stringify(res, null, 2);
-              result.style.display = 'block';
-            }
-          } catch (err) {
-            result.textContent = 'Error: ' + err.message;
-            result.style.display = 'block';
-          } finally { btn.disabled = false; }
-        };
-      }
-      break;
+    case 'divider': {
+      const hr = document.createElement('hr'); hr.className='plx-divider';
+      hr.style.borderColor = elem.props.color || '#e5e7eb';
+      hr.style.borderTopWidth = (elem.props.thickness||1) + 'px';
+      hr.style.margin = (elem.props.margin||8) + 'px 0';
+      el.appendChild(hr); break;
+    }
+    case 'spacer': {
+      const div = document.createElement('div'); div.style.height=(elem.props.height||48)+'px'; el.appendChild(div); break;
     }
   }
 }
 
 async function boot(site) {
-  try {
-    await connect(site.backendUrl);
-  } catch (e) {
-    console.warn('[plexus] Could not connect to', site.backendUrl, e.message);
-  }
-  for (const page of site.pages) {
-    const pageEl = document.getElementById('page-' + page.id);
-    if (!pageEl) continue;
-    for (const comp of page.components) {
-      const el = document.getElementById('comp-' + comp.id);
-      if (!el) continue;
-      await renderComponent(el, comp);
-    }
+  try { await connect(site.backendUrl); } catch(e) { console.warn('[plexus] connect failed:', e.message); }
+  const all = document.querySelectorAll('[data-elem]');
+  for (const el of all) {
+    const id = el.dataset.elem;
+    let elem = null;
+    for (const page of site.pages) for (const sec of page.sections) for (const col of sec.columns) { const e = col.elements.find(e=>e.id===id); if(e){elem=e;break;} }
+    if (elem) await renderElement(el, elem);
   }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  const siteEl = document.getElementById('__site_data__');
-  if (!siteEl) return;
-  const site = JSON.parse(siteEl.textContent);
-  boot(site);
+  const el = document.getElementById('__site_data__');
+  if (el) boot(JSON.parse(el.textContent));
 });
 `.trim()
 
 // ─── HTML builder ─────────────────────────────────────────────────────────────
 
-function buildPageHTML(page: Page): string {
-  const comps = page.components.map(c => `
-    <div id="comp-${c.id}" class="site-component" style="left:${c.x}px;top:${c.y}px;width:${c.width}px;height:${c.height}px;"></div>
-  `.trim()).join('\n    ')
+function renderElement(el: SiteElement): string {
+  return `<div data-elem="${el.id}"></div>`
+}
 
-  return `
-  <div id="page-${page.id}" class="site-page" style="background:${page.background};">
-    ${comps}
-  </div>`.trim()
+function renderColumn(col: SiteColumn): string {
+  return `<div class="plx-col">${col.elements.map(renderElement).join('\n')}</div>`
+}
+
+function renderSection(sec: SiteSection): string {
+  const bg      = sec.background && sec.background !== 'transparent' ? ` style="background:${sec.background};"` : ''
+  const padding = `style="padding:${sec.paddingY}px 0;"`
+  const cols    = sec.columns.map(c => `${c.span}fr`).join(' ')
+  return `<section class="plx-section"${bg}>
+  <div class="plx-section-inner" ${padding}>
+    <div class="plx-columns" style="grid-template-columns:${cols};">
+      ${sec.columns.map(renderColumn).join('\n      ')}
+    </div>
+  </div>
+</section>`
+}
+
+function renderPage(page: Page): string {
+  return `<main id="page-${page.id}">\n${page.sections.map(renderSection).join('\n')}\n</main>`
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 export function exportSiteHTML(site: Site): string {
   const css   = buildCSS(site)
-  const pages = site.pages.map(buildPageHTML).join('\n  ')
+  const pages = site.pages.map(renderPage).join('\n')
   const json  = JSON.stringify(site)
 
   return `<!DOCTYPE html>
@@ -311,9 +263,9 @@ export function exportSiteHTML(site: Site): string {
   <style>${css}</style>
 </head>
 <body>
-  ${pages}
-  <script id="__site_data__" type="application/json">${json}<\/script>
-  <script>${RUNTIME_JS}<\/script>
+${pages}
+<script id="__site_data__" type="application/json">${json}<\/script>
+<script>${RUNTIME_JS}<\/script>
 </body>
 </html>`
 }

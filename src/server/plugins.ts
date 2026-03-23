@@ -204,6 +204,37 @@ const replayPlugin = plugin('replay', {
   },
 })
 
+const sitePlugin = plugin('site', {
+  version: '0.1.0',
+  description: 'Site builder — manage pages, sections, columns, and elements (available when site-builder view is active)',
+  methods: {
+    getState:             bridgeMethod('site.getState',             'Get the full site state as JSON',                         Type.Object({}), { screenshot: false }),
+    setName:              bridgeMethod('site.setName',              'Set the site name',                                       Type.Object({ name: Type.String() })),
+    setBackendUrl:        bridgeMethod('site.setBackendUrl',        'Set the site backend WebSocket URL',                      Type.Object({ url: Type.String() })),
+    reset:                bridgeMethod('site.reset',                'Reset the site to a blank state',                         Type.Object({})),
+    export:               bridgeMethod('site.export',               'Export the site as a deployable HTML string',             Type.Object({}), { screenshot: false }),
+    addPage:              bridgeMethod('site.addPage',              'Add a new page',                                          Type.Object({})),
+    deletePage:           bridgeMethod('site.deletePage',           'Delete a page by ID',                                     Type.Object({ pageId: Type.String() })),
+    setActivePage:        bridgeMethod('site.setActivePage',        'Switch to a page by ID',                                  Type.Object({ pageId: Type.String() })),
+    renamePage:           bridgeMethod('site.renamePage',           'Rename a page',                                           Type.Object({ pageId: Type.String(), title: Type.String() })),
+    addSection:           bridgeMethod('site.addSection',           'Add a section to the active page (optionally after another)', Type.Object({ after: Type.Optional(Type.String()) })),
+    deleteSection:        bridgeMethod('site.deleteSection',        'Delete a section by ID',                                  Type.Object({ sectionId: Type.String() })),
+    moveSectionUp:        bridgeMethod('site.moveSectionUp',        'Move a section up',                                       Type.Object({ sectionId: Type.String() })),
+    moveSectionDown:      bridgeMethod('site.moveSectionDown',      'Move a section down',                                     Type.Object({ sectionId: Type.String() })),
+    setSectionBackground: bridgeMethod('site.setSectionBackground', 'Set a section background color',                          Type.Object({ sectionId: Type.String(), background: Type.String() })),
+    setSectionPadding:    bridgeMethod('site.setSectionPadding',    'Set a section vertical padding (px)',                     Type.Object({ sectionId: Type.String(), paddingY: Type.Number() })),
+    addColumn:            bridgeMethod('site.addColumn',            'Add a column to a section (spans redistribute evenly)',   Type.Object({ sectionId: Type.String() })),
+    deleteColumn:         bridgeMethod('site.deleteColumn',         'Delete a column from a section',                          Type.Object({ sectionId: Type.String(), columnId: Type.String() })),
+    addElement:           bridgeMethod('site.addElement',           'Add an element to a column. type: heading|text|list|button|form|stream|json|divider|spacer',
+      Type.Object({ sectionId: Type.String(), columnId: Type.String(), type: Type.String() })),
+    deleteElement:        bridgeMethod('site.deleteElement',        'Delete an element by ID',                                 Type.Object({ elementId: Type.String() })),
+    moveElementUp:        bridgeMethod('site.moveElementUp',        'Move an element up within its column',                    Type.Object({ elementId: Type.String() })),
+    moveElementDown:      bridgeMethod('site.moveElementDown',      'Move an element down within its column',                  Type.Object({ elementId: Type.String() })),
+    updateElementProp:    bridgeMethod('site.updateElementProp',    'Update a prop on an element',                             Type.Object({ elementId: Type.String(), key: Type.String(), value: Type.Unknown() })),
+    setElementBinding:    bridgeMethod('site.setElementBinding',    'Set or clear a method binding on an element',             Type.Object({ elementId: Type.String(), binding: Type.Optional(Type.Unknown()) })),
+  },
+})
+
 const assertionPlugin = plugin('assertion', {
   version: '0.1.0',
   description: 'Assertion suite test management (available when invoker panel is visible)',
@@ -224,5 +255,5 @@ const assertionPlugin = plugin('assertion', {
 export const plexusGammaPlugin = plugin('plexus-gamma', {
   version: '0.1.0',
   description: 'plexus-gamma UI control backend',
-  children: [uiPlugin, backendsPlugin, invokePlugin, statePlugin, screenshotPlugin, wiringPlugin, orchestrationPlugin, replayPlugin, assertionPlugin],
+  children: [uiPlugin, backendsPlugin, invokePlugin, statePlugin, screenshotPlugin, wiringPlugin, orchestrationPlugin, replayPlugin, assertionPlugin, sitePlugin],
 })
