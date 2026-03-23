@@ -15,7 +15,12 @@ const STORAGE_KEY = 'plexus-gamma:site'
 function loadSite(): Site {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as Site
+    if (raw) {
+      const parsed = JSON.parse(raw) as Site
+      // Validate section-based format — old builds used page.components instead of page.sections
+      if (!Array.isArray(parsed.pages?.[0]?.sections)) return newSite()
+      return parsed
+    }
   } catch { /* ignore */ }
   return newSite()
 }

@@ -286,6 +286,8 @@ onUnmounted(() => { cleanups.forEach(fn => fn()) })
 <style scoped>
 .site-builder {
   display: flex;
+  flex: 1;
+  min-width: 0;
   height: 100%;
   overflow: hidden;
   background: var(--bg-0);

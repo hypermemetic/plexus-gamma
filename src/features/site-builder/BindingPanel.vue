@@ -114,7 +114,7 @@
             v-for="entry in filteredMethods"
             :key="entry.fullPath"
             class="bp-method-row"
-            :class="{ active: element.binding?.method === entry.fullPath }"
+            :class="{ active: element.binding?.backend === entry.backend && element.binding?.method === callPath(entry) }"
             @click="bindMethod(entry)"
           >
             <span class="bp-method-name">{{ entry.fullPath }}</span>
@@ -143,6 +143,7 @@
 import { ref, computed } from 'vue'
 import type { SiteElement, MethodBinding } from './types'
 import { useBackends } from '../../lib/useBackends'
+import type { MethodEntry } from '../../components/CommandPalette.vue'
 
 const props = defineProps<{ element: SiteElement }>()
 const emit = defineEmits<{
@@ -153,15 +154,23 @@ const emit = defineEmits<{
 const { methodIndex } = useBackends()
 const methodSearch = ref('')
 
-const filteredMethods = computed(() => {
+const filteredMethods = computed((): MethodEntry[] => {
   const q = methodSearch.value.toLowerCase()
   return methodIndex.value.filter(e =>
-    !q || e.fullPath.toLowerCase().includes(q) || e.backend.toLowerCase().includes(q)
+    !q || e.fullPath.toLowerCase().includes(q)
   )
 })
 
-function bindMethod(entry: { backend: string; fullPath: string; method: { streaming: boolean } }) {
-  emit('set-binding', { backend: entry.backend, method: entry.fullPath, staticParams: {} })
+// callPath = the actual RPC method name sent over the wire (no backend prefix)
+// e.g. entry.fullPath = "substrate.echo.once" → callPath = "echo.once"
+function callPath(entry: MethodEntry): string {
+  return entry.path.length === 0
+    ? entry.method.name
+    : `${entry.path.join('.')}.${entry.method.name}`
+}
+
+function bindMethod(entry: MethodEntry) {
+  emit('set-binding', { backend: entry.backend, method: callPath(entry), staticParams: {} })
 }
 
 function onStaticParamsChange(raw: string) {

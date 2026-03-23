@@ -99,9 +99,20 @@ async function refreshTree(conn: BackendConnection): Promise<void> {
     const tree = await getCachedTree(rpc, conn.name)
     const entries: MethodEntry[] = []
     for (const n of flattenTree(tree)) {
-      const ns = n.path.length === 0 ? conn.name : n.path.join('.')
+      // fullPath = wire-protocol method name (no backend prefix) — used for RPC calls
+      // displayPath = human-readable with backend prefix — used for display/search
+      const wirePfx = n.path.length === 0 ? '' : `${n.path.join('.')}.`
+      const dispPfx = n.path.length === 0
+        ? `${conn.name}.`
+        : `${conn.name}.${n.path.join('.')}.`
       for (const m of n.schema.methods) {
-        entries.push({ backend: conn.name, fullPath: `${ns}.${m.name}`, path: n.path, method: m })
+        entries.push({
+          backend:     conn.name,
+          fullPath:    `${dispPfx}${m.name}`,   // "substrate.echo.once" — for display & search
+          callPath:    `${wirePfx}${m.name}`,    // "echo.once" — for RPC calls
+          path:        n.path,
+          method:      m,
+        })
       }
     }
     methodIndex.value = [

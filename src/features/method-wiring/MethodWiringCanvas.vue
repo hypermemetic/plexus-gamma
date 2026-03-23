@@ -674,14 +674,15 @@ function onMethodDragStart(e: DragEvent, method: MethodSchema): void {
   const current = drillCurrent.value
   if (!current) return
   const { backend, node } = current
-  const ns = node.path.length === 0 ? backend : node.path.join('.')
-  const data: MethodEntry = { backend, fullPath: `${ns}.${method.name}`, path: node.path, method }
+  const ns       = node.path.length === 0 ? backend : node.path.join('.')
+  const cp       = node.path.length === 0 ? method.name : `${node.path.join('.')}.${method.name}`
+  const data: MethodEntry = { backend, fullPath: `${ns}.${method.name}`, callPath: cp, path: node.path, method }
   e.dataTransfer?.setData('application/x-plexus-method', JSON.stringify(data))
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
 }
 
-function onSearchDragStart(e: DragEvent, item: { backendName: string; fullPath: string; path: string[]; method: MethodSchema }): void {
-  const data: MethodEntry = { backend: item.backendName, fullPath: item.fullPath, path: item.path, method: item.method }
+function onSearchDragStart(e: DragEvent, item: { backendName: string; fullPath: string; callPath?: string; path: string[]; method: MethodSchema }): void {
+  const data: MethodEntry = { backend: item.backendName, fullPath: item.fullPath, callPath: item.callPath, path: item.path, method: item.method }
   e.dataTransfer?.setData('application/x-plexus-method', JSON.stringify(data))
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
 }
@@ -2266,7 +2267,7 @@ async function executeNodeOnce(
     }
   }
   const items: unknown[] = []
-  for await (const item of client.call(node.method!.fullPath, finalParams)) {
+  for await (const item of client.call(node.method!.callPath ?? node.method!.fullPath, finalParams)) {
     if (item.type === 'data') items.push(item.content)
     else if (item.type === 'error') throw new Error(item.message)
   }

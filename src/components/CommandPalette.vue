@@ -36,10 +36,12 @@ import { useContainedFocus } from '../lib/useContainedFocus'
 import type { MethodSchema } from '../plexus-schema'
 
 export interface MethodEntry {
-  backend: string
-  fullPath: string   // e.g. "substrate.echo.say"
-  path: string[]     // plugin path, e.g. ["echo"]
-  method: MethodSchema
+  backend:   string
+  fullPath:  string    // display path with backend prefix, e.g. "substrate.echo.say"
+  callPath?: string    // wire-protocol method name (no backend prefix), e.g. "echo.say"
+                       // if absent, callers must derive from path + method.name
+  path:      string[]  // plugin path, e.g. ["echo"]
+  method:    MethodSchema
 }
 
 const props = defineProps<{

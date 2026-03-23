@@ -372,13 +372,17 @@ function resolveRefs(
   return s
 }
 
-function findMethodSchema(backend: string, fullPath: string): MethodSchema | null {
+function findMethodSchema(backend: string, methodPath: string): MethodSchema | null {
   const tree = getCachedTreeSync(backend)
   if (!tree) return null
   for (const node of flattenTree(tree)) {
-    const ns = node.path.length === 0 ? backend : node.path.join('.')
-    for (const m of node.schema.methods)
-      if (`${ns}.${m.name}` === fullPath) return m
+    const callNs = node.path.length === 0 ? '' : `${node.path.join('.')}.`
+    const dispNs = node.path.length === 0 ? `${backend}.` : `${backend}.${node.path.join('.')}.`
+    for (const m of node.schema.methods) {
+      const callFull = `${callNs}${m.name}`  // "echo.once" or "schema"
+      const dispFull = `${dispNs}${m.name}`  // "substrate.echo.once" or "substrate.schema"
+      if (callFull === methodPath || dispFull === methodPath) return m
+    }
   }
   return null
 }
@@ -478,7 +482,7 @@ function appendStep(entry: MethodEntry) {
   const step: WorkflowStep = {
     id: generateId(),
     label: '',
-    method: entry.fullPath,
+    method: entry.callPath ?? entry.fullPath,
     backend: entry.backend,
     params: {},
     wires: [],
@@ -739,7 +743,7 @@ onMounted(() => {
       if (!selectedWorkflow.value) throw new Error('No workflow selected')
       const backendName = params['backend'] as string
       const methodPath = params['method'] as string
-      const entry = methodIndex.value.find(e => e.backend === backendName && e.fullPath === methodPath)
+      const entry = methodIndex.value.find(e => e.backend === backendName && (e.callPath ?? e.fullPath) === methodPath)
       // Fall back to a stub when the method isn't in the current index (backend not yet connected).
       const resolved = entry ?? {
         backend: backendName,
