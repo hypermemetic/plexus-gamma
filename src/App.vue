@@ -89,9 +89,9 @@
         <OrchestrationCanvas />
       </template>
 
-      <!-- Site builder (feature: site-builder) -->
+      <!-- App builder (feature: app-builder) -->
       <template v-else-if="view === 'site-builder'">
-        <SiteBuilder />
+        <AppBuilder />
       </template>
     </main>
 
@@ -117,7 +117,7 @@ import MethodWiringCanvas from './features/method-wiring/MethodWiringCanvas.vue'
 import OrchestrationCanvas from './features/orchestration/OrchestrationCanvas.vue'
 import HealthDashboard from './features/health/HealthDashboard.vue'
 import ReplayPanel from './features/replay/ReplayPanel.vue'
-import SiteBuilder from './features/site-builder/SiteBuilder.vue'
+import AppBuilder from './features/app-builder/AppBuilder.vue'
 import { useInvocationHistory } from './features/replay/useInvocationHistory'
 
 const {
