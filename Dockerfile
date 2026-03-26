@@ -5,6 +5,12 @@
 #   docker buildx build \
 #     --build-context plexus-rpc-ts=../plexus-rpc-ts \
 #     --build-context plexus-substrate=../plexus-substrate \
+#     --build-context plexus-core=../plexus-core \
+#     --build-context plexus-macros=../plexus-macros \
+#     --build-context plexus-transport=../plexus-transport \
+#     --build-context plexus-registry=../plexus-registry \
+#     --build-context plexus-derive=../plexus-derive \
+#     --build-context plexus-ir=../plexus-ir \
 #     --build-context fidget-spinner=../fidget-spinner \
 #     -t plexus-gamma .
 #
@@ -128,6 +134,13 @@ RUN curl -fsSL https://bun.sh/install \
 
 # ─── Build Rust backends ────────────────────────────────────────────────────
 # Each sibling project is supplied via --build-context at build time.
+
+COPY --from=plexus-core . /src/plexus-core/
+COPY --from=plexus-macros . /src/plexus-macros/
+COPY --from=plexus-transport . /src/plexus-transport/
+COPY --from=plexus-registry . /src/plexus-registry/
+COPY --from=plexus-derive . /src/plexus-derive/
+COPY --from=plexus-ir . /src/plexus-ir/
 
 COPY --from=plexus-substrate . /src/plexus-substrate/
 RUN cargo build --manifest-path /src/plexus-substrate/Cargo.toml
