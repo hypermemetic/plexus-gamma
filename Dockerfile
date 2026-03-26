@@ -25,7 +25,7 @@ ENV LC_ALL=C.UTF-8
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build essentials
-    build-essential git curl wget ca-certificates \
+    build-essential git curl wget ca-certificates unzip \
     pkg-config libssl-dev zlib1g-dev \
     # Playwright / Chromium system deps
     libasound2 \
