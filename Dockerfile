@@ -2,9 +2,7 @@
 #
 # BUILD (from the plexus-gamma directory):
 #
-#   docker buildx build \
-#     --build-context plexus-rpc-ts=../plexus-rpc-ts \
-#     -t plexus-gamma .
+#   docker buildx build -t plexus-gamma .
 #
 # RUN tests (substrate auto-started by entrypoint):
 #   docker run --rm plexus-gamma
@@ -96,32 +94,6 @@ RUN curl -fsSL https://bun.sh/install \
     | bash -s -- bun-v1.3.5 \
     && bun --version
 
-# ─── JS app ─────────────────────────────────────────────────────────────────
-
-WORKDIR /app
-
-# plexus-rpc-ts sits at ../plexus-rpc-ts relative to the app in dev;
-# inside the image we place it at /plexus-rpc-ts so the file: ref resolves.
-COPY --from=plexus-rpc-ts . /plexus-rpc-ts/
-
-COPY . /app/
-
-# Repoint the file: dependency to the in-image path
-RUN sed -i 's|"file:../plexus-rpc-ts"|"file:/plexus-rpc-ts"|g' package.json \
-    && bun install
-
-# Install Playwright browser binaries + OS deps
 ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
 
-RUN bunx playwright install chromium firefox \
-    && bunx playwright install-deps chromium firefox
-
-# ─── Entrypoint ─────────────────────────────────────────────────────────────
-
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-EXPOSE 8081
-
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["bun", "run", "test"]
+WORKDIR /app
