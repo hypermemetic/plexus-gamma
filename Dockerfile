@@ -4,14 +4,6 @@
 #
 #   docker buildx build \
 #     --build-context plexus-rpc-ts=../plexus-rpc-ts \
-#     --build-context plexus-substrate=../plexus-substrate \
-#     --build-context plexus-core=../plexus-core \
-#     --build-context plexus-macros=../plexus-macros \
-#     --build-context plexus-transport=../plexus-transport \
-#     --build-context plexus-registry=../plexus-registry \
-#     --build-context plexus-derive=../plexus-derive \
-#     --build-context plexus-ir=../plexus-ir \
-#     --build-context fidget-spinner=../fidget-spinner \
 #     -t plexus-gamma .
 #
 # RUN tests (substrate auto-started by entrypoint):
@@ -30,9 +22,8 @@ ENV LC_ALL=C.UTF-8
 # ─── System packages ────────────────────────────────────────────────────────
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Build essentials
-    build-essential git curl wget ca-certificates unzip \
-    pkg-config libssl-dev zlib1g-dev \
+    # Essentials
+    curl wget ca-certificates unzip \
     # Playwright / Chromium system deps
     libasound2 \
     libatk-bridge2.0-0 \
@@ -94,34 +85,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libdbus-glib-1-2 \
     libice6 \
     libsm6 \
-    # GHCup bootstrap deps
-    libffi-dev \
-    libtinfo-dev \
     && rm -rf /var/lib/apt/lists/*
-
-# ─── Rust (via rustup) ──────────────────────────────────────────────────────
-
-ENV RUSTUP_HOME=/usr/local/rustup
-ENV CARGO_HOME=/usr/local/cargo
-ENV PATH=/usr/local/cargo/bin:$PATH
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --no-modify-path --default-toolchain 1.92.0 \
-    && rustc --version && cargo --version
-
-# ─── GHC + cabal (via ghcup) ────────────────────────────────────────────────
-
-ENV GHCUP_INSTALL_BASE_PREFIX=/usr/local
-ENV PATH=/usr/local/.ghcup/bin:$PATH
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org \
-    | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 \
-      BOOTSTRAP_HASKELL_GHC_VERSION=9.4.8 \
-      BOOTSTRAP_HASKELL_CABAL_VERSION=3.16.1.0 \
-      BOOTSTRAP_HASKELL_INSTALL_NO_STACK=1 \
-      BOOTSTRAP_HASKELL_INSTALL_NO_STACK_HOOK=1 \
-      sh \
-    && ghc --version && cabal --version
 
 # ─── Bun ────────────────────────────────────────────────────────────────────
 
@@ -131,22 +95,6 @@ ENV PATH=/usr/local/bun/bin:$PATH
 RUN curl -fsSL https://bun.sh/install \
     | bash -s -- bun-v1.3.5 \
     && bun --version
-
-# ─── Build Rust backends ────────────────────────────────────────────────────
-# Each sibling project is supplied via --build-context at build time.
-
-COPY --from=plexus-core . /src/plexus-core/
-COPY --from=plexus-macros . /src/plexus-macros/
-COPY --from=plexus-transport . /src/plexus-transport/
-COPY --from=plexus-registry . /src/plexus-registry/
-COPY --from=plexus-derive . /src/plexus-derive/
-COPY --from=plexus-ir . /src/plexus-ir/
-
-COPY --from=plexus-substrate . /src/plexus-substrate/
-RUN cargo build --manifest-path /src/plexus-substrate/Cargo.toml
-
-COPY --from=fidget-spinner . /src/fidget-spinner/
-RUN cargo build --manifest-path /src/fidget-spinner/Cargo.toml
 
 # ─── JS app ─────────────────────────────────────────────────────────────────
 
