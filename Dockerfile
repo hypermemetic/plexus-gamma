@@ -21,7 +21,7 @@ ENV LC_ALL=C.UTF-8
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Essentials
-    curl wget ca-certificates unzip \
+    git curl wget ca-certificates unzip \
     # Playwright / Chromium system deps
     libasound2 \
     libatk-bridge2.0-0 \
